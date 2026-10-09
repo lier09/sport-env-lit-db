@@ -347,7 +347,7 @@ function initFilters(){
   $("fType").innerHTML='<option value="">全部声明类型</option>'+ts.map(function(t){return '<option>'+esc(t)+'</option>';}).join("");
   var tps={};PAPERS.forEach(function(p){(p.topics||[]).forEach(function(t){tps[t]=(tps[t]||0)+1;});});
   var tpsS=Object.keys(tps).sort(function(a,b){return tps[b]-tps[a];});
-  $("fTopic").innerHTML='<option value="">全部主题</option>'+tpsS.map(function(t){return '<option>'+esc(t)+'（'+tps[t]+'）</option>';}).join("");
+  $("fTopic").innerHTML='<option value="">全部主题</option>'+tpsS.map(function(t){return '<option value="'+esc(t)+'">'+esc(t)+'（'+tps[t]+'）</option>';}).join("");
   var ys=uniq(PAPERS.map(function(p){return p.year;})).filter(Boolean).sort(function(a,b){return b-a;});
   $("fYear").innerHTML='<option value="">全部年份</option>'+ys.map(function(y){return '<option>'+y+'</option>';}).join("");
 }
