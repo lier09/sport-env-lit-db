@@ -2021,10 +2021,15 @@ function filtered(){
   var adv = parseQ(q);
   var activeTags = Object.keys(state.tags).filter(function(t){return state.tags[t];});
   var activeEnvs = Object.keys(state.env).filter(function(e){return state.env[e];});
+  var aiMode = window._aiMode && window._aiConcepts && window._aiConcepts.length;
   var out = PAPERS.filter(function(p){
     if(favOnly && !favs[p.id]) return false;
     var pe=p.env||[];
-    if(!activeEnvs.some(function(e){return pe.indexOf(e)>=0;})) return false;
+    // AI模式：环境标签不作为唯一入口，未指定环境时已启用全部
+    // 但如果AI明确指定了环境，仍按环境过滤
+    if(!aiMode || activeEnvs.length){
+      if(!activeEnvs.some(function(e){return pe.indexOf(e)>=0;})) return false;
+    }
     if(state.type!=="all" && p.type!==state.type) return false;
     if(state.design && state.design!=="all" && p.design!==state.design) return false;
     if(state.ev && state.ev!=="all" && (EV_LEVEL[p.design]||"")!==state.ev) return false;
@@ -2046,9 +2051,18 @@ function filtered(){
                  (p.tags||[]).join(" ")).toLowerCase();
       if(hay.indexOf(adv.text)<0) return false;
     }
+    // AI语义匹配
+    if(aiMode){
+      var m=aiMatch(p, window._aiConcepts);
+      if(m.score===0) return false;
+      p._aiScore=m.score; p._aiReasons=m.reasons;
+    }
     return true;
   });
-  if(state.sort==="cited_desc") out.sort(function(a,b){return b.cited-a.cited;});
+  // AI模式按相关度排序
+  if(aiMode){
+    out.sort(function(a,b){return (b._aiScore||0)-(a._aiScore||0) || b.year-a.year;});
+  } else if(state.sort==="cited_desc") out.sort(function(a,b){return b.cited-a.cited;});
   else if(state.sort==="year_asc") out.sort(function(a,b){return a.year-b.year;});
   else out.sort(function(a,b){return b.year-a.year || b.cited-a.cited;});
   return out;
@@ -2135,6 +2149,7 @@ function render(){
         '<div class="ptags">'+(p.tags||[]).map(function(t){
           return '<span class="ptag">'+esc(t)+'</span>';}).join("")+
         mytagHtml+'</div>'+
+        (p._aiReasons&&p._aiReasons.length?'<div class="ai-reasons" style="font-size:12px;color:#059669;margin:4px 0">✓ 匹配: '+esc(p._aiReasons.join("; "))+'</div>':"")+
         absHtml+links+'<div class="relbox" id="relbox_'+idx+'"></div></article>';
     }).join("");
   }
@@ -2601,9 +2616,9 @@ function readControls(){
   state.page=1;
 }
 function bind(){
-  $("btnSearch").onclick=function(){pushHist($("q").value);readControls();render();};
+  $("btnSearch").onclick=function(){window._aiMode=false; pushHist($("q").value);readControls();render();};
   $("q").addEventListener("keydown",function(e){
-    if(e.key==="Enter"){pushHist($("q").value);readControls();render();}});
+    if(e.key==="Enter"){window._aiMode=false; pushHist($("q").value);readControls();render();}});
   /* 输入即搜（防抖） */
   var qT=null;
   $("q").addEventListener("input",function(){
@@ -2618,6 +2633,7 @@ function bind(){
   });
   $("sort").onchange=function(){state.sort=this.value;state.page=1;render();};
   $("btnReset").onclick=function(){
+    window._aiMode=false;
     $("q").value="";$("f_type").value="all";$("f_ymin").value=1970;
     $("f_ymax").value=2026;$("f_journal").value="all";$("f_cited").value=0;
     $("f_oa").checked=false;$("sort").value="year_desc";
@@ -2725,12 +2741,12 @@ async function aiSearch(){
   if(!endpoint||!key){ alert("请先点 ⚙️ 配置 AI API"); $("aiConfig").style.display="block"; return; }
   $("btnAiSearch").disabled=true; $("btnAiSearch").textContent="解析中…";
   try{
-    var sysPrompt="你是文献数据库的检索助手。用户用自然语言描述文献需求，你将其转换为 JSON 筛选条件。\n"+
-      "可用环境: 低温,高温,高温高湿,高氧,高原低氧,交叉适应,其他环境\n"+
-      "可用人群: human(人类),animal(动物),both(都有),unknown(未分类)\n"+
-      "可用类型: 原创研究,综述,Meta分析,学位论文\n"+
-      "返回 JSON 格式: {\"env\":[\"低温\"],\"population\":\"human\",\"year_min\":2026,\"year_max\":2026,\"type\":\"all\",\"keywords\":\"\"}\n"+
-      "keywords 是标题/摘要关键词（英文优先）。只返回 JSON，不要其他文字。";
+    var sysPrompt="你是文献数据库的检索助手。用户用自然语言描述文献需求，你将其转换为 JSON 检索条件。\n"+
+      "可用环境: 低温,高温,高温高湿,高氧,高原低氧,交叉适应,其他环境（未指定则返回空数组）\n"+
+      "返回 JSON 格式:\n"+
+      "{\"env\":[\"低温\"],\"year_min\":2020,\"year_max\":2026,\"concepts\":[[\"恢复\",\"recovery\"],[\"冷水浸泡\",\"cold water immersion\",\"CWI\"],[\"冷疗\",\"cryotherapy\"]]}\n"+
+      "concepts 是概念组，每组内是同义词（OR关系），组间是AND关系。每组提供中英文同义表达。\n"+
+      "只返回 JSON，不要其他文字。不要添加用户没要求的限制（如人群、类型）。";
     var resp=await fetch(endpoint.replace(/\/$/,"")+"/chat/completions",{
       method:"POST",
       headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},
@@ -2746,23 +2762,67 @@ async function aiSearch(){
     var m=txt.match(/\{[\s\S]*\}/);
     if(!m) throw new Error("AI 返回格式错误");
     var f=JSON.parse(m[0]);
+    // 应用环境和年份（不强制人群/类型）
     state.env={}; (f.env||[]).forEach(function(e){state.env[e]=true;});
-    state.population=f.population||"all";
+    // 未指定环境时，启用全部环境
+    if(!(f.env||[]).length){
+      Object.keys(envCounts).forEach(function(e){state.env[e]=true;});
+    }
     state.ymin=f.year_min||1970; state.ymax=f.year_max||2026;
-    state.type=f.type||"all";
-    state.q=f.keywords||""; try{$("q").value=state.q;}catch(e){}
-    state.tags={}; buildTagbar(); paintEnvbar(); buildFacet();
+    // 清空其他限制，不擅自添加
+    state.population="all"; state.type="all"; state.tags={}; state.q="";
+    try{$("q").value="";}catch(e){}
+    // 语义匹配：概念组 OR 组内，AND 组间，按相关度排序
+    var concepts=f.concepts||[];
+    window._aiConcepts=concepts;
+    window._aiMode=true;
+    buildTagbar(); paintEnvbar(); buildFacet();
     if($("specLabels")._paint) $("specLabels")._paint();
     try{
       $("f_ymin").value=state.ymin; $("f_ymax").value=state.ymax;
-      $("f_type").value=state.type;
     }catch(e){}
     state.page=1; render();
+    // 显示解析结果
+    var info="AI 解析：";
+    if((f.env||[]).length) info+="环境["+(f.env||[]).join(",")+"] ";
+    else info+="环境[全部] ";
+    info+="年份["+state.ymin+"-"+state.ymax+"] ";
+    info+="概念["+concepts.map(function(c){return c[0];}).join(" + ")+"]";
+    console.log(info);
   }catch(err){
     alert("AI 检索失败: "+err.message);
   }finally{
     $("btnAiSearch").disabled=false; $("btnAiSearch").textContent="AI 检索";
   }
+}
+/* AI 语义匹配：返回 {score, reasons} */
+function aiMatch(p, concepts){
+  if(!concepts||!concepts.length) return {score:1, reasons:[]};
+  var score=0, reasons=[], matchedGroups=0;
+  var title=(p.title||"").toLowerCase();
+  var abs=(p.abstract||"").toLowerCase();
+  var tags=(p.tags||[]).join(" ").toLowerCase();
+  var envs=(p.env||[]).join(" ").toLowerCase();
+  concepts.forEach(function(group){
+    var groupHit=false, hitWhere="";
+    for(var i=0;i<group.length;i++){
+      var term=group[i].toLowerCase();
+      if(title.indexOf(term)>=0){ groupHit=true; hitWhere="标题"; break; }
+      if(tags.indexOf(term)>=0){ groupHit=true; hitWhere="标签"; break; }
+      if(abs.indexOf(term)>=0){ groupHit=true; hitWhere="摘要"; break; }
+    }
+    if(groupHit){
+      matchedGroups++;
+      // 标题命中权重最高
+      score+= hitWhere==="标题"?3 : hitWhere==="标签"?2 : 1;
+      reasons.push(group[0]+"("+hitWhere+")");
+    }
+  });
+  // 必须匹配至少一组概念（避免零相关）
+  if(matchedGroups===0) return {score:0, reasons:[]};
+  // 加分：匹配组数多
+  score+=matchedGroups*2;
+  return {score:score, reasons:reasons};
 }
 
 /* ---------- 导出 ---------- */
