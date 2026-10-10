@@ -859,6 +859,30 @@ canvas.net{cursor:grab}
   .tl-ev{width:calc(100% - 28px);margin-left:28px!important}
   .tl-ev:before{left:-24px!important;right:auto!important}
 }
+
+/* ---- 纯净学习模式 ---- */
+#layout-study{min-height:100vh;background:var(--bg)}
+.study-top{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;
+  gap:12px;padding:10px 20px;background:var(--card);border-bottom:1px solid var(--line)}
+.study-brand{font-weight:700;font-size:15px}
+.study-tag{font-size:11px;font-weight:600;color:#fff;background:var(--accent);border-radius:20px;padding:2px 10px;margin-left:6px;vertical-align:2px}
+.study-tools{display:flex;align-items:center;gap:10px}
+.study-main{max-width:1080px;margin:0 auto;padding:22px 20px 60px}
+.study-main #slot-study-searchbar{margin-bottom:14px}
+@media(max-width:900px){.study-main #results.dens-3{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.study-main #results.dens-3{grid-template-columns:1fr}}
+/* 学习模式阅读弹窗 */
+.study-modal{position:fixed;inset:0;z-index:200;background:rgba(15,23,42,.55);
+  display:flex;align-items:center;justify-content:center;padding:4vh 4vw;backdrop-filter:blur(3px)}
+.study-modal[hidden]{display:none}
+.study-modal-card{position:relative;background:var(--card);border-radius:16px;
+  width:min(860px,100%);max-height:92vh;overflow-y:auto;padding:28px 32px;box-shadow:0 24px 64px rgba(0,0,0,.28)}
+.study-modal-card .rread{border:0;box-shadow:none;padding:0}
+.study-modal-card .rabs{font-size:15px;line-height:1.85}
+.study-modal-close{position:sticky;top:0;float:right;width:36px;height:36px;border-radius:50%;
+  border:1px solid var(--line);background:var(--bg);color:var(--muted);font-size:20px;line-height:1;
+  cursor:pointer;z-index:2}
+.study-modal-close:hover{color:var(--accent);border-color:var(--accent)}
 </style>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}</script>
 </head>
@@ -886,7 +910,7 @@ canvas.net{cursor:grab}
       </div>
       <button class="hbtn cmdkBtn" title="命令面板 (⌘K)">⌘K</button>
       <div class="layout-sw" data-sw>
-        <button data-layout="classic" class="on">经典</button><button data-layout="app">工作台</button>
+        <button data-layout="classic" class="on">经典</button><button data-layout="app">工作台</button><button data-layout="study">学习</button>
       </div>
       <button class="iconbtn themeToggle" title="切换深色 / 浅色">🌙</button>
     </div>
@@ -1003,7 +1027,7 @@ canvas.net{cursor:grab}
     <header class="topbar">
       <button class="cmdk-btn cmdkBtn"><span class="ck-q">🔍 搜索文献 / 作者 / 主题…</span><kbd>⌘K</kbd></button>
       <div class="layout-sw" data-sw>
-        <button data-layout="classic">经典</button><button data-layout="app" class="on">工作台</button>
+        <button data-layout="classic">经典</button><button data-layout="app" class="on">工作台</button><button data-layout="study">学习</button>
       </div>
       <div class="meta" id="slot-app-dbmeta"></div>
     </header>
@@ -1070,6 +1094,29 @@ canvas.net{cursor:grab}
       <span class="sb-item">📅 今日新增 <b id="stDaily">0</b></span>
       <span class="sb-right">数据来源 OpenAlex · 更新于 <span id="stDate">—</span></span>
     </footer>
+  </div>
+</div>
+
+<!-- ================= 纯净学习模式 ================= -->
+<div id="layout-study" hidden>
+  <header class="study-top">
+    <span class="study-brand">🌡 环境运动科学文献总库 <span class="study-tag">纯净学习</span></span>
+    <span class="study-tools">
+      <span class="layout-sw" data-sw>
+        <button data-layout="classic">经典</button><button data-layout="app">工作台</button><button data-layout="study" class="on">学习</button>
+      </span>
+      <button class="iconbtn themeToggle" title="切换深色 / 浅色">🌙</button>
+    </span>
+  </header>
+  <main class="study-main">
+    <div id="slot-study-searchbar"></div>
+    <div id="slot-study-results"></div>
+  </main>
+  <div id="studyReaderModal" class="study-modal" hidden>
+    <div class="study-modal-card">
+      <button class="study-modal-close" id="studyReaderClose" title="关闭（Esc）">×</button>
+      <div id="slot-study-reader"></div>
+    </div>
   </div>
 </div>
 
@@ -4203,6 +4250,10 @@ function openReader(id){
     var vl=$("view-lib"); if(vl) vl.classList.add("reading-active");
     try{ cr.scrollTop=0; }catch(e){}
   }
+  if(curLayout==="study"){
+    var sm=$("studyReaderModal");
+    if(sm){ sm.hidden=false; try{ sm.querySelector(".study-modal-card").scrollTop=0; }catch(e){} }
+  }
   if(curLayout==="classic"){
     var z=$("z-reading");
     if(z){
@@ -5063,7 +5114,7 @@ function init(){
   applyHash();
   var savedLayout="classic";
   try{ savedLayout=localStorage.getItem("litdb-layout")||"classic"; }catch(e){}
-  if(savedLayout!=="classic"&&savedLayout!=="app") savedLayout="classic";
+  if(["classic","app","study"].indexOf(savedLayout)<0) savedLayout="classic";
   applyLayout(savedLayout,false);
   window.addEventListener("resize",function(){
     if(!dataDrawn) return;
@@ -5075,19 +5126,24 @@ function init(){
   var bo=$("boot");
   if(bo){ bo.classList.add("done"); setTimeout(function(){ bo.style.display="none"; },350); }
 }
-/* ---------- 双布局：经典 / 工作台 ---------- */
+/* ---------- 三布局：经典 / 工作台 / 纯净学习 ---------- */
 var curLayout="classic";
 var LAYOUT_COMPS=["dbmeta","stats","searchbar","conditions","envtags","results","rec","reader","charts","daily","analytics","networks","notes","lab","follow"];
 function applyLayout(name,save){
   curLayout=name;
-  if(document.body&&document.body.classList)
+  if(document.body&&document.body.classList){
     document.body.classList.toggle("is-app",name==="app");
+    document.body.classList.toggle("is-study",name==="study");
+  }
   LAYOUT_COMPS.forEach(function(c){
     var comp=$("c-"+c), slot=$("slot-"+name+"-"+c);
     if(comp&&slot) slot.appendChild(comp);
   });
   $("layout-classic").hidden=(name!=="classic");
   $("layout-app").hidden=(name!=="app");
+  $("layout-study").hidden=(name!=="study");
+  // 离开学习模式时关闭阅读弹窗
+  if(name!=="study"){ var sm=$("studyReaderModal"); if(sm) sm.hidden=true; }
   document.querySelectorAll("[data-sw]").forEach(function(sw){
     sw.querySelectorAll("button").forEach(function(b){
       b.classList.toggle("on",b.getAttribute("data-layout")===name);
@@ -5157,6 +5213,14 @@ function bindShell(){
   });
   var dg=$("dnGo"); if(dg) dg.onclick=function(){ switchView("data"); };
   var rc=$("readClose"); if(rc) rc.onclick=function(){ $("colRead").classList.remove("open"); var vl=$("view-lib"); if(vl) vl.classList.remove("reading-active"); };
+  /* 学习模式：阅读弹窗关闭 */
+  var src=$("studyReaderClose");
+  if(src) src.onclick=function(){ $("studyReaderModal").hidden=true; };
+  document.addEventListener("keydown",function(e){
+    if(e.key==="Escape"&&curLayout==="study"){ var m=$("studyReaderModal"); if(m&&!m.hidden) m.hidden=true; }
+  });
+  var smm=$("studyReaderModal");
+  if(smm) smm.addEventListener("click",function(e){ if(e.target===smm) smm.hidden=true; });
   var rf=$("recFold");
   if(rf) rf.onclick=function(){
     var rb=$("slot-app-rec");
