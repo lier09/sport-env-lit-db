@@ -707,13 +707,15 @@ canvas.net{cursor:grab}
 .dens-sw button:last-child{border-right:0}
 .dens-sw button.on{background:var(--accent);color:#fff;font-weight:600}
 #results.dens-2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+#results.dens-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 #results.dens-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-#results.dens-2 .card,#results.dens-4 .card{margin-bottom:0}
+#results.dens-2 .card,#results.dens-3 .card,#results.dens-4 .card{margin-bottom:0}
 #results.dens-4 .card{padding:12px 14px}
 #results.dens-4 .card h3{font-size:13.5px}
+#results.dens-3 .card h3{font-size:14px}
 #results.dens-2 .card h3{font-size:14.5px}
-@media(max-width:1100px){#results.dens-4{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:640px){#results.dens-2,#results.dens-4{grid-template-columns:1fr}}
+@media(max-width:1100px){#results.dens-4{grid-template-columns:repeat(2,1fr)}#results.dens-3{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640px){#results.dens-2,#results.dens-3,#results.dens-4{grid-template-columns:1fr}}
 /* ---- 卡片操作按钮自适应 ---- */
 .links{display:flex;flex-wrap:wrap;gap:8px 4px;align-items:center;margin-top:10px;font-size:12.5px}
 .links a,.links .star{margin:0 14px 2px 0}
@@ -1131,7 +1133,7 @@ canvas.net{cursor:grab}
       <span id="count"></span>
       <span class="tools">
         <span class="dens-sw" title="每行显示篇数">
-          <button data-dens="4" title="一行 4 篇">▦ 4</button><button data-dens="2" title="一行 2 篇">▤ 2</button><button data-dens="1" class="on" title="一行 1 篇">☰ 1</button>
+          <button data-dens="4" title="一行 4 篇">▦ 4</button><button data-dens="3" class="on" title="一行 3 篇">▦ 3</button><button data-dens="2" title="一行 2 篇">▤ 2</button><button data-dens="1" title="一行 1 篇">☰ 1</button>
         </span>
         <label class="ckall" title="全选本页"><input type="checkbox" id="ckAll"> 全选</label>
         <button class="btn ghost" id="btnCmp">对比 (<span id="cmpCount">0</span>)</button>
@@ -5238,13 +5240,16 @@ function bindWorkbenchPanes(){
 }
 
 /* ---------- 卡片密度：一行 1 / 2 / 4 篇 ---------- */
-var density=1;
-try{ density=+localStorage.getItem("litdb-density")||1; }catch(e){ density=1; }
-if([1,2,4].indexOf(density)<0) density=1;
-function absShortLen(){ return density===4?110:(density===2?160:220); }
+var density=3;
+try{
+  if(localStorage.getItem("litdb-density-v")!=="51"){ localStorage.setItem("litdb-density","3"); localStorage.setItem("litdb-density-v","51"); }
+  density=+localStorage.getItem("litdb-density")||3;
+}catch(e){ density=3; }
+if([1,2,3,4].indexOf(density)<0) density=3;
+function absShortLen(){ return density===4?110:(density===3?135:(density===2?160:220)); }
 function applyDensity(){
   var box=$("results");
-  if(box){ box.classList.remove("dens-1","dens-2","dens-4"); box.classList.add("dens-"+density); }
+  if(box){ box.classList.remove("dens-1","dens-2","dens-3","dens-4"); box.classList.add("dens-"+density); }
   document.querySelectorAll(".dens-sw button").forEach(function(b){
     b.classList.toggle("on",+b.getAttribute("data-dens")===density);
   });
