@@ -1123,6 +1123,11 @@ canvas.net{cursor:grab}
     </div>
     <div id="aiConfig" style="display:none;margin-top:8px;padding:10px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc">
       <div style="font-size:13px;margin-bottom:6px">AI API 配置（OpenAI 兼容接口，Key 仅存浏览器本地）</div>
+      <div style="margin-bottom:6px">
+        <button class="btn ghost" data-preset="openai" style="font-size:12px">OpenAI</button>
+        <button class="btn ghost" data-preset="deepseek" style="font-size:12px">DeepSeek</button>
+        <button class="btn ghost" data-preset="alibaba" style="font-size:12px">阿里通义</button>
+      </div>
       <input type="text" id="aiEndpoint" placeholder="API 地址，如 https://api.openai.com/v1" style="width:100%;margin-bottom:6px;padding:6px">
       <input type="password" id="aiKey" placeholder="API Key" style="width:100%;margin-bottom:6px;padding:6px">
       <input type="text" id="aiModel" placeholder="模型名，如 gpt-4o-mini" style="width:100%;margin-bottom:6px;padding:6px">
@@ -2687,6 +2692,22 @@ function bind(){
       alert("已保存"); $("aiConfig").style.display="none";
     }catch(e){ alert("保存失败"); }
   };
+  /* AI 预设 */
+  document.querySelectorAll("[data-preset]").forEach(function(b){
+    b.onclick=function(){
+      var p=b.getAttribute("data-preset");
+      if(p==="openai"){
+        $("aiEndpoint").value="https://api.openai.com/v1";
+        $("aiModel").value="gpt-4o-mini";
+      }else if(p==="deepseek"){
+        $("aiEndpoint").value="https://api.deepseek.com/v1";
+        $("aiModel").value="deepseek-chat";
+      }else if(p==="alibaba"){
+        $("aiEndpoint").value="https://dashscope.aliyuncs.com/compatible-mode/v1";
+        $("aiModel").value="qwen-plus";
+      }
+    };
+  });
   if($("btnAiSearch")) $("btnAiSearch").onclick=aiSearch;
   if($("aiQ")) $("aiQ").addEventListener("keydown",function(e){ if(e.key==="Enter") aiSearch(); });
 }
