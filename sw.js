@@ -1,5 +1,5 @@
 /* 文献库 PWA Service Worker — 缓存外壳，数据与鉴权永远走网络 */
-var CACHE = 'litdb-shell-64';
+var CACHE = 'litdb-shell-65';
 var SHELL = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', function(e){
