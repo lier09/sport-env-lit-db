@@ -883,6 +883,14 @@ canvas.net{cursor:grab}
   border:1px solid var(--line);background:var(--bg);color:var(--muted);font-size:20px;line-height:1;
   cursor:pointer;z-index:2}
 .study-modal-close:hover{color:var(--accent);border-color:var(--accent)}
+/* 学习模式筛选折叠区 */
+.study-filters{margin:0 0 14px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+.study-filters>summary{cursor:pointer;padding:10px 16px;font-size:13.5px;font-weight:600;list-style:none;display:flex;align-items:center;gap:8px}
+.study-filters>summary::-webkit-details-marker{display:none}
+.study-filters>summary:before{content:"▸";color:var(--muted)}
+.study-filters[open]>summary:before{content:"▾"}
+.study-filters-hint{font-weight:normal;font-size:12px;color:var(--muted)}
+.study-filters #slot-study-conditions{padding:0 16px 14px}
 </style>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}</script>
 </head>
@@ -1110,6 +1118,10 @@ canvas.net{cursor:grab}
   </header>
   <main class="study-main">
     <div id="slot-study-searchbar"></div>
+    <details class="study-filters">
+      <summary>🔍 筛选条件 <span class="study-filters-hint">环境 / 年份 / 类型 / 主题</span></summary>
+      <div id="slot-study-conditions"></div>
+    </details>
     <div id="slot-study-results"></div>
   </main>
   <div id="studyReaderModal" class="study-modal" hidden>
