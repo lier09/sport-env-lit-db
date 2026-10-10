@@ -1848,7 +1848,7 @@ var ENV_COLORS = {"低温":"#1a6fd4","高氧":"#0e9f6e","高温":"#d43d1a",
 
 var state = { q:"", env:{}, tags:{}, type:"all", ymin:1970, ymax:2026,
   journal:"all", minCited:0, oa:false, sort:"year_desc", page:1,
-  design:"all", ev:"all", mytag:"all", population:"all" };
+  design:"all", ev:"all", mytag:"all", population:"all", author:"", affiliation:"" };
 
 function esc(s){
   return String(s==null?"":s).replace(/[&<>"']/g,function(c){
@@ -2039,6 +2039,25 @@ function filtered(){
     if(p.cited < state.minCited) return false;
     if(state.oa && !p.oa) return false;
     if(state.population!=="all" && (p.population||"unknown")!==state.population) return false;
+    // 作者筛选：匹配作者姓名字段，支持片段匹配
+    if(state.author && state.author.trim()){
+      var aq=state.author.trim().toLowerCase();
+      var authors=(p.authors||[]).join(" ").toLowerCase();
+      if(authors.indexOf(aq)<0) return false;
+    }
+    // 单位筛选：匹配作者单位字段
+    if(state.affiliation && state.affiliation.trim()){
+      var fq=state.affiliation.trim().toLowerCase();
+      // 从 _authorships 获取单位信息
+      var affils=[];
+      (p._authorships||[]).forEach(function(a){
+        (a.institutions||[]).forEach(function(inst){
+          if(inst.display_name) affils.push(inst.display_name);
+        });
+      });
+      var affilStr=affils.join(" ").toLowerCase();
+      if(affilStr.indexOf(fq)<0) return false;
+    }
     if(activeTags.length){
       var pt = p.tags||[];
       var hit = activeTags.some(function(t){return pt.indexOf(t)>=0;});
@@ -2050,6 +2069,16 @@ function filtered(){
                  (p.journal||"")+" "+(p.abstract||"")+" "+
                  (p.tags||[]).join(" ")).toLowerCase();
       if(hay.indexOf(adv.text)<0) return false;
+    }
+    // AI作者匹配：必须在作者字段中匹配，支持片段匹配完整姓名
+    if(window._aiMode && window._aiAuthor){
+      var authors=(p.authors||[]).join(" ").toLowerCase();
+      if(authors.indexOf(window._aiAuthor)<0) return false;
+      // 记录命中的作者姓名
+      var matchedAuthors=(p.authors||[]).filter(function(a){
+        return a.toLowerCase().indexOf(window._aiAuthor)>=0;
+      });
+      p._aiMatchedAuthors=matchedAuthors;
     }
     // AI语义匹配
     if(aiMode){
@@ -2150,6 +2179,7 @@ function render(){
           return '<span class="ptag">'+esc(t)+'</span>';}).join("")+
         mytagHtml+'</div>'+
         (p._aiReasons&&p._aiReasons.length?'<div class="ai-reasons" style="font-size:12px;color:#059669;margin:4px 0">✓ 匹配: '+esc(p._aiReasons.join("; "))+'</div>':"")+
+        (p._aiMatchedAuthors&&p._aiMatchedAuthors.length?'<div class="ai-authors" style="font-size:12px;color:#7c3aed;margin:4px 0">👤 作者匹配: '+esc(p._aiMatchedAuthors.join("; "))+'</div>':"")+
         absHtml+links+'<div class="relbox" id="relbox_'+idx+'"></div></article>';
     }).join("");
   }
@@ -2450,6 +2480,10 @@ function buildFacet(){
       '<input type="checkbox"'+(on?" checked":"")+' tabindex="-1">'+popLabels[k]+
       '<span class="n">'+(popCounts[k]||0).toLocaleString()+'</span></div>';
   }).join("");
+  /* 作者筛选 */
+  html+='<h4>作者</h4><div style="padding:4px 8px"><input type="text" id="f_author" placeholder="搜索作者姓名…" style="width:100%;padding:6px;font-size:13px" value="'+esc(state.author||"")+'"></div>';
+  /* 单位筛选 */
+  html+='<h4>单位</h4><div style="padding:4px 8px"><input type="text" id="f_affil" placeholder="搜索作者单位…" style="width:100%;padding:6px;font-size:13px" value="'+esc(state.affiliation||"")+'"></div>';
   box.innerHTML=html;
   box.querySelectorAll(".l4-frow").forEach(function(row){
     row.onclick=function(){
@@ -2468,6 +2502,16 @@ function buildFacet(){
       }
       paintEnvbar(); buildFacet(); state.page=1; render();
     };
+  });
+  /* 作者/单位输入框绑定（防抖） */
+  var fa=$("f_author"), ff=$("f_affil"), ft=null;
+  if(fa) fa.addEventListener("input", function(){
+    clearTimeout(ft);
+    ft=setTimeout(function(){ state.author=fa.value; state.page=1; render(); }, 300);
+  });
+  if(ff) ff.addEventListener("input", function(){
+    clearTimeout(ft);
+    ft=setTimeout(function(){ state.affiliation=ff.value; state.page=1; render(); }, 300);
   });
 }
 function renderPills(){
@@ -2633,12 +2677,12 @@ function bind(){
   });
   $("sort").onchange=function(){state.sort=this.value;state.page=1;render();};
   $("btnReset").onclick=function(){
-    window._aiMode=false;
+    window._aiMode=false; window._aiAuthor=null;
     $("q").value="";$("f_type").value="all";$("f_ymin").value=1970;
     $("f_ymax").value=2026;$("f_journal").value="all";$("f_cited").value=0;
     $("f_oa").checked=false;$("sort").value="year_desc";
     $("f_design").value="all";$("f_ev").value="all";$("f_mytag").value="all";
-    state.tags={}; state.population="all";
+    state.tags={}; state.population="all"; state.author=""; state.affiliation="";
     try{$("aiQ").value="";}catch(e){}
     Object.keys(state.env).forEach(function(e){state.env[e]=true;});
     paintEnvbar(); buildTagbar(); buildFacet();
@@ -2743,10 +2787,15 @@ async function aiSearch(){
   try{
     var sysPrompt="你是文献数据库的检索助手。用户用自然语言描述文献需求，你将其转换为 JSON 检索条件。\n"+
       "可用环境: 低温,高温,高温高湿,高氧,高原低氧,交叉适应,其他环境（未指定则返回空数组）\n"+
-      "返回 JSON 格式:\n"+
-      "{\"env\":[\"低温\"],\"year_min\":2020,\"year_max\":2026,\"concepts\":[[\"恢复\",\"recovery\"],[\"冷水浸泡\",\"cold water immersion\",\"CWI\"],[\"冷疗\",\"cryotherapy\"]]}\n"+
-      "concepts 是概念组，每组内是同义词（OR关系），组间是AND关系。每组提供中英文同义表达。\n"+
-      "只返回 JSON，不要其他文字。不要添加用户没要求的限制（如人群、类型）。";
+      "字段规则：\n"+
+      "- 作者查询（如\"作者叫Ben的研究\"）：返回 {\"author\":\"Ben\"}，必须匹配作者姓名字段，支持名字片段匹配完整姓名（如Ben匹配Benjamin Smith）\n"+
+      "- 期刊查询：返回 {\"journal\":\"期刊名\"}，匹配期刊字段\n"+
+      "- 年份查询：返回 {\"year_min\":2020,\"year_max\":2026}\n"+
+      "- 主题查询：返回 {\"concepts\":[[\"恢复\",\"recovery\"],...]}，概念组内同义词OR，组间AND\n"+
+      "- 明确指定作者/年份/期刊时，必须用对应字段，不能用主题概念代替\n"+
+      "返回 JSON 格式示例：\n"+
+      "{\"env\":[\"低温\"],\"author\":\"Ben\",\"year_min\":2020,\"year_max\":2026,\"journal\":\"\",\"concepts\":[[\"恢复\",\"recovery\"]]}\n"+
+      "只返回 JSON，不要其他文字。不要添加用户没要求的限制。";
     var resp=await fetch(endpoint.replace(/\/$/,"")+"/chat/completions",{
       method:"POST",
       headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},
@@ -2769,9 +2818,22 @@ async function aiSearch(){
       Object.keys(envCounts).forEach(function(e){state.env[e]=true;});
     }
     state.ymin=f.year_min||1970; state.ymax=f.year_max||2026;
-    // 清空其他限制，不擅自添加
+    // 清空其他限制，不擅自添加（切换查询时清除上一轮条件）
     state.population="all"; state.type="all"; state.tags={}; state.q="";
+    state.author=""; state.journal="all";
     try{$("q").value="";}catch(e){}
+    // 作者字段：必须匹配作者姓名，支持片段匹配完整姓名
+    if(f.author){
+      state.author=f.author;
+      window._aiAuthor=f.author.toLowerCase();
+    } else {
+      window._aiAuthor=null;
+    }
+    // 期刊字段
+    if(f.journal){
+      state.journal=f.journal;
+      try{$("f_journal").value=f.journal;}catch(e){}
+    }
     // 语义匹配：概念组 OR 组内，AND 组间，按相关度排序
     var concepts=f.concepts||[];
     window._aiConcepts=concepts;
