@@ -79,7 +79,7 @@ setTimeout(async()=>{
     click('#folderCreate');
     assert.ok(d.querySelector('#folderPop [data-f]').checked,'create also adds paper');
     click('#folderSave');
-    const memberships=JSON.parse(JSON.parse(w.localStorage.getItem('litdb-personal:fixture-user')).envLitFolders);
+    const memberships=JSON.parse(JSON.parse(w.localStorage.getItem('litdb-personal:'+(html.includes('// await supaEnsureAuth();')?'anonymous':'fixture-user'))).envLitFolders);
     assert.equal(Object.keys(memberships).length,1);
     const folderPaper=Object.keys(memberships)[0];
     change('f_folder','folder:'+encodeURIComponent('恢复资料 <&>'));
@@ -124,7 +124,7 @@ setTimeout(async()=>{
     assert.ok(!d.querySelector('#grRelated [data-paper="'+first+'"]'),'deleted paper excluded from relationships');
     click('#grClose');click('#btnTrash');
     click('#trashPop [data-undo]');
-    assert.ok(!JSON.parse(JSON.parse(w.localStorage.getItem('litdb-personal:fixture-user')).envLitDeleted)[first],'restore clears deleted marker');
+    assert.ok(!JSON.parse(JSON.parse(w.localStorage.getItem('litdb-personal:'+(html.includes('// await supaEnsureAuth();')?'anonymous':'fixture-user'))).envLitDeleted)[first],'restore clears deleted marker');
     assert.ok(d.getElementById('trashPop').textContent.includes('回收站为空'));
     assert.ok(!d.querySelector('#btnCompare,#cmpModal,.cmpbtn'),'comparison removed');
     click('#layout-app [data-layout="classic"]');

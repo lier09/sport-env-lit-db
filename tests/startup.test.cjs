@@ -48,6 +48,28 @@ test('timeout also covers a response body which never completes',async()=>{
   const c=context(async()=>({arrayBuffer:()=>new Promise(()=>{})}));
   await assert.rejects(c.box.supaFetch('/fixture',{},10),/超时/);
 });
+test('transient reads retry but forbidden reads and signup writes never retry',async()=>{
+ let calls=0;const c=context(async()=>{calls++;return calls===1?json({},503):json({ok:true});});
+ assert.equal((await c.box.supaFetch('/auth/v1/user')).status,200);assert.equal(calls,2);
+ calls=0;const blocked=context(async()=>{calls++;return json({},403);});
+ assert.equal((await blocked.box.supaFetch('/fixture')).status,403);assert.equal(calls,1);
+ calls=0;const write=context(async()=>{calls++;throw Object.assign(new Error('connection'),{name:'TypeError'});});
+ await assert.rejects(write.box.supaFetch('/auth/v1/signup',{method:'POST'}),/注册无法连接/);assert.equal(calls,1);
+});
+test('active slow shard streams reset idle timer and preserve complete content',async()=>{
+ const raw=JSON.stringify([{id:'slow',abstract:'complete final paragraph'}]);let downloads=0;
+ const c=context(async()=>{downloads++;return {status:200,statusText:'OK',headers:new Headers(),body:{getReader(){let i=0;return {async read(){if(i===raw.length)return {done:true};await new Promise(r=>setTimeout(r,5));return {done:false,value:new TextEncoder().encode(raw[i++])};}};}}};});
+ c.box.setTimeout=(fn,ms)=>setTimeout(fn,ms===300000?2000:ms); // real idle deadlines for this streaming fixture
+ const r=await c.box.supaFetch('/papers-1.json',{},25);
+ assert.equal(await r.text(),raw);assert.equal(downloads,1);
+ assert.match(c.elements.get('dbg-load').textContent,/分片 1.*MB/);
+});
+test('new user cold load runs only two downloads concurrently and awaits cache writes',async()=>{
+ let active=0,maxActive=0;const writes=[];
+ const c=context(async url=>{active++;maxActive=Math.max(active,maxActive);await new Promise(r=>setTimeout(r,8));active--;return json([{id:url}]);});
+ c.box.LitdbCache={create:()=>({get:async()=>null,put:async(user,url)=>{await new Promise(r=>setTimeout(r,5));writes.push(url);}})};
+ await c.box.supaLoadData();assert.equal(maxActive,2);assert.equal(writes.length,4);assert.equal(c.box.window.PAPERS.length,4);
+});
 test('profile service error is visible and does not erase login',async()=>{
   const c=context(async url=>url.includes('/auth/v1/user') ? json({id:'fixture-user'}) : json({error:'fixture'},503));
   await assert.rejects(c.box.supaEnsureAuth(), /档案.*503/); assert.ok(c.session());

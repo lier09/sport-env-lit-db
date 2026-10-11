@@ -1527,24 +1527,60 @@ var Fr={},Gr={};var Wr,Hr=function(){function t(t,e,n){var i=this;this._sleepAft
 <script src="./library-cache.js"></script>
 <script>/* 低温与运动科学文献数据库 - 前端逻辑 */
 /* Network timeouts cover both headers and response body. */
-async function supaFetch(url, opts, timeoutMs){
-  var controller = new AbortController();
-  var options = Object.assign({}, opts || {}, {signal: controller.signal});
-  var timer;
-  try{
-    return await Promise.race([
-      (async function(){
-        var response = await fetch(url, options);
-        var body = await response.arrayBuffer();
-        return new Response(body, {status: response.status, statusText: response.statusText, headers: response.headers});
-      })(),
-      new Promise(function(_, reject){
-        timer = setTimeout(function(){ controller.abort(); reject(new Error("连接或数据下载超时，请重试。")); }, timeoutMs || 20000);
-      })
-    ]);
-  }finally{ clearTimeout(timer); }
+function requestStage(url){
+  if(url.indexOf('/auth/v1/user')>=0)return '登录验证';
+  if(url.indexOf('/auth/v1/token')>=0)return '登录／会话续期';
+  if(url.indexOf('/auth/v1/signup')>=0)return '注册';
+  if(url.indexOf('/rest/v1/profiles')>=0)return '用户档案读取';
+  if(url.indexOf('/manifest.json')>=0)return '文献版本检查';
+  var part=url.match(/papers-(\d+)\.json/);return part?'文献分片 '+part[1]+' 下载':'服务器连接';
 }
+async function supaFetch(url, opts, timeoutMs){
+  opts=opts||{};var method=(opts.method||'GET').toUpperCase();
+  var retries=method==='GET'?2:0,stage=requestStage(url);
+  for(var attempt=0;attempt<=retries;attempt++){
+    let controller=new AbortController(),timer,limitTimer;
+    let resetIdle;
+    var options=Object.assign({},opts,{signal:controller.signal});
+    try{
+      var response=await Promise.race([
+        (async function(){
+          var response=await fetch(url,options),body;
+          if(response.body&&response.body.getReader&&method==='GET'&&url.indexOf('/papers-')>=0){
+            var reader=response.body.getReader(),chunks=[],size=0,lastPaint=0;
+            for(;;){
+              var step=await reader.read();if(step.done)break;
+              chunks.push(step.value);size+=step.value.byteLength;resetIdle();
+              if(Date.now()-lastPaint>1000){startupStatus(stage+'：已接收 '+(size/1048576).toFixed(1)+' MB');lastPaint=Date.now();}
+            }
+            body=new Uint8Array(size);var offset=0;chunks.forEach(function(chunk){body.set(chunk,offset);offset+=chunk.byteLength;});
+          }else body=await response.arrayBuffer();
+          return new Response(body,{status:response.status,statusText:response.statusText,headers:response.headers});
+        })(),
+        new Promise(function(_,reject){
+          function fail(){controller.abort();var error=new Error(stage+'超时，请重试。');error.name='TimeoutError';reject(error);}
+          resetIdle=function(){clearTimeout(timer);timer=setTimeout(fail,timeoutMs||20000);};resetIdle();
+          limitTimer=setTimeout(fail,300000);
+        })
+      ]);
+      if(attempt<retries && [429,502,503,504].indexOf(response.status)>=0){
+        clearTimeout(timer);clearTimeout(limitTimer);startupStatus(stage+'暂时不可用，自动重试 '+(attempt+1)+'/'+retries+'…');
+        await new Promise(function(resolve){setTimeout(resolve,1000*(attempt+1));});continue;
+      }
+      return response;
+    }catch(error){
+      if(attempt>=retries || !(error.name==='TimeoutError'||error.name==='AbortError'||error.name==='TypeError')){
+        if(error.name==='TypeError'){var failure=new Error(stage+'无法连接服务器，请检查网络后重试。');failure.name='NetworkError';throw failure;}
+        throw error;
+      }
+      clearTimeout(timer);clearTimeout(limitTimer);startupStatus(stage+'连接中断，自动重试 '+(attempt+1)+'/'+retries+'…');
+      await new Promise(function(resolve){setTimeout(resolve,1000*(attempt+1));});
+    }finally{clearTimeout(timer);clearTimeout(limitTimer);}
+  }
+}
+var startupFailed=false;
 function startupStatus(message){
+  if(startupFailed)return;
   var node = document.getElementById("dbg-load");
   if(!node){
     node = document.createElement("div"); node.id = "dbg-load";
@@ -1556,6 +1592,7 @@ function startupStatus(message){
 function startupFailure(error){
   console.error("文献库初始化失败", error);
   startupStatus("加载失败：" + (error.message || "未知错误"));
+  startupFailed=true;
   var boot = document.getElementById("boot");
   if(!boot) return;
   boot.classList.remove("done"); boot.style.display = "flex"; boot.textContent = "";
@@ -1842,10 +1879,12 @@ async function supaLoadData(){
     var records=JSON.parse(new TextDecoder().decode(raw));
     if(!Array.isArray(records))throw new Error("数据分片"+(index+1)+"格式错误，应为文献数组");
     if(part&&records.length!==part.records)throw new Error("分片"+(index+1)+"文献数量校验失败");
-    if(cache)cache.put(userId,url,{records:records.map(function(p){return Object.assign({},p);}),etag:response.headers.get("etag"),sha256:part&&part.sha256}).catch(function(){});
+    if(cache)await cache.put(userId,url,{records:records.map(function(p){return p&&typeof p==="object"&&!Array.isArray(p)?Object.assign({},p):p;}),etag:response.headers.get("etag"),sha256:part&&part.sha256}).catch(function(){});
     completed++;startupStatus("已载入 "+completed+"/4 个数据分片");return records;
   }
-  var parts=await Promise.all([0,1,2,3].map(loadOne));
+  var parts=new Array(4),nextPart=0;
+  async function worker(){while(nextPart<4){var index=nextPart++;parts[index]=await loadOne(index);}}
+  await Promise.all([worker(),worker()]);
   window.PAPERS=[].concat.apply([],parts);
   if(manifest&&window.PAPERS.length!==manifest.total)throw new Error("文献总数与版本清单不一致");
   window.LITDB_DATA_VERSION=manifest?manifest.version:"legacy";
