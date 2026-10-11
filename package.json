@@ -2,7 +2,7 @@
   "name": "sport-env-lit-db-startup-checks",
   "private": true,
   "scripts": {
-    "test": "node --test tests/startup.test.cjs tests/abstracts.test.cjs && node tests/page-startup.cjs && node tests/ui-workflows.cjs"
+    "test": "node --test tests/startup.test.cjs tests/abstracts.test.cjs tests/search-auth.test.cjs && node tests/page-startup.cjs && node tests/ui-workflows.cjs"
   },
   "devDependencies": {
     "jsdom": "30.1.2"

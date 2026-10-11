@@ -11,6 +11,7 @@ const storageKey = html.match(/var LS_SESS\s*=\s*"([^"]+)"/)[1];
 const warnings=[];
 const records=[{id:'fixture1',title:'Cold-water immersion after exercise',abstract:'Background: Exercise recovery in cold water.\nMethods: '+('Complete method details. '.repeat(20))+'\nConclusion: FINAL_ABSTRACT_SENTINEL.',authors:['Ben Lee'],env:['低温'],tags:['冷水浸泡'],type:'原创研究',year:2026,cited:1,journal:'Fixture Journal',population:'human'},
 {id:'fixture2',title:'Exercise heat acclimation',abstract:'Exercise in heat.',authors:'Fixture Author',env:'高温',tags:'热习服',type:'原创研究',year:'2025',cited:0,journal:'Fixture Journal'}];
+if(!baseline) records.push({id:'historical',title:'Early cold exercise research',abstract:'Historical exercise physiology.',authors:['Historic Author'],env:['低温'],tags:[],type:'原创研究',year:1935,cited:0});
 if(baseline) Object.assign(records[1],{authors:['Fixture Author'],env:['高温'],tags:['热习服']});
 function response(data,status=200){return new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json'}});}
 const virtualConsole=new VirtualConsole();
@@ -44,7 +45,9 @@ setTimeout(()=>{
       return;
     }
     const meta=d.getElementById('dbmeta').textContent;
-    assert.match(meta,/已收录 2 篇/);
+    assert.match(meta,/已收录 3 篇/);
+    assert.equal(d.getElementById('f_ymin').value,'1935');
+    assert.ok(d.querySelector('[data-pid="historical"]'),'historical paper visible by default');
     assert.ok(d.querySelector('#slot-classic-results #c-results'),'results moved into visible layout');
     assert.ok(d.querySelector('#slot-classic-analytics #c-analytics'),'analytics moved into visible layout');
     assert.ok(d.getElementById('results').textContent.includes('Cold-water immersion'));

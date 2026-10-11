@@ -932,7 +932,7 @@ canvas.net{cursor:grab}
     <div class="wrap">
       <div class="hero-text">
         <h1>环境与运动科学文献总库</h1>
-        <p>低温 · 高氧 · 高温 · 高温高湿 · 交叉适应 · 高原低氧 · 其他环境 —— 体育 / 运动科学领域 1970–2026 文献</p>
+        <p>低温 · 高氧 · 高温 · 高温高湿 · 交叉适应 · 高原低氧 · 其他环境 —— 体育 / 运动科学领域 · 全时段文献</p>
         <div id="slot-classic-dbmeta"></div>
         <div class="spectrum">
           <div class="spec-bar"></div>
@@ -1003,7 +1003,7 @@ canvas.net{cursor:grab}
       </div>
     </section>
   </main>
-  <footer class="pagefoot">数据来源：OpenAlex 学术数据库 · 收录范围 1970–2026.10 · 仅收录体育 / 运动科学相关文献 · 链接跳转至 DOI 与 Google Scholar</footer>
+  <footer class="pagefoot">数据来源：OpenAlex 学术数据库 · 收录范围以当前数据为准 · 仅收录体育 / 运动科学相关文献 · 链接跳转至 DOI 与 Google Scholar</footer>
   <button class="backtop" id="backTop" title="回到顶部">↑</button>
 </div>
 
@@ -1617,6 +1617,15 @@ async function supaFetchProfile(){
   supaProfile = null; return null;
 }
 
+function authSessionFromResponse(data){
+  var candidate=data && (data.session || data);
+  var user=candidate && (candidate.user || data.user);
+  return candidate && candidate.access_token && user && user.id
+    ? {access_token:candidate.access_token, refresh_token:candidate.refresh_token, user:user} : null;
+}
+function authErrorMessage(data, fallback){
+  return data && (data.msg || data.message || data.error_description || data.error) || fallback;
+}
 /* ---------- 登录 / 注册 UI（复用 #gate 遮罩样式） ---------- */
 function supaShowAuth(notice, mode){
   return new Promise(function(resolve){
@@ -1664,16 +1673,29 @@ function supaShowAuth(notice, mode){
           '<div class="gate-err" id="suErr"></div>' +
           '<label>邀请码</label><input id="suInvite" placeholder="如 LITDB-XXXX-XXXX" value="' + esc(code) + '" autocomplete="off">' +
           '<div class="gate-btns"><button class="btn" id="suGo">激活</button></div>';
-        g.querySelector("#suGo").onclick = async function(){
-          var c = g.querySelector("#suInvite").value.trim().toUpperCase();
-          if (!c){ err("请输入邀请码。"); return; }
-          var rr = await supaApi("/rest/v1/rpc/redeem_invite", {method: "POST", body: JSON.stringify({code_input: c})});
-          if (rr.data === true){
-            try{ localStorage.removeItem(LS_INVITE); }catch(e){}
-            await supaFetchProfile();
-            g.classList.add("hide"); resolve(true);
-          } else err("邀请码无效、已使用或已作废。");
+        var activate = g.querySelector("#suGo");
+        activate.onclick = async function(){
+          if(activate.disabled) return;
+          var c=g.querySelector("#suInvite").value.trim().toUpperCase();
+          if(!c){ err("请输入邀请码。"); return; }
+          activate.disabled=true; activate.textContent="激活中…";
+          try{
+            var rr=await supaApi("/rest/v1/rpc/redeem_invite", {method:"POST",body:JSON.stringify({code_input:c})});
+            // RPC may already have committed even if its response was unexpected.
+            var profile=await supaFetchProfile();
+            if(profile && profile.banned){ supaClear(); err("该账号已被禁用，请联系站长。"); return; }
+            if(profile){
+              try{localStorage.removeItem(LS_INVITE);}catch(e){}
+              g.classList.add("hide"); resolve(true); return;
+            }
+            if(rr.status<200 || rr.status>=300) err("账号已创建，激活服务暂未完成（HTTP "+rr.status+"）。请稍后登录重试，勿重复注册。");
+            else if(rr.data===false) err("账号已创建，但邀请码无效、已使用或已作废。请核对邀请码后激活，勿重复注册。");
+            else err("账号已创建，暂未取得激活档案。请稍后登录重试，勿重复注册。");
+          }catch(error){
+            err("账号已创建，激活结果暂未确认。请稍后登录重试，勿重复注册。");
+          }finally{ activate.disabled=false; activate.textContent="激活"; }
         };
+        if(code) await activate.onclick();
         return;
       }
       g.classList.add("hide"); resolve(true);
@@ -1685,7 +1707,10 @@ function supaShowAuth(notice, mode){
         var pass = g.querySelector("#suPass").value;
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ err("请填写有效的邮箱。"); return; }
         if (!pass){ err("请填写密码。"); return; }
+        if(go.disabled) return;
         go.disabled = true; go.textContent = "处理中…";
+        g.querySelector(".gate-err").style.display="none";
+        g.querySelector("#suOk").style.display="none";
         try{
           if (tab === "login"){
             var r = await supaFetch(SUPA_URL + "/auth/v1/token?grant_type=password", {
@@ -1705,26 +1730,21 @@ function supaShowAuth(notice, mode){
             });
             var d2 = await r2.json();
             try{ localStorage.setItem(LS_INVITE, code); }catch(e){}
-            if (d2 && d2.user && !d2.session){
-              /* 需要邮箱确认 */
-              okm("注册成功！去邮箱点击确认链接，然后回来登录。");
-              go.disabled = false; go.textContent = "注册";
-              return;
+            if(!r2.ok){
+              err(authErrorMessage(d2, "注册请求失败，请检查邮箱或改用登录。"));
+              go.disabled=false; go.textContent="注册"; return;
             }
-            if (!d2 || !d2.session){ err((d2 && d2.msg) || "注册失败，该邮箱可能已注册。"); go.disabled = false; go.textContent = "注册"; return; }
-            var sess = {access_token: d2.session.access_token, refresh_token: d2.session.refresh_token, user: d2.user};
-            supaSave(sess);
-            var rr = await supaApi("/rest/v1/rpc/redeem_invite", {method: "POST", body: JSON.stringify({code_input: code})});
-            if (rr.data === true){
-              try{ localStorage.removeItem(LS_INVITE); }catch(e){}
-              await supaFetchProfile();
-              g.classList.add("hide"); resolve(true);
-            } else {
-              err("账号已创建，但邀请码无效。请用正确邀请码重新激活（先去登录）。");
-              go.disabled = false; go.textContent = "注册";
+            var sess=authSessionFromResponse(d2);
+            if(!sess){
+              if(d2 && (d2.user || d2.id)) okm("注册请求已受理。如需邮箱确认，请点击确认邮件后登录；如果已有账号，请直接登录。");
+              else err("注册服务未返回有效账号信息，请稍后登录检查，勿重复注册。");
+              go.disabled=false; go.textContent="注册"; return;
             }
+            await finishLogin(sess);
+
           }
-        }catch(ex){ err("网络错误，请重试。"); go.disabled = false; go.textContent = tab === "login" ? "登录" : "注册"; }
+        }catch(ex){ err(supaSession ? "账号已登录，但档案暂未读取成功，请稍后登录重试。" : "请求暂未完成，请稍后登录检查；若账号已创建，勿重复注册。"); }
+        finally{ go.disabled=false; go.textContent=tab === "login" ? "登录" : "注册"; }
       };
       g.querySelector("#suPass").addEventListener("keydown", function(e){ if (e.key === "Enter") go.onclick(); });
     }
@@ -1932,6 +1952,11 @@ function normalizePaper(p){
   return p;
 }
 var PAPERS = (window.PAPERS || []).map(normalizePaper);
+var validYears=PAPERS.map(function(p){return p.year;}).filter(function(y){return y>0;});
+var DATA_YEAR_MIN=validYears.length?validYears.reduce(function(a,b){return Math.min(a,b);}):new Date().getFullYear();
+var DATA_YEAR_MAX=validYears.length?validYears.reduce(function(a,b){return Math.max(a,b);}):new Date().getFullYear();
+["f_ymin","f_ymax"].forEach(function(id){var el=document.getElementById(id);if(el){el.min=DATA_YEAR_MIN;el.max=DATA_YEAR_MAX;el.value=id==="f_ymin"?DATA_YEAR_MIN:DATA_YEAR_MAX;}});
+document.title="环境与运动科学文献总库（"+DATA_YEAR_MIN+"–"+DATA_YEAR_MAX+"）";
 var PAGE_SIZE = 20;
 try{ PAGE_SIZE=+(localStorage.getItem("envLitPageSize")||20)||20; }catch(e){ PAGE_SIZE=20; }
 if([20,50,100].indexOf(PAGE_SIZE)<0) PAGE_SIZE=20;
@@ -1961,7 +1986,7 @@ var ENV_ORDER = ["低温","高氧","高温","高温高湿","交叉适应","高�
 var ENV_COLORS = {"低温":"#1a6fd4","高氧":"#0e9f6e","高温":"#d43d1a",
   "高温高湿":"#b45309","交叉适应":"#7c5cd6","高原低氧":"#0f766e","其他环境":"#64748b"};
 
-var state = { q:"", env:{}, tags:{}, type:"all", ymin:1970, ymax:2026,
+var state = { q:"", env:{}, tags:{}, type:"all", ymin:DATA_YEAR_MIN, ymax:DATA_YEAR_MAX,
   journal:"all", minCited:0, oa:false, sort:"year_desc", page:1,
   design:"all", ev:"all", mytag:"all", folder:"all", population:"all", author:"", affiliation:"", authorExpand:false };
 
@@ -1988,7 +2013,7 @@ var DESIGN_RULES=[
   [/crossover|cross.?over trial/i,"交叉设计"]
 ];
 PAPERS.forEach(function(p){
-  p.design=(p.type==="原创研究")?"其他":p.type;
+  p.design=p.design || ((p.type==="原创研究")?"其他":p.type);
   if(p.design==="其他"){
     var t=((p.title||"")+" "+(p.abstract||""));
     for(var i=0;i<DESIGN_RULES.length;i++){
@@ -2182,26 +2207,28 @@ var AUTHOR_VARIANTS={
   "sue":["susan","suzanne"],
   "ann":["anna","anne","annette"]
 };
-function authorTokenMatch(fullName, query, expand){
-  if(!fullName||!query) return false;
-  var q=query.trim().toLowerCase();
-  // 按空格、点、连字符切分词元
-  var tokens=fullName.toLowerCase().split(/[\s\.\-]+/).filter(function(t){return t.length>0;});
-  // 精确词元匹配
-  for(var i=0;i<tokens.length;i++){
-    if(tokens[i]===q) return true;
-  }
-  // 可选扩展：匹配常见变体
-  if(expand){
-    var variants=AUTHOR_VARIANTS[q];
-    if(variants){
-      for(var j=0;j<tokens.length;j++){
-        if(variants.indexOf(tokens[j])>=0) return true;
-      }
-    }
-  }
-  return false;
+function authorTokens(value){
+  return String(value||"").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase().split(/[\s.,\-‐‑–—]+/).filter(Boolean);
 }
+function authorTokenMatch(fullName, query, expand){
+  var tokens=authorTokens(fullName), q=authorTokens(query);
+  if(!q.length) return false;
+  for(var i=0;i<=tokens.length-q.length;i++){
+    if(q.every(function(word,j){return tokens[i+j]===word;})) return true;
+  }
+  // A middle initial may be omitted, but first/last name order stays significant.
+  if(q.length>1 && q.every(function(word){return word.length>1;})){
+    var names=tokens.filter(function(word){return word.length>1;});
+    if(q.length===names.length && q.every(function(word,j){return names[j]===word;})) return true;
+  }
+  return !!(expand && q.length===1 && AUTHOR_VARIANTS[q[0]] && tokens.some(function(t){return AUTHOR_VARIANTS[q[0]].indexOf(t)>=0;}));
+}
+function paperAffiliations(p){
+  var names=(Array.isArray(p.affiliations)?p.affiliations:typeof p.affiliations==="string"?[p.affiliations]:[]).map(function(a){return typeof a==="string"?a:(a.display_name||a.name||"");});
+  (p._authorships||[]).forEach(function(a){(a.institutions||[]).forEach(function(i){if(i.display_name) names.push(i.display_name);});});
+  return names;
+}
+
 function filtered(){
   var q = state.q.trim();
   var adv = parseQ(q);
@@ -2224,8 +2251,9 @@ function filtered(){
     if(state.ev && state.ev!=="all" && (EV_LEVEL[p.design]||"")!==state.ev) return false;
     if(state.mytag && state.mytag!=="all" && paperMyTags(p.id).indexOf(state.mytag)<0) return false;
     if(state.folder && state.folder!=="all" && paperFolders(p.id).indexOf(decodeURIComponent(state.folder.slice(7)))<0) return false;
-    if(p.year < state.ymin || p.year > state.ymax) return false;
-    if(state.journal!=="all" && p.journal!==state.journal) return false;
+    if(p.year>0 && (p.year < state.ymin || p.year > state.ymax)) return false;
+    if(!p.year && (state.ymin!==DATA_YEAR_MIN || state.ymax!==DATA_YEAR_MAX || adv.year)) return false;
+    if(state.journal!=="all" && (window._aiMode ? (p.journal||"").toLowerCase().indexOf(state.journal.toLowerCase())<0 : p.journal!==state.journal)) return false;
     if(p.cited < state.minCited) return false;
     if(state.oa && !p.oa) return false;
     if(state.population!=="all" && (p.population||"unknown")!==state.population) return false;
@@ -2244,14 +2272,7 @@ function filtered(){
     // 单位筛选：匹配作者单位字段
     if(state.affiliation && state.affiliation.trim()){
       var fq=state.affiliation.trim().toLowerCase();
-      // 从 _authorships 获取单位信息
-      var affils=[];
-      (p._authorships||[]).forEach(function(a){
-        (a.institutions||[]).forEach(function(inst){
-          if(inst.display_name) affils.push(inst.display_name);
-        });
-      });
-      var affilStr=affils.join(" ").toLowerCase();
+      var affilStr=paperAffiliations(p).join(" ").toLowerCase();
       if(affilStr.indexOf(fq)<0) return false;
     }
     if(activeTags.length){
@@ -2547,7 +2568,7 @@ function barH(cv, labels, values, color){
 }
 function drawCharts(){
   var yrs=[],vals=[];
-  for(var y=1970;y<=2026;y++){ yrs.push(String(y)); vals.push(yearCounts[y]||0); }
+  for(var y=DATA_YEAR_MIN;y<=DATA_YEAR_MAX;y++){ yrs.push(String(y)); vals.push(yearCounts[y]||0); }
   barV($("c_year"),yrs,vals);
   var els=Object.keys(envCounts).sort(function(a,b){return envCounts[b]-envCounts[a];});
   barH($("c_env"),els,els.map(function(e){return envCounts[e];}),"#1a6fd4");
@@ -2700,7 +2721,7 @@ function buildFacet(){
   html+='<h4>作者</h4><div style="padding:4px 8px"><input type="text" id="f_author" placeholder="搜索作者姓名…" style="width:100%;padding:6px;font-size:13px" value="'+esc(state.author||"")+'">'+
   '<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#666;margin-top:4px;cursor:pointer"><input type="checkbox" id="f_author_expand"'+(state.authorExpand?" checked":"")+'> 含姓名变体（如 Benjamin）</label></div>';
   /* 单位筛选 */
-  html+='<h4>单位</h4><div style="padding:4px 8px"><input type="text" id="f_affil" placeholder="搜索作者单位…" style="width:100%;padding:6px;font-size:13px" value="'+esc(state.affiliation||"")+'"></div>';
+  html+='<h4>单位</h4><div style="padding:4px 8px"><input type="text" id="f_affil" placeholder="搜索已提供的作者单位…" style="width:100%;padding:6px;font-size:13px" value="'+esc(state.affiliation||"")+'"></div>';
   box.innerHTML=html;
   box.querySelectorAll(".l4-frow").forEach(function(row){
     row.onclick=function(){
@@ -2722,6 +2743,9 @@ function buildFacet(){
   });
   /* 作者/单位输入框绑定（防抖） */
   var fa=$("f_author"), ff=$("f_affil"), ft=null, fe=$("f_author_expand");
+  if(ff && !PAPERS.some(function(p){return paperAffiliations(p).length;})){
+    ff.disabled=true;ff.placeholder="当前分片未提供单位，待数据重建后启用";
+  }
   if(fa) fa.addEventListener("input", function(){
     clearTimeout(ft);
     ft=setTimeout(function(){ state.author=fa.value; state.page=1; render(); }, 300);
@@ -2751,6 +2775,14 @@ function renderPills(){
     var pl={"human":"人类研究","animal":"动物实验","both":"人+动物","unknown":"未分类"}[state.population]||state.population;
     pills.push({t:pl,k:"population",cls:""});
   }
+  if(state.author) pills.push({t:"作者："+state.author,k:"author",cls:""});
+  if(state.affiliation) pills.push({t:"单位："+state.affiliation,k:"affiliation",cls:""});
+  if(state.ymin!==DATA_YEAR_MIN || state.ymax!==DATA_YEAR_MAX) pills.push({t:"年份："+state.ymin+"–"+state.ymax,k:"years",cls:""});
+  if(state.journal!=="all") pills.push({t:"期刊："+state.journal,k:"journal",cls:""});
+  ["design","ev","mytag"].forEach(function(k){if(state[k]!=="all") pills.push({t:state[k],k:k,cls:""});});
+  if(state.minCited) pills.push({t:"被引≥"+state.minCited,k:"minCited",cls:""});
+  if(state.oa) pills.push({t:"开放获取",k:"oa",cls:""});
+  if(window._aiMode && window._aiConcepts) window._aiConcepts.forEach(function(group,i){pills.push({t:"必须包含："+group.join(" / "),k:"concept:"+i,cls:""});});
   if(state.q.trim()) pills.push({t:"“"+state.q.trim().slice(0,18)+"”",k:"q",cls:""});
   box.innerHTML=pills.map(function(p){
     return '<span class="l4-pill '+p.cls+'">'+esc(p.t)+'<span class="x" data-k="'+esc(p.k)+'">×</span></span>';
@@ -2764,6 +2796,13 @@ function renderPills(){
       else if(k==="type"){ state.type="all"; try{$("f_type").value="all";}catch(e){} }
       else if(k==="population"){ state.population="all"; }
       else if(k==="folder"){state.folder="all";buildFolderFilter();}
+      else if(k.indexOf("concept:")===0){window._aiConcepts.splice(+k.slice(8),1);}
+      else if(k==="author"){state.author="";window._aiAuthor=null;}
+      else if(k==="affiliation"){state.affiliation="";}
+      else if(k==="years"){state.ymin=DATA_YEAR_MIN;state.ymax=DATA_YEAR_MAX;$("f_ymin").value=state.ymin;$("f_ymax").value=state.ymax;}
+      else if(["journal","design","ev","mytag"].indexOf(k)>=0){state[k]="all";$("f_"+k).value="all";}
+      else if(k==="minCited"){state.minCited=0;$("f_cited").value=0;}
+      else if(k==="oa"){state.oa=false;$("f_oa").checked=false;}
       else if(k==="q"){ state.q=""; try{$("q").value="";}catch(e){} }
       paintEnvbar(); buildFacet();
       if($("specLabels")._paint) $("specLabels")._paint();
@@ -2843,8 +2882,8 @@ function readControls(){
   state.ev=$("f_ev").value;
   state.mytag=$("f_mytag").value;
   state.folder=$("f_folder").value;
-  state.ymin=+$("f_ymin").value||1970;
-  state.ymax=+$("f_ymax").value||2026;
+  state.ymin=+$("f_ymin").value||DATA_YEAR_MIN;
+  state.ymax=+$("f_ymax").value||DATA_YEAR_MAX;
   state.journal=$("f_journal").value;
   state.minCited=+$("f_cited").value||0;
   state.oa=$("f_oa").checked;
@@ -2859,7 +2898,7 @@ function bind(){
   var qT=null;
   $("q").addEventListener("input",function(){
     clearTimeout(qT);
-    qT=setTimeout(function(){readControls();render();},220);
+    qT=setTimeout(function(){window._aiMode=false; window._aiAuthor=null;readControls();render();},220);
   });
   /* "/" 快捷键聚焦搜索框 */
   document.addEventListener("keydown",function(e){
@@ -2870,14 +2909,14 @@ function bind(){
   $("sort").onchange=function(){state.sort=this.value;state.page=1;render();};
   $("btnReset").onclick=function(){
     window._aiMode=false; window._aiAuthor=null;
-    $("q").value="";$("f_type").value="all";$("f_ymin").value=1970;
-    $("f_ymax").value=2026;$("f_journal").value="all";$("f_cited").value=0;
+    $("q").value="";$("f_type").value="all";$("f_ymin").value=DATA_YEAR_MIN;
+    $("f_ymax").value=DATA_YEAR_MAX;$("f_journal").value="all";$("f_cited").value=0;
     $("f_oa").checked=false;$("sort").value="year_desc";
     $("f_design").value="all";$("f_ev").value="all";$("f_mytag").value="all";$("f_folder").value="all";
     state.tags={}; state.population="all"; state.author=""; state.affiliation=""; state.authorExpand=false;
     window._aiAuthorExpand=false;
     try{$("aiQ").value="";}catch(e){}
-    Object.keys(state.env).forEach(function(e){state.env[e]=true;});
+    state.env={};Object.keys(envCounts).forEach(function(e){state.env[e]=true;});
     paintEnvbar(); buildTagbar(); buildFacet();
     if($("specLabels")._paint) $("specLabels")._paint();
     document.querySelectorAll("#tagbar .chip").forEach(function(c){c.classList.remove("on");});
@@ -2992,7 +3031,7 @@ async function aiSearch(){
       "返回 JSON 格式示例：\n"+
       "{\"env\":[\"低温\"],\"author\":\"Ben\",\"year_min\":2020,\"year_max\":2026,\"journal\":\"\",\"concepts\":[[\"恢复\",\"recovery\"]]}\n"+
       "只返回 JSON，不要其他文字。不要添加用户没要求的限制。";
-    var resp=await fetch(endpoint.replace(/\/$/,"")+"/chat/completions",{
+    var resp=await supaFetch(endpoint.replace(/\/$/,"")+"/chat/completions",{
       method:"POST",
       headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},
       body:JSON.stringify({
@@ -3007,16 +3046,27 @@ async function aiSearch(){
     var m=txt.match(/\{[\s\S]*\}/);
     if(!m) throw new Error("AI 返回格式错误");
     var f=JSON.parse(m[0]);
+    if(!f || typeof f!=="object" || Array.isArray(f)) throw new Error("AI 返回条件格式错误");
+    if(f.env!==undefined && (!Array.isArray(f.env) || f.env.some(function(e){return typeof e!=="string" || !Object.prototype.hasOwnProperty.call(envCounts,e);}))) throw new Error("AI 返回了库中不存在的环境，请修改查询");
+    ["author","journal"].forEach(function(k){if(f[k]!==undefined && typeof f[k]!=="string") throw new Error("AI 返回字段格式错误："+k);});
+    ["year_min","year_max"].forEach(function(k){if(f[k]!=null && (!Number.isInteger(Number(f[k])) || Number(f[k])<=0)) throw new Error("AI 返回年份格式错误");});
+    if((Number(f.year_min)||DATA_YEAR_MIN)>(Number(f.year_max)||DATA_YEAR_MAX)) throw new Error("年份范围无效");
+    if(f.concepts!==undefined && (!Array.isArray(f.concepts) || f.concepts.some(function(group){return !Array.isArray(group) || group.some(function(t){return typeof t!=="string" || !t.trim();});}))) throw new Error("AI 返回概念格式错误");
     // 应用环境和年份（不强制人群/类型）
     state.env={}; (f.env||[]).forEach(function(e){state.env[e]=true;});
     // 未指定环境时，启用全部环境
     if(!(f.env||[]).length){
       Object.keys(envCounts).forEach(function(e){state.env[e]=true;});
     }
-    state.ymin=f.year_min||1970; state.ymax=f.year_max||2026;
+    state.ymin=Number(f.year_min)||DATA_YEAR_MIN; state.ymax=Number(f.year_max)||DATA_YEAR_MAX;
+    if(state.ymin>state.ymax) throw new Error("年份范围无效");
     // 清空其他限制，不擅自添加（切换查询时清除上一轮条件）
     state.population="all"; state.type="all"; state.tags={}; state.q="";
-    state.author=""; state.journal="all";
+    state.author=""; state.journal="all"; state.authorExpand=false;
+    state.design="all"; state.ev="all"; state.mytag="all"; state.folder="all";
+    state.affiliation=""; state.minCited=0; state.oa=false; state.showDeleted=false; favOnly=false;
+    ["f_design","f_ev","f_mytag","f_folder","f_journal"].forEach(function(id){if($(id)) $(id).value="all";});
+    $("f_type").value="all"; $("f_cited").value=0; $("f_oa").checked=false;
     try{$("q").value="";}catch(e){}
     // 作者字段：词元精确匹配（不区分大小写），默认不扩展变体
     if(f.author){
@@ -3033,7 +3083,10 @@ async function aiSearch(){
       try{$("f_journal").value=f.journal;}catch(e){}
     }
     // 语义匹配：概念组 OR 组内，AND 组间，按相关度排序
-    var concepts=f.concepts||[];
+    var concepts=Array.isArray(f.concepts)?f.concepts.map(function(group){
+      if(!Array.isArray(group)) throw new Error("概念组格式错误");
+      return group.filter(function(term){return typeof term==="string" && term.trim();}).map(function(term){return term.trim();});
+    }).filter(function(group){return group.length;}):[];
     window._aiConcepts=concepts;
     window._aiMode=true;
     buildTagbar(); paintEnvbar(); buildFacet();
@@ -3079,7 +3132,7 @@ function aiMatch(p, concepts){
     }
   });
   // 必须匹配至少一组概念（避免零相关）
-  if(matchedGroups===0) return {score:0, reasons:[]};
+  if(matchedGroups!==concepts.length) return {score:0, reasons:[]};
   // 加分：匹配组数多
   score+=matchedGroups*2;
   return {score:score, reasons:reasons};
@@ -3098,13 +3151,13 @@ function csvCell(v){
   return '"'+v+'"';
 }
 function exportCsv(){
-  var list=filtered();
-  var rows=[["标题","作者","期刊","年份","被引","类型","DOI","开放获取","主题标签","摘要"]
+  var list=activeList();
+  var rows=[["标题","作者","期刊","年份","被引","类型","DOI","开放获取","主题标签","摘要","文献ID","环境"]
     .map(csvCell).join(",")];
   list.forEach(function(p){
     rows.push([p.title,(p.authors||[]).join("; "),p.journal,p.year,p.cited,
       p.type,p.doi||"",p.oa?"是":"否",(p.tags||[]).join("|"),
-      (p.abstract||"").replace(/\r?\n/g," ")]
+      (p.abstract||""),p.id,(p.env||[]).join("|")]
       .map(csvCell).join(","));
   });
   download("cold-sport-lit.csv",rows.join("\n"),"text/csv;charset=utf-8");
@@ -3116,7 +3169,7 @@ function bibKey(p){
   return (a+p.year+w).toLowerCase();
 }
 function exportBib(){
-  var list=filtered();
+  var list=activeList();
   var out=list.map(function(p){
     return "@article{"+bibKey(p)+",\n"+
       "  author = {"+(p.authors||[]).join(" and ")+"},\n"+
@@ -4007,7 +4060,7 @@ function applySnapshot(s){
   $("f_design").value=s.design||"all"; $("f_ev").value=s.ev||"all";
   $("f_mytag").value=s.mytag||"all";
   $("f_folder").value=s.folder||"all";if(!$("f_folder").value)$("f_folder").value="all";
-  $("f_ymin").value=s.ymin||1970; $("f_ymax").value=s.ymax||2026;
+  $("f_ymin").value=s.ymin||DATA_YEAR_MIN; $("f_ymax").value=s.ymax||DATA_YEAR_MAX;
   $("f_journal").value=s.journal||"all"; $("f_cited").value=s.cited||0;
   $("f_oa").checked=!!s.oa;
   Object.keys(state.env).forEach(function(e){ state.env[e]=(s.env||[]).indexOf(e)>=0; });
@@ -4500,7 +4553,7 @@ function drawBubble(){
   var padL=44,padB=28,padT=14;
   var minC=Math.log10(papers[papers.length-1].cited+1),
       maxC=Math.log10(papers[0].cited+1);
-  function X(y){ return padL+(W-padL-14)*(y-1970)/56; }
+  function X(y){ return padL+(W-padL-14)*(y-DATA_YEAR_MIN)/Math.max(1,DATA_YEAR_MAX-DATA_YEAR_MIN); }
   function Y(c){ return H-padB-(H-padB-padT)*(Math.log10(c+1)-minC)/((maxC-minC)||1); }
   ctx.fillStyle="#687182";ctx.font="10px sans-serif";ctx.textAlign="right";
   [1,10,100,1000,10000].forEach(function(t){
@@ -4511,7 +4564,7 @@ function drawBubble(){
     ctx.strokeStyle="#eef1f5";ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(W-8,y);ctx.stroke();
   });
   ctx.textAlign="center";
-  for(var y=1970;y<=2026;y+=5) ctx.fillText(String(y),X(y),H-10);
+  for(var y=DATA_YEAR_MIN;y<=DATA_YEAR_MAX;y+=Math.max(1,Math.ceil((DATA_YEAR_MAX-DATA_YEAR_MIN)/12))) ctx.fillText(String(y),X(y),H-10);
   papers.forEach(function(p){
     var x=X(p.year)+(hashStr(p.id)%15)-7,y=Y(p.cited),
         r=Math.min(20,3+Math.sqrt(p.cited)/12);
