@@ -1828,7 +1828,13 @@ function openAdmin(){
 
 /* 启动时阻塞调用（在 app.js 顶部 await） */
 await supaEnsureAuth();
-await supaLoadData();
+try{
+  await supaLoadData();
+}catch(e){
+  console.error("数据加载失败:", e);
+  window._dataLoadError=(e&&e.message)||"数据加载失败";
+  window.PAPERS=[];
+}
 
 var PAPERS = window.PAPERS || [];
 var PAGE_SIZE = 20;
@@ -2211,6 +2217,12 @@ function scholarUrl(title){
 }
 var expandedAbs = {};
 function render(){
+  var box=$("results");
+  // 数据加载失败时显示错误
+  if(window._dataLoadError){
+    if(box) box.innerHTML='<div class="empty" style="color:#c00">⚠️ '+esc(window._dataLoadError)+'<br><br>请检查网络连接后 <a href="javascript:location.reload()">刷新页面</a> 重试。<br>如果问题持续，可能是数据量过大（148MB），请联系站长。</div>';
+    return;
+  }
   var list = filtered();
   var pages = Math.max(1, Math.ceil(list.length/PAGE_SIZE));
   if(state.page>pages) state.page=pages;
