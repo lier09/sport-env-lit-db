@@ -913,6 +913,7 @@ canvas.net{cursor:grab}
         <button data-layout="classic" class="on">经典</button><button data-layout="app">工作台</button><button data-layout="study">学习</button>
       </div>
       <button class="iconbtn themeToggle" title="切换深色 / 浅色">🌙</button>
+      <button class="hbtn" id="btnLoginTop" title="登录 / 账号">👤</button>
     </div>
   </nav>
 
@@ -5376,6 +5377,29 @@ function initTheme(){
       paint();
     };
   });
+  /* 右上角登录按钮 */
+  var loginBtn=$("btnLoginTop");
+  if(loginBtn){
+    loginBtn.onclick=function(){
+      if(typeof supaShowAuth==="function"){
+        supaShowAuth("", "login").then(function(){
+          // 登录成功后刷新
+          location.reload();
+        });
+      }
+    };
+    // 已登录时显示邮箱首字母
+    try{
+      var sess=localStorage.getItem("supaSession");
+      if(sess){
+        var s=JSON.parse(sess);
+        if(s&&s.user&&s.user.email){
+          loginBtn.textContent="👤 "+s.user.email.charAt(0).toUpperCase();
+          loginBtn.title="已登录: "+s.user.email+" (点击重新登录)";
+        }
+      }
+    }catch(e){}
+  }
 }
 function countUp(el,target,dur){
   if(!el) return;
