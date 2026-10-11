@@ -16,7 +16,7 @@ const helper = segment('/* Network timeouts', '\n(async function(){\n"use strict
 const api = segment('var SUPA_URL', '/* ---------- 登录 / 注册 UI');
 const auth = segment('async function supaEnsureAuth(){', '/* 从私有存储桶');
 const load = segment('async function supaLoadData(){', '/* 退出登录');
-const normalize = segment('function normalizePaper(p){', 'var PAPERS =');
+const normalize = 'var jcrMatcher=function(){return {quartiles:[]};};\n'+segment('function normalizePaper(p){', 'var PAPERS =');
 function context(fetch, initialSession = {access_token:'fixture-token', refresh_token:'fixture-refresh', user:{id:'fixture-user'}}, manifestReply=null) {
   const elements = new Map();
   function element() {

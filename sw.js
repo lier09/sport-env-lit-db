@@ -1,6 +1,6 @@
 /* 文献库 PWA Service Worker — 缓存外壳，数据与鉴权永远走网络 */
-var CACHE = 'litdb-shell-66';
-var SHELL = ['./', './index.html', './manifest.json', './library-storage.js', './library-cache.js'];
+var CACHE = 'litdb-shell-67';
+var SHELL = ['./', './index.html', './manifest.json', './jcr-data.js', './library-jcr.js', './library-storage.js', './library-cache.js'];
 
 self.addEventListener('install', function(e){
   e.waitUntil(

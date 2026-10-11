@@ -7,10 +7,10 @@ const {JSDOM, VirtualConsole} = jsdom;
 const root = path.join(__dirname, '..');
 const baseline=process.argv.includes('--baseline');
 const sourceHtml = baseline ? require('node:child_process').execFileSync('git',['show','HEAD:index.html'],{cwd:root,encoding:'utf8',maxBuffer:8*1024*1024}) : fs.readFileSync(path.join(root,'index.html'),'utf8');
-const html=sourceHtml.replace('<script src="./library-storage.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-storage.js'),'utf8')+'</script>').replace('<script src="./library-cache.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-cache.js'),'utf8')+'</script>');
+const html=sourceHtml.replace('<script src="./jcr-data.js"></script>','<script>'+fs.readFileSync(path.join(root,'jcr-data.js'),'utf8')+'</script>').replace('<script src="./library-jcr.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-jcr.js'),'utf8')+'</script>').replace('<script src="./library-storage.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-storage.js'),'utf8')+'</script>').replace('<script src="./library-cache.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-cache.js'),'utf8')+'</script>');
 const storageKey = html.match(/var LS_SESS\s*=\s*"([^"]+)"/)[1];
 const warnings=[];
-const records=[{id:'fixture1',title:'Cold-water immersion after exercise',abstract:'Background: Exercise recovery in cold water.\nMethods: '+('Complete method details. '.repeat(20))+'\nConclusion: FINAL_ABSTRACT_SENTINEL.',authors:['Ben Lee'],env:['低温'],tags:['冷水浸泡'],type:'原创研究',year:2026,cited:1,journal:'Fixture Journal',population:'human'},
+const records=[{id:'fixture1',title:'Cold-water immersion after exercise',abstract:'Background: Exercise recovery in cold water.\nMethods: '+('Complete method details. '.repeat(20))+'\nConclusion: FINAL_ABSTRACT_SENTINEL.',authors:['Ben Lee'],env:['低温'],tags:['冷水浸泡'],type:'原创研究',year:2026,cited:1,journal:'Journal of Applied Physiology',population:'human'},
 {id:'fixture2',title:'Exercise heat acclimation',abstract:'Exercise in heat.',authors:'Fixture Author',env:'高温',tags:'热习服',type:'原创研究',year:'2025',cited:0,journal:'Fixture Journal'}];
 if(!baseline) records.push({id:'historical',title:'Early cold exercise research',abstract:'Historical exercise physiology.',authors:['Historic Author'],env:['低温'],tags:[],type:'原创研究',year:1935,cited:0});
 if(baseline) Object.assign(records[1],{authors:['Fixture Author'],env:['高温'],tags:['热习服']});
@@ -66,6 +66,15 @@ setTimeout(()=>{
     assert.ok(!coldCard.querySelector('.abs').textContent.includes('FINAL_ABSTRACT_SENTINEL'),'collapse restores preview');
     coldCard.querySelector('.readlink').click();
     assert.equal(d.querySelector('#r_read .rabs').textContent,fullAbstract,'reader preserves final conclusion and paragraphs');
+    assert.ok(d.querySelector('[data-pid="fixture1"]').textContent.includes('JCR Q'));
+    const filter=d.getElementById('f_jcr');
+    filter.value='unknown';filter.dispatchEvent(new dom.window.Event('change'));
+    assert.equal(d.querySelectorAll('#results .card').length,2,'unknown filter excludes matched journal');
+    filter.value='Q4';filter.dispatchEvent(new dom.window.Event('change'));
+    assert.equal(d.querySelectorAll('#results .card').length,0,'unknown is never Q4');
+    d.getElementById('btnReset').click();assert.equal(filter.value,'all');
+    assert.equal(d.querySelectorAll('#results .card').length,3);
+    console.log('PASS: JCR badges, unknown/Q4 filters and reset use the public journal table.');
     console.log('PASS: full page initializes with synthetic data; search and analytics are mounted; loader is dismissed.');
     if(warnings.length) console.log('Optional fixture diagnostics:',warnings.slice(0,5));
   }catch(e){console.error(e.message); console.error(warnings.slice(0,6));process.exitCode=1;}
