@@ -1,0 +1,29 @@
+name: Promote gpt-index-direct.html to index.html
+on:
+  push:
+    paths:
+      - '.github/workflows/promote-index.yml'
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replace index.html with gpt-index-direct.html
+        run: |
+          git config user.name "lier09"
+          git config user.email "lier09@users.noreply.github.com"
+          if [ -f gpt-index-direct.html ]; then
+            rm -f index.html
+            mv gpt-index-direct.html index.html
+            git add -A
+            if git diff --cached --quiet; then
+              echo "nothing to commit"
+            else
+              git commit -m "v70.3: deploy gpt-index-direct.html as index.html"
+              git push origin HEAD:main
+            fi
+          else
+            echo "gpt-index-direct.html not found; nothing to do"
+          fi
