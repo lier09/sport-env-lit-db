@@ -5467,62 +5467,105 @@ function countUp(el,target,dur){
 
 /* ---------- 启动 ---------- */
 function init(){
-  var years=PAPERS.map(function(p){return p.year;}).filter(Boolean);
-  var cited=PAPERS.reduce(function(s,p){return s+(p.cited||0);},0);
-  var nEnv=Object.keys(envCounts).length;
-  $("dbmeta").textContent="已收录 "+PAPERS.length+" 篇文献 · "+nEnv+" 大环境 · "+
-    (years.length?Math.min.apply(null,years):"—")+"–"+
-    (years.length?Math.max.apply(null,years):"—")+" · 累计被引 "+cited.toLocaleString();
-  countUp($("statPapers"),PAPERS.length);
-  countUp($("statEnvs"),nEnv);
-  countUp($("statCited"),cited);
-  countUp($("statYears"),years.length?Math.max.apply(null,years)-Math.min.apply(null,years)+1:0);
-  var ddays=Object.keys(window.DAILY_NEW||{}).sort();
-  countUp($("statDaily"),ddays.length?((window.DAILY_NEW[ddays[ddays.length-1]]||[]).length):0);
-  initTheme();
-  buildEnvbar(); buildTagbar(); buildJournals(); bind(); bindDensity(); render();
+  // 错误隔离：每个模块独立try-catch，一个失败不影响其他
+  function safe(name, fn){
+    try{ fn(); }
+    catch(e){
+      console.error("[init] "+name+" 失败:", e);
+      var dbg=document.getElementById("dbg-load");
+      if(dbg) dbg.textContent="⚠️ "+name+" 初始化失败: "+(e.message||e)+"（其他功能继续）";
+    }
+  }
+  safe("数据概览", function(){
+    var years=PAPERS.map(function(p){return p.year;}).filter(Boolean);
+    var cited=PAPERS.reduce(function(s,p){return s+(p.cited||0);},0);
+    var nEnv=Object.keys(envCounts).length;
+    $("dbmeta").textContent="已收录 "+PAPERS.length+" 篇文献 · "+nEnv+" 大环境 · "+
+      (years.length?Math.min.apply(null,years):"—")+"–"+
+      (years.length?Math.max.apply(null,years):"—")+" · 累计被引 "+cited.toLocaleString();
+    countUp($("statPapers"),PAPERS.length);
+    countUp($("statEnvs"),nEnv);
+    countUp($("statCited"),cited);
+    countUp($("statYears"),years.length?Math.max.apply(null,years)-Math.min.apply(null,years)+1:0);
+    var ddays=Object.keys(window.DAILY_NEW||{}).sort();
+    countUp($("statDaily"),ddays.length?((window.DAILY_NEW[ddays[ddays.length-1]]||[]).length):0);
+  });
+  safe("主题", initTheme);
+  safe("环境条", buildEnvbar);
+  safe("标签条", buildTagbar);
+  safe("期刊", buildJournals);
+  safe("绑定", bind);
+  safe("密度", bindDensity);
+  safe("渲染", render);
   /* Supabase 账号面板 */
-  try{
+  safe("账号面板", function(){
     if (supaSession && supaSession.user){
       $("acctEmail").textContent = supaSession.user.email || "";
       if (supaIsAdmin()) $("btnAdmin").style.display = "";
       $("btnAdmin").onclick = function(){ openAdmin(); };
       $("btnLogout").onclick = function(){ if (confirm("确定退出登录？")) supaLogout(); };
     }
-  }catch(e){}
+  });
   /* v45: L4/L5 */
-  buildSpectrum(); buildFacet(); renderPills(); bindL4();
-  saveFavs(); renderDailyNew(); renderRStat();
+  safe("L4光谱", buildSpectrum);
+  safe("L4分面", buildFacet);
+  safe("L4 pills", renderPills);
+  safe("L4绑定", bindL4);
+  safe("收藏", saveFavs);
+  safe("每日新增", renderDailyNew);
+  safe("R统计", renderRStat);
   /* v27 初始化 */
-  buildAuAffil(); buildMyTagFilter(); renderHist();
-  renderMyStats(); renderGaps(); renderSavedQ(); renderDailyPick(); initRisImport(); initBib(); initDiss();
-  bindFollowZone(); renderFollowZone();
-  var bpn=$("btnPickNew"); if(bpn) bpn.onclick=function(){
-    dailyPickSeed=String(Date.now());
-    renderDailyPick();
-  };
-  var bjg=$("btnJnlGo"); if(bjg) bjg.onclick=suggestJournals;
-  bindReading();
-  bindNotes();
-  addChartExport();
-  var rcm=$("recMore"); if(rcm) rcm.onclick=function(){ recOffset+=10; renderRec(); };
-  bindShell();
-  bindLayoutSwitch();
-  bindClassicNav();
-  applyHash();
-  var savedLayout="classic";
-  try{ savedLayout=localStorage.getItem("litdb-layout")||"classic"; }catch(e){}
-  if(["classic","app","study"].indexOf(savedLayout)<0) savedLayout="classic";
-  applyLayout(savedLayout,false);
-  window.addEventListener("resize",function(){
-    if(!dataDrawn) return;
-    drawCharts(); drawBubble();
-    if(window.ANALYTICS){ renderAnalytics(); renderNetworks(); }
-    ecResizeAll();
+  safe("作者单位", buildAuAffil);
+  safe("我的标签", buildMyTagFilter);
+  safe("历史", renderHist);
+  safe("我的统计", renderMyStats);
+  safe("空白", renderGaps);
+  safe("保存查询", renderSavedQ);
+  safe("每日推荐", renderDailyPick);
+  safe("RIS导入", initRisImport);
+  safe("Bib", initBib);
+  safe("学位论文", initDiss);
+  safe("关注区绑定", bindFollowZone);
+  safe("关注区渲染", renderFollowZone);
+  safe("换一批", function(){
+    var bpn=$("btnPickNew"); if(bpn) bpn.onclick=function(){
+      dailyPickSeed=String(Date.now());
+      renderDailyPick();
+    };
+  });
+  safe("期刊推荐", function(){
+    var bjg=$("btnJnlGo"); if(bjg) bjg.onclick=suggestJournals;
+  });
+  safe("阅读", bindReading);
+  safe("笔记", bindNotes);
+  safe("图表导出", addChartExport);
+  safe("推荐更多", function(){
+    var rcm=$("recMore"); if(rcm) rcm.onclick=function(){ recOffset+=10; renderRec(); };
+  });
+  safe("外壳", bindShell);
+  safe("布局切换", bindLayoutSwitch);
+  safe("经典导航", bindClassicNav);
+  safe("Hash", applyHash);
+  safe("应用布局", function(){
+    var savedLayout="classic";
+    try{ savedLayout=localStorage.getItem("litdb-layout")||"classic"; }catch(e){}
+    if(["classic","app","study"].indexOf(savedLayout)<0) savedLayout="classic";
+    applyLayout(savedLayout,false);
+  });
+  safe("resize", function(){
+    window.addEventListener("resize",function(){
+      if(!dataDrawn) return;
+      drawCharts(); drawBubble();
+      if(window.ANALYTICS){ renderAnalytics(); renderNetworks(); }
+      ecResizeAll();
+    });
   });
   /* 首屏遮罩：初始化完成后淡出 */
   var bo=$("boot");
   if(bo){ bo.classList.add("done"); setTimeout(function(){ bo.style.display="none"; },350); }
+  // 清掉调试条
+  var dbg=document.getElementById("dbg-load");
+  if(dbg) setTimeout(function(){ dbg.remove(); }, 2000);
 }
 /* ---------- 三布局：经典 / 工作台 / 纯净学习 ---------- */
 var curLayout="classic";
