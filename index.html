@@ -1666,23 +1666,52 @@ function supaShowAuth(notice, mode){
 
 /* 确保已登录且有档案；阻塞式 */
 async function supaEnsureAuth(){
+  // 显示状态
+  var dbg = document.getElementById("dbg-load");
+  if(!dbg){
+    dbg = document.createElement("div");
+    dbg.id = "dbg-load";
+    dbg.style.cssText = "position:fixed;top:0;left:0;right:0;background:#ffeb3b;color:#000;padding:8px;z-index:99999;font-size:14px;text-align:center;";
+    document.body.appendChild(dbg);
+  }
+  function setDbg(t){ var d=document.getElementById("dbg-load"); if(d) d.textContent=t; }
+  setDbg("正在验证登录状态…");
+  // 带超时的 fetch
+  async function fetchTimeout(url, opts, ms){
+    ms = ms || 15000;
+    return Promise.race([
+      fetch(url, opts),
+      new Promise(function(_, rej){ setTimeout(function(){ rej(new Error("请求超时")); }, ms); })
+    ]);
+  }
   supaSession = supaLoadSess();
   if (supaSession){
     try{
-      var me = await supaApi("/auth/v1/user");
+      setDbg("正在验证登录状态… (1/2)");
+      var me = await (async function(){
+        var headers = {"apikey": SUPA_ANON, "Content-Type": "application/json"};
+        if (supaSession && supaSession.access_token) headers["Authorization"] = "Bearer " + supaSession.access_token;
+        var r = await fetchTimeout(SUPA_URL + "/auth/v1/user", {headers: headers}, 15000);
+        var d = null; try{ d = await r.json(); }catch(e){}
+        return {status: r.status, data: d};
+      })();
       if (me.status === 200 && me.data && me.data.id){
+        setDbg("正在验证登录状态… (2/2)");
         supaSession.user = me.data;
         var pf = await supaFetchProfile();
         if (pf && pf.banned){ supaClear(); await supaShowAuth("该账号已被禁用，请联系站长。", "login"); return; }
-        if (pf) return;
+        if (pf){ setDbg("登录验证通过，正在加载数据…"); return; }
         /* session 有效但无档案 → 激活流程 */
         await supaShowAuth("", "login");
         /* supaShowAuth 内部 finishLogin 会处理激活；出来后复查 */
         if (supaProfile) return;
       }
-    }catch(e){}
+    }catch(e){
+      setDbg("验证失败: " + (e.message||e) + "，请重新登录");
+    }
     supaClear();
   }
+  setDbg("请登录");
   await supaShowAuth("", "login");
 }
 
