@@ -9,7 +9,7 @@ const baseline=process.argv.includes('--baseline');
 const html = baseline ? require('node:child_process').execFileSync('git',['show','HEAD:index.html'],{cwd:root,encoding:'utf8',maxBuffer:8*1024*1024}) : fs.readFileSync(path.join(root,'index.html'),'utf8');
 const storageKey = html.match(/var LS_SESS\s*=\s*"([^"]+)"/)[1];
 const warnings=[];
-const records=[{id:'fixture1',title:'Cold-water immersion after exercise',abstract:'Exercise recovery in cold water.',authors:['Ben Lee'],env:['低温'],tags:['冷水浸泡'],type:'原创研究',year:2026,cited:1,journal:'Fixture Journal',population:'human'},
+const records=[{id:'fixture1',title:'Cold-water immersion after exercise',abstract:'Background: Exercise recovery in cold water.\nMethods: '+('Complete method details. '.repeat(20))+'\nConclusion: FINAL_ABSTRACT_SENTINEL.',authors:['Ben Lee'],env:['低温'],tags:['冷水浸泡'],type:'原创研究',year:2026,cited:1,journal:'Fixture Journal',population:'human'},
 {id:'fixture2',title:'Exercise heat acclimation',abstract:'Exercise in heat.',authors:'Fixture Author',env:'高温',tags:'热习服',type:'原创研究',year:'2025',cited:0,journal:'Fixture Journal'}];
 if(baseline) Object.assign(records[1],{authors:['Fixture Author'],env:['高温'],tags:['热习服']});
 function response(data,status=200){return new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json'}});}
@@ -51,6 +51,16 @@ setTimeout(()=>{
     assert.ok(!d.getElementById('a_authors').textContent.includes('画像数据加载中'));
     assert.equal(d.getElementById('boot').style.display,'none');
     assert.equal(warnings.filter(x=>/文献库初始化失败/.test(x)).length,0,warnings.join('\n'));
+    const fullAbstract=records[0].abstract;
+    const coldCard=d.querySelector('[data-pid="fixture1"]');
+    assert.ok(!coldCard.querySelector('.abs').textContent.includes('FINAL_ABSTRACT_SENTINEL'),'card initially shows a preview');
+    coldCard.querySelector('.more').click();
+    assert.equal(coldCard.querySelector('.more').tagName,'BUTTON','expanded toggle remains keyboard accessible');
+    assert.ok(coldCard.querySelector('.abs').textContent.startsWith(fullAbstract),'expand keeps full source abstract');
+    coldCard.querySelector('.more').click();
+    assert.ok(!coldCard.querySelector('.abs').textContent.includes('FINAL_ABSTRACT_SENTINEL'),'collapse restores preview');
+    coldCard.querySelector('.readlink').click();
+    assert.equal(d.querySelector('#r_read .rabs').textContent,fullAbstract,'reader preserves final conclusion and paragraphs');
     console.log('PASS: full page initializes with synthetic data; search and analytics are mounted; loader is dismissed.');
     if(warnings.length) console.log('Optional fixture diagnostics:',warnings.slice(0,5));
   }catch(e){console.error(e.message); console.error(warnings.slice(0,6));process.exitCode=1;}

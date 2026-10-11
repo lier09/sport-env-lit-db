@@ -382,7 +382,7 @@ select:focus,input[type=number]:focus{outline:none;border-color:var(--accent)}
 .ptag{display:inline-block;font-size:11px;background:var(--tag);color:var(--muted);
   border-radius:6px;padding:2px 9px;margin:0 5px 4px 0}
 .abs{font-size:13px;color:var(--ink);opacity:.85;margin:8px 0 4px}
-.abs .more{color:var(--accent);cursor:pointer;font-size:12.5px;margin-left:6px}
+.abs .more{background:none;border:0;padding:0;font-family:inherit;color:var(--accent);cursor:pointer;font-size:12.5px;margin-left:6px}
 .links{margin-top:8px;font-size:12.5px}
 .links a{color:var(--accent);text-decoration:none;margin-right:14px;cursor:pointer}
 .links a:hover{text-decoration:underline}
@@ -476,7 +476,7 @@ canvas.net{cursor:grab}
 .rread{border:1px solid var(--line);border-radius:var(--r-md);padding:18px;min-height:400px;background:var(--card)}
 .rread h3{font-size:17px;line-height:1.55;margin:0 0 8px}
 .rread .rmeta{font-size:12.5px;color:var(--muted);margin-bottom:8px;line-height:1.7}
-.rread .rabs{font-size:13.5px;line-height:1.85;background:var(--accent-soft);
+.rread .rabs{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13.5px;line-height:1.85;background:var(--accent-soft);
   border-radius:var(--r-sm);padding:14px;margin:10px 0;max-height:260px;overflow:auto}
 .rread .links{margin:8px 0}
 .rnote{width:100%;min-height:150px;border:1px solid var(--line);border-radius:var(--r-sm);
@@ -809,7 +809,7 @@ canvas.net{cursor:grab}
   padding:8px 0;border-bottom:1px solid var(--line)}
 .l4-dpanel .krow span:first-child{color:var(--muted);flex:none}
 .l4-dpanel .krow b{text-align:right}
-.l4-dpanel .dabs{font-size:13.5px;line-height:1.9;margin:12px 0;color:var(--ink);opacity:.92}
+.l4-dpanel .dabs{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13.5px;line-height:1.9;margin:12px 0;color:var(--ink);opacity:.92}
 .l4-dact{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
 .l4-dact .btn{flex:1;white-space:nowrap}
 @media(max-width:1100px){
@@ -2329,14 +2329,14 @@ function render(){
       var authors=(p.authors||[]).slice(0,4).map(function(a){
           return '<span class="aulink" data-a="'+esc(a)+'">'+esc(a)+'</span>';}).join(", ") +
         ((p.authors||[]).length>4 ? " 等" : "");
-      var absId="abs"+idx, isOpen=!!expandedAbs[idx];
-      var absHtml="";
+      var absId="abs"+idx, isOpen=!!expandedAbs[p.id];
+      var absHtml='<div class="abs" style="color:var(--muted)">暂无摘要</div>';
       if(p.abstract){
         var sLen=absShortLen();
         var shortA = p.abstract.length>sLen && !isOpen;
         absHtml='<div class="abs">'+esc(shortA?p.abstract.slice(0,sLen):p.abstract)+
-          (p.abstract.length>sLen?'<span class="more" data-i="'+idx+'">'+
-           (isOpen?"收起 ↑":"…展开 ↓")+'</span>':"")+'</div>';
+          (p.abstract.length>sLen?'<button type="button" class="more" data-i="'+idx+'">'+
+           (isOpen?"收起 ↑":"…展开 ↓")+'</button>':"")+'</div>';
       }
       var dUrl = p.doi ? doiUrl(p.doi) : "";
       var isFav = !!favs[p.id];
@@ -2392,16 +2392,16 @@ function render(){
   function bindMore(el){
     el.onclick=function(){
       var k=+el.getAttribute("data-i");
-      expandedAbs[k]=!expandedAbs[k];
       /* 就地展开/收起：不整列表重绘，避免滚动跳动 */
       var p=rCurList[k-((state.page-1)*PAGE_SIZE)];
       if(!p||!p.abstract) return;
-      var isOpen=!!expandedAbs[k];
+      expandedAbs[p.id]=!expandedAbs[p.id];
+      var isOpen=!!expandedAbs[p.id];
       var div=el.parentElement;
       var sLen2=absShortLen();
       div.innerHTML=esc(isOpen?p.abstract:p.abstract.slice(0,sLen2))+
-        (p.abstract.length>sLen2?'<span class="more" data-i="'+k+'">'+
-         (isOpen?"收起 ↑":"…展开 ↓")+'</span>':"");
+        (p.abstract.length>sLen2?'<button type="button" class="more" data-i="'+k+'">'+
+         (isOpen?"收起 ↑":"…展开 ↓")+'</button>':"");
       var nm=div.querySelector(".more");
       if(nm) bindMore(nm);
     };
@@ -4199,21 +4199,30 @@ function parseRisText(text){
   var MAP={TI:"title",T1:"title",AU:"authors",A1:"authors",JO:"journal",JF:"journal",
     JA:"journal",J2:"journal",PY:"year",Y1:"year",Y2:"year",DO:"doi",
     AB:"abstract",N2:"abstract",KW:"keywords",UR:"url",PB:"publisher"};
-  var recs=[],cur=null;
-  String(text||"").split(/\r?\n/).forEach(function(ln){
-    if(ln.length<6||ln.substr(2,3)!=="  -") return;
-    var tag=ln.substr(0,2), val=ln.substr(6).trim();
-    if(tag==="TY"){ if(cur)recs.push(cur); cur={_t:val,authors:[],keywords:[]}; }
-    else if(tag==="ER"){ if(cur)recs.push(cur); cur=null; }
-    else if(cur&&MAP[tag]){
-      var f=MAP[tag];
-      if(f==="authors") cur.authors.push(val);
-      else if(f==="keywords"){ val.split(/[;；]/).forEach(function(k){ k=k.trim(); if(k)cur.keywords.push(k); }); }
-      else if(!cur[f]) cur[f]=val;
+  var recs=[],cur=null,lastField=null;
+  String(text||"").replace(/^\uFEFF/,"").split(/\r?\n/).forEach(function(ln){
+    var match=/^([A-Z0-9]{2})  - ?(.*)$/.exec(ln);
+    if(!match){
+      // RIS exporters may wrap an abstract over untagged continuation lines.
+      if(cur && lastField==="abstract"){
+        var continuation=ln.trim();
+        if(continuation)cur.abstract=(cur.abstract||"")+(cur.abstract?"\n":"")+continuation;
+      }
+      return;
+    }
+    var tag=match[1],val=match[2].trim();lastField=null;
+    if(tag==="TY"){if(cur)recs.push(cur);cur={_t:val,authors:[],keywords:[]};}
+    else if(tag==="ER"){if(cur)recs.push(cur);cur=null;}
+    else if(cur && MAP[tag]){
+      var f=MAP[tag];lastField=f;
+      if(f==="authors")cur.authors.push(val);
+      else if(f==="keywords")val.split(/[;；]/).forEach(function(k){k=k.trim();if(k)cur.keywords.push(k);});
+      else if(f==="abstract"){
+        if(val && (!cur.abstract || cur.abstract!==val))cur.abstract=(cur.abstract?cur.abstract+"\n":"")+val;
+      }else if(!cur[f])cur[f]=val;
     }
   });
-  if(cur) recs.push(cur);
-  return recs;
+  if(cur)recs.push(cur);return recs;
 }
 function risToPaper(r,env,tags){
   var title=(r.title||"").trim(); if(!title) return null;
