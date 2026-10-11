@@ -1688,23 +1688,40 @@ async function supaEnsureAuth(){
 
 /* 从私有存储桶拉取文献数据（分片并行，v60+） */
 async function supaLoadData(){
+  // 页面顶部显示加载状态（调试用）
+  var dbg = document.getElementById("dbg-load");
+  if(!dbg){
+    dbg = document.createElement("div");
+    dbg.id = "dbg-load";
+    dbg.style.cssText = "position:fixed;top:0;left:0;right:0;background:#ffeb3b;color:#000;padding:8px;z-index:99999;font-size:14px;text-align:center;";
+    document.body.appendChild(dbg);
+  }
+  function setDbg(t){ if(dbg) dbg.textContent = t; }
+  setDbg("正在连接 Supabase…");
   var urls = [1,2,3,4].map(function(i){
     return SUPA_URL + "/storage/v1/object/authenticated/litdb-data/papers-" + i + ".json";
   });
-  async function loadOne(u){
+  async function loadOne(u, idx){
+    setDbg("正在下载数据分片 " + idx + "/4 …");
     var r = await fetch(u, {
       headers: {"apikey": SUPA_ANON, "Authorization": "Bearer " + supaSession.access_token}
     });
     if (r.status === 401 && await supaRefresh()){
+      setDbg("Token 刷新，重试分片 " + idx + "/4 …");
       r = await fetch(u, {
         headers: {"apikey": SUPA_ANON, "Authorization": "Bearer " + supaSession.access_token}
       });
     }
-    if (!r.ok) throw new Error("数据加载失败（HTTP " + r.status + "）");
-    return r.json();
+    if (!r.ok) throw new Error("数据加载失败（HTTP " + r.status + "，分片" + idx + "）");
+    setDbg("正在解析分片 " + idx + "/4 …");
+    var j = await r.json();
+    setDbg("分片 " + idx + "/4 完成 (" + j.length + "篇)");
+    return j;
   }
-  var parts = await Promise.all(urls.map(loadOne));
+  var parts = await Promise.all(urls.map(function(u,i){ return loadOne(u, i+1); }));
   window.PAPERS = [].concat.apply([], parts);
+  setDbg("数据加载完成，共 " + window.PAPERS.length + " 篇");
+  setTimeout(function(){ if(dbg) dbg.remove(); }, 3000);
 }
 
 /* 退出登录 */
