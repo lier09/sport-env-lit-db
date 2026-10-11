@@ -6,7 +6,8 @@ try{jsdom=require('jsdom');}catch(e){jsdom=require(path.join(process.env.TEMP, '
 const {JSDOM, VirtualConsole} = jsdom;
 const root = path.join(__dirname, '..');
 const baseline=process.argv.includes('--baseline');
-const html = baseline ? require('node:child_process').execFileSync('git',['show','HEAD:index.html'],{cwd:root,encoding:'utf8',maxBuffer:8*1024*1024}) : fs.readFileSync(path.join(root,'index.html'),'utf8');
+const sourceHtml = baseline ? require('node:child_process').execFileSync('git',['show','HEAD:index.html'],{cwd:root,encoding:'utf8',maxBuffer:8*1024*1024}) : fs.readFileSync(path.join(root,'index.html'),'utf8');
+const html=sourceHtml.replace('<script src="./library-storage.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-storage.js'),'utf8')+'</script>').replace('<script src="./library-cache.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-cache.js'),'utf8')+'</script>');
 const storageKey = html.match(/var LS_SESS\s*=\s*"([^"]+)"/)[1];
 const warnings=[];
 const records=[{id:'fixture1',title:'Cold-water immersion after exercise',abstract:'Exercise recovery in cold water.',authors:['Ben Lee'],env:['低温'],tags:['冷水浸泡'],type:'原创研究',year:2026,cited:1,journal:'Fixture Journal',population:'human'},
@@ -20,8 +21,9 @@ virtualConsole.on('error',(...args)=>warnings.push(args.map(x=>x && x.stack ? x.
 const dom=new JSDOM(html,{url:'https://fixture.invalid/',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole,
 beforeParse(w){
   w.localStorage.setItem(storageKey,JSON.stringify({access_token:'fixture',refresh_token:'fixture',user:{id:'fixture-user'}}));
-  w.Response=Response; w.AbortController=AbortController;
+  w.Response=Response; w.AbortController=AbortController;w.TextDecoder=TextDecoder;
   w.fetch=async url=>{
+    if(url.endsWith("/manifest.json"))return response({},404);
     if(url.includes('/auth/v1/user'))return response({id:'fixture-user'});
     if(url.includes('/rest/v1/profiles'))return response([{id:'fixture-user',banned:false}]);
     if(url.includes('papers-'))return response(url.includes('papers-1')?records:[]);
@@ -57,8 +59,7 @@ setTimeout(async()=>{
     const click=selector=>{const el=d.querySelector(selector);assert.ok(el,'Missing '+selector);el.click();return el;};
     const change=(id,value)=>{const el=d.getElementById(id);el.value=value;el.dispatchEvent(new w.Event('change',{bubbles:true}));};
     const delay=ms=>new Promise(r=>setTimeout(r,ms));
-    w.localStorage.setItem('litdb-ai-endpoint','https://ai.fixture.invalid/v1');
-    w.localStorage.setItem('litdb-ai-key','fixture-key');
+    d.getElementById('aiEndpoint').value='https://ai.fixture.invalid/v1';d.getElementById('aiKey').value='fixture-key';d.getElementById('btnAiSave').click();
     w.fetch=async url=>response({choices:[{message:{content:JSON.stringify({env:['低温'],author:'Ben Lee',concepts:[['cold','低温'],['recovery','恢复']]})}}]});
     change('f_cited','999');
     d.getElementById('f_oa').checked=true;d.getElementById('f_oa').dispatchEvent(new w.Event('change'));
@@ -78,7 +79,7 @@ setTimeout(async()=>{
     click('#folderCreate');
     assert.ok(d.querySelector('#folderPop [data-f]').checked,'create also adds paper');
     click('#folderSave');
-    const memberships=JSON.parse(w.localStorage.getItem('envLitFolders'));
+    const memberships=JSON.parse(JSON.parse(w.localStorage.getItem('litdb-personal:fixture-user')).envLitFolders);
     assert.equal(Object.keys(memberships).length,1);
     const folderPaper=Object.keys(memberships)[0];
     change('f_folder','folder:'+encodeURIComponent('恢复资料 <&>'));
@@ -123,7 +124,7 @@ setTimeout(async()=>{
     assert.ok(!d.querySelector('#grRelated [data-paper="'+first+'"]'),'deleted paper excluded from relationships');
     click('#grClose');click('#btnTrash');
     click('#trashPop [data-undo]');
-    assert.ok(!JSON.parse(w.localStorage.getItem('envLitDeleted'))[first],'restore clears deleted marker');
+    assert.ok(!JSON.parse(JSON.parse(w.localStorage.getItem('litdb-personal:fixture-user')).envLitDeleted)[first],'restore clears deleted marker');
     assert.ok(d.getElementById('trashPop').textContent.includes('回收站为空'));
     assert.ok(!d.querySelector('#btnCompare,#cmpModal,.cmpbtn'),'comparison removed');
     click('#layout-app [data-layout="classic"]');

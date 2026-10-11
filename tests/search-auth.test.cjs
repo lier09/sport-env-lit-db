@@ -50,3 +50,18 @@ test('invalid invite preserves account and offers activation instead of another 
  const f=signupFixture({access_token:'fixture',user:{id:'fixture-user'}},{rpcData:false,profileExists:false});
  try{await f.submit();assert.match(f.d.getElementById('suErr').textContent,/邀请码无效/);assert.equal(f.d.getElementById('suGo').textContent,'激活');assert.ok(f.saved());}finally{f.close();}
 });
+
+
+test('pagination reuses filter results, while hidden-paper changes invalidate them',()=>{
+ const records=[{id:'1',title:'Cold recovery',authors:[],abstract:'',env:['低温'],tags:[],type:'原创研究',year:2026,cited:0,journal:'J'}];let scans=0;
+ records.filter=function(fn){scans++;return Array.prototype.filter.call(this,fn);};
+ const c=vm.createContext({PAPERS:records,window:{},DATA_YEAR_MIN:2020,DATA_YEAR_MAX:2026,state:{q:'',env:{'低温':true},tags:{},type:'all',ymin:2020,ymax:2026,journal:'all',minCited:0,population:'all',page:1,sort:'year_desc'},favOnly:false,favs:{},myTags:{},folders:{},deletedIds:{},parseQ:q=>({text:q}),matchAdv:()=>true,EV_LEVEL:{}});
+ c.isDeleted=id=>!!c.deletedIds[id];vm.runInContext(segment('var filterMemo=', '/* ---------- 渲染结果'),c);
+ const first=c.filtered();c.state.page=2;assert.equal(c.filtered(),first);assert.equal(scans,1);
+ c.deletedIds['1']=true;assert.equal(c.filtered().length,0);assert.equal(scans,2);
+});
+test('BibTeX escapes reserved characters and gives different records different keys',()=>{
+ const c=vm.createContext({});vm.runInContext(segment('function bibKey(', 'function exportBib(){'),c);
+ assert.equal(c.bibEscape('A & B_{x}'),String.raw`A \& B\_\{x\}`);
+ assert.notEqual(c.bibKey({id:'W1',authors:['Ben Lee'],title:'Cold recovery',year:2026}),c.bibKey({id:'W2',authors:['Ben Lee'],title:'Cold recovery',year:2026}));
+});

@@ -17,7 +17,7 @@ const api = segment('var SUPA_URL', '/* ---------- 登录 / 注册 UI');
 const auth = segment('async function supaEnsureAuth(){', '/* 从私有存储桶');
 const load = segment('async function supaLoadData(){', '/* 退出登录');
 const normalize = segment('function normalizePaper(p){', 'var PAPERS =');
-function context(fetch, initialSession = {access_token:'fixture-token', refresh_token:'fixture-refresh', user:{id:'fixture-user'}}) {
+function context(fetch, initialSession = {access_token:'fixture-token', refresh_token:'fixture-refresh', user:{id:'fixture-user'}}, manifestReply=null) {
   const elements = new Map();
   function element() {
     return {style:{}, classList:{add(){},remove(){}}, textContent:'', children:[],
@@ -28,7 +28,7 @@ function context(fetch, initialSession = {access_token:'fixture-token', refresh_
   const body = element();
   let saved = initialSession;
   const logs = [];
-  const box = vm.createContext({fetch, Response, AbortController, console:{error:(...x)=>logs.push(x)},
+  const box = vm.createContext({fetch:(url,opts)=>url.endsWith("/manifest.json")?Promise.resolve(manifestReply ? manifestReply.clone() : json({},404)):fetch(url,opts), Response, AbortController, TextDecoder, console:{error:(...x)=>logs.push(x)},
     setTimeout:(fn, ms)=>setTimeout(fn, Math.min(ms, 60)), clearTimeout,
     document:{body,getElementById:id=>elements.get(id)||null,createElement:element},
     localStorage:{getItem:()=>saved ? JSON.stringify(saved):null,setItem:(_,value)=>{saved=JSON.parse(value);},removeItem:()=>{saved=null;}},
@@ -94,4 +94,29 @@ test('optional module error is contained',()=>{
   const c=context(async()=>json([])); let next=false;
   c.box.runModule('知识网络',()=>{throw new Error('fixture');});
   c.box.runModule('检索',()=>{next=true;}); assert.equal(next,true);
+});
+
+
+test('legacy manifest object-not-found status 400 still loads all four shards',async()=>{
+ const c=context(async()=>json([]),undefined,json({statusCode:'404',error:'not_found'},400));await c.box.supaLoadData();assert.equal(c.box.window.PAPERS.length,0);
+});
+test('cached legacy shards are validated by ETag; another user downloads their own data',async()=>{
+ const data=new Map();let downloads=0,heads=0;
+ const c=context(async(url,opts)=>{if(opts.method==='HEAD'){heads++;return new Response(null,{headers:{etag:'"version-one"'}});}downloads++;return new Response(JSON.stringify([{id:url}]),{headers:{etag:'"version-one"'}});});
+ c.box.LitdbCache={create:()=>({get:async(user,url)=>data.get(user+'|'+url),put:async(user,url,value)=>data.set(user+'|'+url,value)})};
+ await c.box.supaLoadData();await c.box.supaLoadData();assert.equal(downloads,4);assert.equal(heads,4);
+ vm.runInContext('supaSession.user.id="another-user"',c.box);await c.box.supaLoadData();assert.equal(downloads,8);
+});
+test('changed ETag refreshes cached data; unchanged full abstracts are retained',async()=>{
+ const data=new Map();let version=1,downloads=0;
+ const c=context(async(url,opts)=>{if(opts.method==='HEAD')return new Response(null,{headers:{etag:String(version)}});downloads++;return new Response(JSON.stringify([{id:url,abstract:'complete '.repeat(300),version}]),{headers:{etag:String(version)}});});
+ c.box.LitdbCache={create:()=>({get:async(user,url)=>data.get(user+'|'+url),put:async(user,url,value)=>data.set(user+'|'+url,value)})};
+ await c.box.supaLoadData();version=2;await c.box.supaLoadData();assert.equal(downloads,8);assert.equal(c.box.window.PAPERS[0].version,2);assert.ok(c.box.window.PAPERS[0].abstract.length>500);
+});
+test('versioned shards enforce hashes and counts; invalid version paths never load',async()=>{
+ const {createHash,webcrypto}=require('node:crypto');const version='a'.repeat(20),raw=JSON.stringify([{id:'paper',abstract:'complete original abstract'}]);
+ const digest=createHash('sha256').update(raw).digest('hex');const manifest={format:'sport-env-litdb-shards',version,total:4,shards:[1,2,3,4].map(i=>({path:`versions/${version}/papers-${i}.json`,sha256:digest,bytes:Buffer.byteLength(raw),records:1}))};
+ const c=context(async()=>new Response(raw),undefined,json(manifest));c.box.window.crypto=webcrypto;await c.box.supaLoadData();assert.equal(c.box.window.LITDB_DATA_VERSION,version);
+ const bad=context(async()=>new Response(raw.replace('paper','papex')),undefined,json(manifest));bad.box.window.crypto=webcrypto;await assert.rejects(bad.box.supaLoadData(),/内容校验失败/);
+ manifest.shards[0].path='https://outside.invalid/papers.json';const path=context(async()=>{throw new Error('must not fetch');},undefined,json(manifest));await assert.rejects(path.box.supaLoadData(),/清单格式错误/);
 });
