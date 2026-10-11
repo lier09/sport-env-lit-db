@@ -4538,18 +4538,28 @@ function renderSurge(){
     c.onclick=function(){ openReader(c.getAttribute("data-id")); };
   });
 }
+function beijingDay(now){return new Date((now||new Date()).getTime()+8*60*60*1000).toISOString().slice(0,10);}
+function todayIncrementalRecords(daily,papers,now){
+  var today=beijingDay(now),seen=new Set(),items=[];
+  function add(p){
+    if(!p||p.ingest_kind!=="incremental"||!p.id)return;
+    var stamp=new Date(p.ingested_at);if(!p.ingested_at||!Number.isFinite(stamp.getTime())||beijingDay(stamp)!==today)return;
+    if(seen.has(p.id))return;seen.add(p.id);items.push(p);
+  }
+  (papers||[]).forEach(add);((daily||{})[today]||[]).forEach(add);
+  return items;
+}
+var dailyRenderedDate="";
 function renderDailyNew(){
-  renderSurge();
-  var D=window.DAILY_NEW||{},days=Object.keys(D).sort();
-  if(!days.length) return;
-  var show=days.slice(-7).reverse();
-  var total=show.reduce(function(s,d){return s+D[d].length;},0);
-  $("dailynew").style.display="";
-  var de=$("dailynew-empty"); if(de) de.style.display="none";
-  $("dn_sub").textContent="最近更新 "+days[days.length-1]+" · 近7天新增 "+total+" 篇";
-  var ds2=$("dn_sub2"); if(ds2) ds2.textContent=$("dn_sub").textContent;
+  var today=beijingDay(),items=todayIncrementalRecords(window.DAILY_NEW,PAPERS).filter(function(p){return !!id2paper[p.id]&&!isDeleted(p.id);});
+  dailyRenderedDate=today;
+  var D={};D[today]=items;var show=items.length?[today]:[],total=items.length;
+  $("dailynew").style.display=total?"":"none";
+  var de=$("dailynew-empty");if(de){de.style.display=total?"none":"";de.innerHTML='<div class="empty">今日暂无增量新入库文献</div>';}
+  $("dn_sub").textContent=today+" · 今日新增 "+total+" 篇（北京时间）";
+  var ds2=$("dn_sub2");if(ds2)ds2.textContent=$("dn_sub").textContent;
   $("dn_list").innerHTML=show.map(function(day){
-    var items=(D[day]||[]).slice(0,12).map(function(dp){
+    var items=(D[day]||[]).map(function(dp){
       var p=id2paper[dp.id]||dp;
       var au=(p.authors||[]).slice(0,3).join(", ");
       var fw=isFollowed(p), isF=!!favs[p.id], isR=!!readSt[p.id];
@@ -4580,10 +4590,11 @@ function renderDailyNew(){
       };
     });
   });
-  var latest=days[days.length-1], nLatest=(D[latest]||[]).length;
+  var latest=today, nLatest=total;
   var g=$("dnGoN"); if(g) g.textContent=nLatest;
   var sd=$("stDaily"); if(sd) sd.textContent=nLatest;
   var dt=$("stDate"); if(dt) dt.textContent=latest;
+  if($("statDaily")) $("statDaily").textContent=String(total);
 }
 
 /* ---------- 新兴主题 ---------- */
@@ -5674,8 +5685,7 @@ function init(){
     countUp($("statEnvs"),nEnv);
     countUp($("statCited"),cited);
     countUp($("statYears"),years.length?Math.max.apply(null,years)-Math.min.apply(null,years)+1:0);
-    var ddays=Object.keys(window.DAILY_NEW||{}).sort();
-    countUp($("statDaily"),ddays.length?((window.DAILY_NEW[ddays[ddays.length-1]]||[]).length):0);
+    countUp($("statDaily"),todayIncrementalRecords(window.DAILY_NEW,PAPERS).filter(function(p){return !!id2paper[p.id]&&!isDeleted(p.id);}).length);
   });
   safe("主题", initTheme);
   safe("界面布局", function(){ applyLayout("classic", false); });
@@ -5701,6 +5711,7 @@ function init(){
   safe("L4绑定", bindL4);
   safe("收藏", saveFavs);
   safe("每日新增", renderDailyNew);
+  setInterval(function(){if(dailyRenderedDate!==beijingDay())safe("每日新增",renderDailyNew);},60000);
   safe("R统计", renderRStat);
   /* v27 初始化 */
   safe("作者单位", buildAuAffil);
