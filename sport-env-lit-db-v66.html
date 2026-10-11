@@ -185,6 +185,7 @@ main.page{padding-top:26px;padding-bottom:70px}
 .lib-top .envlabel{margin:10px 0 4px}
 .lib-bottom{flex:1;min-height:0;display:flex;min-width:0}
 .lib-bottom .col-mid{flex:1;min-width:0;overflow-y:auto;padding:14px 18px}
+.lib-bottom .col-right{flex:0 0 42%;min-width:280px;max-width:65%;overflow-y:auto;padding:14px 18px;border-left:1px solid var(--line);background:var(--bg2,#fafafa)}
 .rec-head{margin-top:10px}
 .rec-collapsed{display:none}
 .rec-collapsed.open{display:block}
@@ -1036,6 +1037,11 @@ canvas.net{cursor:grab}
             <div id="slot-app-results"></div>
           </div>
         </div>
+        <div class="wb-split-v" id="splitV" title="拖拽调整宽度 · 双击复位"></div>
+        <div class="col-right" id="colRight" data-pane="reader">
+          <div class="wb-col-head"><span class="wb-sec-title">📖 阅读</span><button class="wb-toggle" data-toggle="reader" title="隐藏 / 显示阅读窗格">▾</button></div>
+          <div class="wb-col-body"><div id="slot-app-reader"></div></div>
+        </div>
       </div>
     </section>
     <section class="view" id="view-data">
@@ -1074,9 +1080,10 @@ canvas.net{cursor:grab}
   </header>
   <main class="study-main">
     <div id="slot-study-searchbar"></div>
-    <details class="study-filters">
+    <details class="study-filters" open>
       <summary>🔍 筛选条件 <span class="study-filters-hint">环境 / 年份 / 类型 / 主题</span></summary>
       <div id="slot-study-conditions"></div>
+      <div id="slot-study-envtags" style="margin-top:8px"></div>
     </details>
     <div id="slot-study-results"></div>
   </main>
@@ -1184,7 +1191,6 @@ canvas.net{cursor:grab}
           <button data-dens="4" title="一行 4 篇">▦ 4</button><button data-dens="3" class="on" title="一行 3 篇">▦ 3</button><button data-dens="2" title="一行 2 篇">▤ 2</button><button data-dens="1" title="一行 1 篇">☰ 1</button>
         </span>
         <label class="ckall" title="全选本页"><input type="checkbox" id="ckAll"> 全选</label>
-        <button class="btn ghost" id="btnCmp">对比 (<span id="cmpCount">0</span>)</button>
         <button class="btn ghost" id="btnShare">🔗 分享检索</button>
         <button class="btn ghost" id="btnSaveQ">💾 订阅检索</button>
         <button class="btn ghost" id="btnFavOnly" title="只看收藏的文献；此时导出按钮导出收藏">★ 收藏 (<span id="favCount">0</span>)</button>
@@ -1198,6 +1204,13 @@ canvas.net{cursor:grab}
       <button class="btn ghost" id="prev">上一页</button>
       <span id="pageinfo"></span>
       <button class="btn ghost" id="next">下一页</button>
+      <label style="margin-left:12px;font-size:13px;color:var(--muted)">每页
+        <select id="pageSize" style="padding:4px 8px;font-size:13px">
+          <option value="20">20</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </label>
     </div>
     <div id="resProfile" class="resprofile" style="display:none">
       <div class="rp-head"><b>📊 本次检索画像</b><span id="rpCount" class="rp-count"></span>
@@ -1389,6 +1402,7 @@ canvas.net{cursor:grab}
       <div class="fol-tabs">
         <button class="btn on" id="folTabAu">👤 作者</button>
         <button class="btn" id="folTabJo">📰 期刊</button>
+        <button class="btn" id="folTabDel">🗑 已删除</button>
       </div>
       <div class="fol-search">
         <input id="folSearch" placeholder="搜索作者 / 期刊名…" autocomplete="off">
@@ -1406,10 +1420,6 @@ canvas.net{cursor:grab}
   <div class="cmdk-hint"><span><b>↑↓</b> 选择</span><span><b>Enter</b> 打开</span><span><b>Esc</b> 关闭</span></div>
 </div></div>
 
-<div id="cmpModal" class="modal"><div class="mbox">
-  <div class="mhead"><b>论文对比</b><span id="cmpClose" class="x">×</span></div>
-  <div id="cmpBody"></div>
-</div></div>
 <div id="topicModal" class="modal"><div class="mbox">
   <div class="mhead"><b id="tpTitle"></b><span id="tpClose" class="x">×</span></div>
   <div id="tpBody"></div>
@@ -1821,6 +1831,13 @@ await supaLoadData();
 
 var PAPERS = window.PAPERS || [];
 var PAGE_SIZE = 20;
+try{ PAGE_SIZE=+(localStorage.getItem("envLitPageSize")||20)||20; }catch(e){ PAGE_SIZE=20; }
+if([20,50,100].indexOf(PAGE_SIZE)<0) PAGE_SIZE=20;
+function setPageSize(n){
+  PAGE_SIZE=n;
+  try{localStorage.setItem("envLitPageSize",String(n));}catch(e){}
+  state.page=1; render();
+}
 
 /* ---------- 用户 RIS 自助导入：localStorage，本机有效，启动时合并 ---------- */
 var RIS_KEY = "litdb-ris-imports";
@@ -1896,18 +1913,38 @@ journals = Object.keys(journalCounts).sort(function(a,b){
 });
 
 /* ================= v27：自定义标签 / 批量 / 关注 / 历史 / 订阅 ================= */
-var myTags={}, tagList=[], batchSel={}, followedTopics={}, searchHist=[], savedQ=[];
+var myTags={}, tagList=[], batchSel={}, followedTopics={}, searchHist=[], savedQ=[], deletedIds={}, folders={}, folderList=[];
+try{ folders=JSON.parse(localStorage.getItem("envLitFolders")||"{}"); }catch(e){ folders={}; }
+try{ folderList=JSON.parse(localStorage.getItem("envLitFolderList")||"[]"); }catch(e){ folderList=[]; }
+function saveFolders(){ try{localStorage.setItem("envLitFolders",JSON.stringify(folders));}catch(e){} }
+function saveFolderList(){ try{localStorage.setItem("envLitFolderList",JSON.stringify(folderList));}catch(e){} }
+function paperFolders(id){ return folders[id]||[]; }
+function addToFolder(id, folder){
+  if(!folders[id]) folders[id]=[];
+  if(folders[id].indexOf(folder)<0){ folders[id].push(folder); saveFolders(); }
+}
+function removeFromFolder(id, folder){
+  if(!folders[id]) return;
+  folders[id]=folders[id].filter(function(f){return f!==folder;});
+  if(!folders[id].length) delete folders[id];
+  saveFolders();
+}
 try{ myTags=JSON.parse(localStorage.getItem("envLitMyTags")||"{}"); }catch(e){ myTags={}; }
 try{ tagList=JSON.parse(localStorage.getItem("envLitTagList")||'["待精读","写作用","方法学参考"]'); }catch(e){ tagList=["待精读","写作用","方法学参考"]; }
 try{ followedTopics=JSON.parse(localStorage.getItem("envLitFollow")||"{}"); }catch(e){ followedTopics={}; }
 try{ searchHist=JSON.parse(localStorage.getItem("envLitHist")||"[]"); }catch(e){ searchHist=[]; }
 try{ savedQ=JSON.parse(localStorage.getItem("envLitSavedQ")||"[]"); }catch(e){ savedQ=[]; }
+try{ deletedIds=JSON.parse(localStorage.getItem("envLitDeleted")||"{}"); }catch(e){ deletedIds={}; }
 function saveMyTags(){ try{localStorage.setItem("envLitMyTags",JSON.stringify(myTags));}catch(e){} }
 function saveTagList(){ try{localStorage.setItem("envLitTagList",JSON.stringify(tagList));}catch(e){} }
 function saveFollow(){ try{localStorage.setItem("envLitFollow",JSON.stringify(followedTopics));}catch(e){} }
 function saveHist(){ try{localStorage.setItem("envLitHist",JSON.stringify(searchHist.slice(0,12)));}catch(e){} }
 function saveSavedQ(){ try{localStorage.setItem("envLitSavedQ",JSON.stringify(savedQ));}catch(e){} }
+function saveDeleted(){ try{localStorage.setItem("envLitDeleted",JSON.stringify(deletedIds));}catch(e){} }
 function paperMyTags(id){ return myTags[id]||[]; }
+function isDeleted(id){ return !!deletedIds[id]; }
+function deletePaper(id){ deletedIds[id]=Date.now(); saveDeleted(); }
+function restorePaper(id){ delete deletedIds[id]; saveDeleted(); }
 
 /* 证据等级：design → high/mid/low */
 var EV_LEVEL={"Meta分析":"high","RCT":"high","队列研究":"mid","病例对照":"mid","交叉设计":"mid","综述":"mid","横断面研究":"low"};
@@ -2068,8 +2105,11 @@ function filtered(){
   var activeTags = Object.keys(state.tags).filter(function(t){return state.tags[t];});
   var activeEnvs = Object.keys(state.env).filter(function(e){return state.env[e];});
   var aiMode = window._aiMode && window._aiConcepts && window._aiConcepts.length;
+  var showDeleted = state.showDeleted;
   var out = PAPERS.filter(function(p){
     if(favOnly && !favs[p.id]) return false;
+    // 已删除的默认隐藏（可在"我的关注"中查看/恢复）
+    if(!showDeleted && isDeleted(p.id)) return false;
     var pe=p.env||[];
     // AI模式：环境标签不作为唯一入口，未指定环境时已启用全部
     // 但如果AI明确指定了环境，仍按环境过滤
@@ -2197,7 +2237,8 @@ function render(){
       var dUrl = p.doi ? doiUrl(p.doi) : "";
       var isFav = !!favs[p.id];
       var links='<div class="links">'+
-        '<span class="star'+(isFav?'':' off')+'" data-id="'+esc(p.id)+'" title="收藏">★</span>';
+        '<span class="star'+(isFav?'':' off')+'" data-id="'+esc(p.id)+'" title="收藏">★</span>'+
+        '<span class="delbtn" data-id="'+esc(p.id)+'" title="删除（本地隐藏）" style="cursor:pointer;color:#999;margin-left:6px">🗑</span>';
       if(p.pdf_url) links+='<a href="'+esc(p.pdf_url)+
         '" target="_blank" rel="noopener">免费全文 PDF ↗</a>';
       if(dUrl) links+='<a href="'+esc(dUrl)+
@@ -2207,12 +2248,14 @@ function render(){
       links+='<a class="graphlink" data-id="'+esc(p.id)+'" title="以此篇为中心的关系图谱">🕸️ 图谱</a>';
       links+='<a class="citelink" data-id="'+esc(p.id)+'" title="复制引用格式">引用</a>';
       links+='<a class="taglink" data-id="'+esc(p.id)+'" title="打自定义标签">🏷️ 标签</a>';
-      links+='<a class="readlink" data-id="'+esc(p.id)+'" title="在右侧阅读窗格打开">📖 阅读</a>';
-      links+='<a class="cmpbtn" data-id="'+esc(p.id)+'">'+(cmpList.indexOf(p.id)>=0?"✓已选对比":"＋对比")+'</a></div>';
+      links+='<a class="readlink" data-id="'+esc(p.id)+'" title="在右侧阅读窗格打开">📖 阅读</a></div>';
       var mytagHtml=paperMyTags(p.id).map(function(t){
         return '<span class="mytag">'+esc(t)+'</span>';}).join("");
+      var folderHtml=paperFolders(p.id).map(function(f){
+        return '<span class="mytag" style="background:#e8f4fd;border-color:#b3d9f2">📁 '+esc(f)+'</span>';}).join("");
       return '<article class="card" data-pid="'+esc(p.id)+'"'+
-        ' data-env0="'+esc((p.env&&p.env[0])||"")+'"><h3>'+
+        ' data-env0="'+esc((p.env&&p.env[0])||"")+'" style="position:relative">'+
+        '<span class="folderbtn" data-id="'+esc(p.id)+'" title="添加到文件夹" style="position:absolute;top:8px;right:8px;cursor:pointer;font-size:16px;z-index:2">📁</span><h3>'+
         '<input type="checkbox" class="batchck" data-id="'+esc(p.id)+'"'+
           (batchSel[p.id]?" checked":"")+' title="加入批量选择">'+
         typeBadge(p.type)+
@@ -2228,7 +2271,7 @@ function render(){
         (readSt[p.id]?' <span class="badge read">已读</span>':"")+'</div>'+
         '<div class="ptags">'+(p.tags||[]).map(function(t){
           return '<span class="ptag">'+esc(t)+'</span>';}).join("")+
-        mytagHtml+'</div>'+
+        mytagHtml+folderHtml+'</div>'+
         (p._aiReasons&&p._aiReasons.length?'<div class="ai-reasons" style="font-size:12px;color:#059669;margin:4px 0">✓ 匹配: '+esc(p._aiReasons.join("; "))+'</div>':"")+
         (p._aiMatchedAuthors&&p._aiMatchedAuthors.length?'<div class="ai-authors" style="font-size:12px;color:#7c3aed;margin:4px 0">👤 作者匹配: '+esc(p._aiMatchedAuthors.join("; "))+'</div>':"")+
         (p._sideMatchedAuthors&&p._sideMatchedAuthors.length?'<div class="ai-authors" style="font-size:12px;color:#7c3aed;margin:4px 0">👤 作者匹配: '+esc(p._sideMatchedAuthors.join("; "))+'</div>':"")+
@@ -2263,14 +2306,28 @@ function render(){
     el.onclick=function(){ openTopic(el.textContent); };
     el.style.cursor="pointer"; el.title="查看主题详情";
   });
-  box.querySelectorAll(".cmpbtn").forEach(function(el){
-    el.onclick=function(){ toggleCmp(el.getAttribute("data-id")); };
-  });
   box.querySelectorAll(".star").forEach(function(el){
     el.onclick=function(){
       var id=el.getAttribute("data-id");
       if(favs[id]) delete favs[id]; else favs[id]=1;
       saveFavs(); render();
+    };
+  });
+  box.querySelectorAll(".delbtn").forEach(function(el){
+    el.onclick=function(ev){
+      ev.stopPropagation();
+      var id=el.getAttribute("data-id");
+      var p=id2paper[id];
+      var title=p?(p.title||"").slice(0,40):"";
+      if(confirm("删除「"+title+"…」？\n（本地隐藏，不影响共享库，可在\"我的关注\"中恢复）")){
+        deletePaper(id); render();
+      }
+    };
+  });
+  box.querySelectorAll(".folderbtn").forEach(function(el){
+    el.onclick=function(ev){
+      ev.stopPropagation();
+      openFolderPop(el.getAttribute("data-id"), ev.clientX, ev.clientY);
     };
   });
   box.querySelectorAll(".readlink").forEach(function(el){
@@ -2315,17 +2372,20 @@ function render(){
       rbox.classList.add("show"); el.textContent="相关文献 ↑";
       setTimeout(function(){
         var rel=relatedTo(p);
-        rbox.innerHTML=rel.length?rel.map(function(q){
-          var au=(q.authors||[]).slice(0,2).join(", ");
-          return '<div class="rit">· <a href="javascript:void(0)" data-rid="'+esc(q.id)+'">'+
-            esc(q.title)+'</a> <span style="color:var(--muted)">('+q.year+" · 被引 "+q.cited+")</span></div>";
+        rbox.innerHTML=rel.length?'<div style="margin-bottom:6px;font-size:13px;color:var(--muted)">找到 '+rel.length+' 篇相关文献（按相关度排序）：</div>'+rel.map(function(r){
+          var q=r.paper, score=r.score;
+          var au=(q.authors||[]).slice(0,3).join(", ")+((q.authors||[]).length>3?" 等":"");
+          var pct=Math.min(100,Math.round(score/2));
+          return '<div class="rit" style="padding:8px;border-bottom:1px solid var(--line)">'+
+            '<div style="display:flex;justify-content:space-between;align-items:start;gap:8px">'+
+            '<a href="javascript:void(0)" data-rid="'+esc(q.id)+'" style="font-weight:500;flex:1">'+esc(q.title)+'</a>'+
+            '<span style="font-size:11px;color:#fff;background:#1a6fd4;border-radius:8px;padding:2px 8px;white-space:nowrap">相关度 '+pct+'%</span></div>'+
+            '<div style="font-size:12px;color:var(--muted);margin-top:4px">'+esc(au)+' · '+esc(q.journal||"—")+' · '+q.year+' · 被引 '+q.cited+'</div></div>';
         }).join(""):'<div style="color:var(--muted)">暂无高度相关文献</div>';
         rbox.querySelectorAll("[data-rid]").forEach(function(a){
           a.onclick=function(){
-            var qp=id2paper[a.getAttribute("data-rid")];
-            if(!qp) return;
-            $("q").value=qp.title.slice(0,60); readControls(); render();
-            document.getElementById("results").scrollIntoView();
+            var rid=a.getAttribute("data-rid");
+            if(id2paper[rid]) openReader(rid);
           };
         });
       },30);
@@ -2721,6 +2781,11 @@ function bind(){
   });
   $("prev").onclick=function(){if(state.page>1){state.page--;render();window.scrollTo(0,0);}};
   $("next").onclick=function(){state.page++;render();window.scrollTo(0,0);};
+  var ps=$("pageSize");
+  if(ps){
+    ps.value=String(PAGE_SIZE);
+    ps.onchange=function(){ setPageSize(+ps.value); };
+  }
   $("btnCsv").onclick=exportCsv;
   $("btnBib").onclick=exportBib;
   $("btnRis").onclick=exportRis;
@@ -2735,9 +2800,7 @@ function bind(){
     this.classList.toggle("on",favOnly);
     state.page=1; render();
   };
-  $("btnCmp").onclick=showCmp;
   $("btnShare").onclick=shareLink;
-  $("cmpClose").onclick=function(){ $("cmpModal").classList.remove("show"); };
   $("cmpModal").onclick=function(ev){
     if(ev.target===$("cmpModal")) $("cmpModal").classList.remove("show");
   };
@@ -3223,13 +3286,23 @@ function renderFollowZone(){
   var an=Object.keys(follows.authors), jn=Object.keys(follows.journals);
   $("folTabAu").classList.toggle("on",folTab==="au");
   $("folTabJo").classList.toggle("on",folTab==="jo");
+  $("folTabDel").classList.toggle("on",folTab==="del");
   var html="";
   if(folTab==="au"){
     html=an.length?an.map(function(n){ return folRowAuthor(n,follows.authors[n]); }).join(""):
       '<div class="empty">还没有关注作者。去学术画像榜、作者页或文献卡片点作者名，在弹窗里 ＋关注，或在上方搜索。</div>';
-  }else{
+  }else if(folTab==="jo"){
     html=jn.length?jn.map(function(n){ return folRowJournal(n,follows.journals[n]); }).join(""):
       '<div class="empty">还没有关注期刊。去期刊榜点 ＋关注，或在上方搜索期刊名。</div>';
+  }else if(folTab==="del"){
+    var delIds=Object.keys(deletedIds);
+    html=delIds.length?delIds.map(function(id){
+      var p=id2paper[id];
+      if(!p) return "";
+      return '<div class="fol-row"><span class="t" style="cursor:pointer" data-id="'+esc(id)+'">'+esc(p.title||"无标题")+'</span>'+
+        '<span style="color:var(--muted);font-size:12px">'+p.year+'</span>'+
+        '<button class="btn ghost sm" data-restore="'+esc(id)+'">恢复</button></div>';
+    }).join(""):'<div class="empty">没有已删除的文献。</div>';
   }
   box.innerHTML=html;
   box.querySelectorAll("[data-unfollow-au]").forEach(function(b){
@@ -3237,6 +3310,12 @@ function renderFollowZone(){
   });
   box.querySelectorAll("[data-unfollow-jo]").forEach(function(b){
     b.onclick=function(){ toggleFollowJournal(b.getAttribute("data-unfollow-jo")); };
+  });
+  box.querySelectorAll("[data-restore]").forEach(function(b){
+    b.onclick=function(){ restorePaper(b.getAttribute("data-restore")); renderFollowZone(); render(); };
+  });
+  box.querySelectorAll(".fol-row .t").forEach(function(el){
+    el.onclick=function(){ openReader(el.getAttribute("data-id")); };
   });
   box.querySelectorAll(".fol-papers .apaper").forEach(function(el){
     el.querySelector(".t").onclick=function(){ openReader(el.getAttribute("data-id")); };
@@ -3283,6 +3362,7 @@ function bindFollowZone(){
   if($("folTabAu")._fb) return; $("folTabAu")._fb=1;
   $("folTabAu").onclick=function(){ folTab="au"; $("folSearch").value=""; $("folSearchRes").innerHTML=""; renderFollowZone(); };
   $("folTabJo").onclick=function(){ folTab="jo"; $("folSearch").value=""; $("folSearchRes").innerHTML=""; renderFollowZone(); };
+  $("folTabDel").onclick=function(){ folTab="del"; $("folSearch").value=""; $("folSearchRes").innerHTML=""; renderFollowZone(); };
   $("folSearchBtn").onclick=folDoSearch;
   $("folSearch").addEventListener("input",function(){
     clearTimeout(folSearchTimer);
@@ -3314,6 +3394,7 @@ function relatedTo(p){
   var pk=paperKeywords(p),pt=p.tags||[],pe=p.env||[],scored=[];
   for(var i=0;i<PAPERS.length;i++){
     var q=PAPERS[i]; if(q.id===p.id) continue;
+    if(isDeleted(q.id)) continue;
     var s=0,a,qt=q.tags||[],qe=q.env||[];
     for(a=0;a<qt.length;a++) if(pt.indexOf(qt[a])>=0) s+=5;
     for(a=0;a<qe.length;a++) if(pe.indexOf(qe[a])>=0) s+=2;
@@ -3322,7 +3403,7 @@ function relatedTo(p){
     if(s>=6) scored.push([s,q]);
   }
   scored.sort(function(x,y){return y[0]-x[0];});
-  var out=scored.slice(0,5).map(function(x){return x[1];});
+  var out=scored.slice(0,8).map(function(x){return {paper:x[1],score:x[0]};});
   relCache[p.id]=out; return out;
 }
 
@@ -3515,6 +3596,52 @@ function openTagPop(id,x,y){
     }
     saveMyTags(); hidePops(); render();
     toast("标签已更新");
+  };
+}
+/* ---------- 文件夹 ---------- */
+function openFolderPop(id,x,y){
+  var cur=paperFolders(id);
+  var html='<h4>📁 添加到文件夹</h4>'+
+    (folderList.length?folderList.map(function(f){
+      var cnt=Object.keys(folders).filter(function(pid){return (folders[pid]||[]).indexOf(f)>=0;}).length;
+      return '<div class="prow"><input type="checkbox" data-f="'+esc(f)+'"'+
+        (cur.indexOf(f)>=0?" checked":"")+'> <span>'+esc(f)+'</span> <span style="color:var(--muted);font-size:12px">('+cnt+')</span>'+
+        ' <a class="mini-link" data-delf="'+esc(f)+'" title="删除此文件夹">×</a></div>';
+    }).join(""):'<div class="empty" style="padding:8px">还没有文件夹，在下方创建</div>')+
+    '<div class="prow"><input type="text" id="newFolderInput" placeholder="新文件夹名，回车创建"></div>'+
+    '<button class="btn pbtn" id="folderSave">确定</button>';
+  showPop("folderPop",x,y,html);
+  var pop=$("folderPop");
+  pop.querySelectorAll("[data-delf]").forEach(function(a){
+    a.onclick=function(ev){
+      ev.stopPropagation();
+      var f=a.getAttribute("data-delf");
+      folderList=folderList.filter(function(x){return x!==f;});
+      Object.keys(folders).forEach(function(pid){
+        folders[pid]=folders[pid].filter(function(x){return x!==f;});
+        if(!folders[pid].length) delete folders[pid];
+      });
+      saveFolderList(); saveFolders();
+      openFolderPop(id,x,y); render();
+    };
+  });
+  var ni=$("newFolderInput");
+  ni.onkeydown=function(ev){
+    if(ev.key==="Enter"){
+      var f=ni.value.trim();
+      if(f&&folderList.indexOf(f)<0){ folderList.push(f); saveFolderList(); }
+      openFolderPop(id,x,y);
+    }
+    ev.stopPropagation();
+  };
+  $("folderSave").onclick=function(){
+    var checked=[];
+    pop.querySelectorAll("[data-f]").forEach(function(c){
+      if(c.checked) checked.push(c.getAttribute("data-f"));
+    });
+    if(checked.length) folders[id]=checked; else delete folders[id];
+    saveFolders(); hidePops(); render();
+    toast("已添加到文件夹");
   };
 }
 function buildMyTagFilter(){
@@ -4486,9 +4613,16 @@ function openReader(id){
   if(rl) rl.querySelectorAll(".ritem").forEach(function(el){
     el.classList.toggle("sel",el.getAttribute("data-id")===id);
   });
-  // 阅读统一走全局弹窗
+  // 工作台模式：右侧列内联显示；其他模式走全局弹窗
+  var isApp=(typeof curLayout!=="undefined"&&curLayout==="app");
   var rm=$("readerModal");
-  if(rm){ rm.hidden=false; try{ rm.querySelector(".reader-modal-card").scrollTop=0; }catch(e){} }
+  if(isApp){
+    if(rm) rm.hidden=true;
+    var slot=$("slot-app-reader");
+    if(slot){ slot.style.display=""; }
+  }else{
+    if(rm){ rm.hidden=false; try{ rm.querySelector(".reader-modal-card").scrollTop=0; }catch(e){} }
+  }
   var dUrl=p.doi?doiUrl(p.doi):"",
       isFav=!!favs[id], isRead=!!readSt[id];
   $("r_read").innerHTML=
@@ -4513,6 +4647,7 @@ function openReader(id){
     '<button class="btn ghost" id="r_btnRel">相关文献</button>'+
     '<button class="btn ghost" id="r_btnTts">🔊 朗读摘要</button>'+
     '<button class="btn ghost" id="r_btnTpl">📋 插入模板</button>'+
+    '<button class="btn ghost" id="r_btnDel" style="color:#c00">🗑 删除</button>'+
     '</div>'+
     '<textarea class="rnote" id="r_note" placeholder="在这里记笔记…（自动保存）">'+
     esc(notes[id]||"")+'</textarea>'+
@@ -4527,6 +4662,12 @@ function openReader(id){
   };
   var ttsBtn=$("r_btnTts");
   ttsBtn.onclick=function(){ toggleTts(p.abstract||p.title, ttsBtn); };
+  $("r_btnDel").onclick=function(){
+    if(confirm("删除「"+(p.title||"").slice(0,40)+"…」？\n（本地隐藏，不影响共享库，可在\"我的关注\"中恢复）")){
+      deletePaper(id);
+      closeReader(); render();
+    }
+  };
   $("r_btnTpl").onclick=function(){
     var tpl="【研究目的】\n\n【研究方法】\n\n【主要结果】\n\n【结论】\n\n【对我的启发】\n";
     var cur=ta.value;
@@ -4552,9 +4693,15 @@ function openReader(id){
     var rel=relatedTo(p),
         div=document.createElement("div");
     div.id="r_relbox"; div.className="relbox show";
-    div.innerHTML=rel.length?rel.map(function(q){
-      return '<div class="rit">· <a href="javascript:void(0)" data-rid="'+esc(q.id)+'">'+
-        esc(q.title)+'</a> <span style="color:var(--muted)">('+q.year+" · 被引 "+q.cited+")</span></div>";
+    div.innerHTML=rel.length?'<div style="margin-bottom:6px;font-size:13px;color:var(--muted)">找到 '+rel.length+' 篇相关文献：</div>'+rel.map(function(r){
+      var q=r.paper, score=r.score;
+      var au=(q.authors||[]).slice(0,3).join(", ")+((q.authors||[]).length>3?" 等":"");
+      var pct=Math.min(100,Math.round(score/2));
+      return '<div class="rit" style="padding:8px;border-bottom:1px solid var(--line)">'+
+        '<div style="display:flex;justify-content:space-between;align-items:start;gap:8px">'+
+        '<a href="javascript:void(0)" data-rid="'+esc(q.id)+'" style="font-weight:500;flex:1">'+esc(q.title)+'</a>'+
+        '<span style="font-size:11px;color:#fff;background:#1a6fd4;border-radius:8px;padding:2px 8px;white-space:nowrap">相关度 '+pct+'%</span></div>'+
+        '<div style="font-size:12px;color:var(--muted);margin-top:4px">'+esc(au)+' · '+esc(q.journal||"—")+' · '+q.year+' · 被引 '+q.cited+'</div></div>';
     }).join(""):'<div style="color:var(--muted)">暂无高度相关文献</div>';
     ta.parentNode.insertBefore(div,ta);
     div.querySelectorAll("[data-rid]").forEach(function(a){
@@ -4906,52 +5053,6 @@ function renderTimeline(){
       '<span class="tt">'+esc(p.title)+'</span>'+
       '<div class="tm">'+esc(au)+' · '+esc(p.journal||"—")+' · 被引 '+p.cited+'</div></div>';
   }).join("");
-}
-
-/* ---------- 论文对比 ---------- */
-var cmpList=[];
-function refreshCmpBtns(){
-  $("cmpCount").textContent=cmpList.length;
-  document.querySelectorAll(".cmpbtn").forEach(function(el){
-    var on=cmpList.indexOf(el.getAttribute("data-id"))>=0;
-    el.textContent=on?"✓已选对比":"＋对比";
-  });
-}
-function toggleCmp(id){
-  var i=cmpList.indexOf(id);
-  if(i>=0) cmpList.splice(i,1);
-  else{
-    if(cmpList.length>=3){ alert("最多对比 3 篇"); return; }
-    cmpList.push(id);
-  }
-  refreshCmpBtns();
-}
-function showCmp(){
-  if(cmpList.length<2){ alert("至少选 2 篇进行对比（卡片上点「＋对比」）"); return; }
-  var ps=cmpList.map(function(id){return id2paper[id];}).filter(Boolean);
-  function col(fn){ return ps.map(function(p){return fn(p);}); }
-  var rows=[
-    ["标题",col(function(p){return esc(p.title);})],
-    ["作者",col(function(p){return esc((p.authors||[]).slice(0,5).join(", "));})],
-    ["期刊 / 年份",col(function(p){return esc(p.journal||"—")+" · "+p.year;})],
-    ["被引",col(function(p){return "<b>"+p.cited+"</b>";})],
-    ["类型",col(function(p){return esc(p.type);})],
-    ["环境",col(function(p){return esc((p.env||[]).join(" + "));})],
-    ["标签",col(function(p){return esc((p.tags||[]).join("、"));})],
-    ["摘要",col(function(p){return esc((p.abstract||"暂无").slice(0,320));})],
-    ["链接",col(function(p){
-      return (p.pdf_url?'<a href="'+esc(p.pdf_url)+'" target="_blank" rel="noopener">PDF ↗</a> ':"")+
-        (p.doi?'<a href="'+esc(doiUrl(p.doi))+'" target="_blank" rel="noopener">DOI ↗</a>':"");
-    })]
-  ];
-  var html='<table class="cmptable"><tr><th></th>'+
-    ps.map(function(_,i){return "<th>文献 "+(i+1)+"</th>";}).join("")+"</tr>";
-  rows.forEach(function(r){
-    html+="<tr><th>"+r[0]+"</th>"+
-      r[1].map(function(c){return "<td>"+c+"</td>";}).join("")+"</tr>";
-  });
-  $("cmpBody").innerHTML=html+"</table>";
-  $("cmpModal").classList.add("show");
 }
 
 /* ---------- 图表导出 PNG ---------- */
@@ -5364,9 +5465,15 @@ function applyLayout(name,save){
   }
   LAYOUT_COMPS.forEach(function(c){
     if(c==="reader"){
-      // 阅读器统一进全局弹窗，不随布局搬运
-      var rc=$("c-reader"), ms=$("slot-modal-reader");
-      if(rc&&ms) ms.appendChild(rc);
+      // 工作台模式：阅读器进右侧列；其他模式进全局弹窗
+      var rc=$("c-reader");
+      if(name==="app"){
+        var rs=$("slot-app-reader");
+        if(rc&&rs) rs.appendChild(rc);
+      }else{
+        var ms=$("slot-modal-reader");
+        if(rc&&ms) ms.appendChild(rc);
+      }
       return;
     }
     var comp=$("c-"+c), slot=$("slot-"+name+"-"+c);
