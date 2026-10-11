@@ -1,0 +1,126 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const assert = require('node:assert/strict');
+let jsdom;
+try{jsdom=require('jsdom');}catch(e){jsdom=require(path.join(process.env.TEMP, 'sport-env-startup-tests', 'node_modules', 'jsdom'));}
+const {JSDOM, VirtualConsole} = jsdom;
+const root = path.join(__dirname, '..');
+const baseline=process.argv.includes('--baseline');
+const html = baseline ? require('node:child_process').execFileSync('git',['show','HEAD:index.html'],{cwd:root,encoding:'utf8',maxBuffer:8*1024*1024}) : fs.readFileSync(path.join(root,'index.html'),'utf8');
+const storageKey = html.match(/var LS_SESS\s*=\s*"([^"]+)"/)[1];
+const warnings=[];
+const records=[{id:'fixture1',title:'Cold-water immersion after exercise',abstract:'Exercise recovery in cold water.',authors:['Ben Lee'],env:['低温'],tags:['冷水浸泡'],type:'原创研究',year:2026,cited:1,journal:'Fixture Journal',population:'human'},
+{id:'fixture2',title:'Exercise heat acclimation',abstract:'Exercise in heat.',authors:'Fixture Author',env:'高温',tags:'热习服',type:'原创研究',year:'2025',cited:0,journal:'Fixture Journal'}];
+for(let i=3;i<=105;i++)records.push({...records[0],id:"fixture"+i,title:"Cold-water immersion recovery study "+i});
+if(baseline) Object.assign(records[1],{authors:['Fixture Author'],env:['高温'],tags:['热习服']});
+function response(data,status=200){return new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json'}});}
+const virtualConsole=new VirtualConsole();
+virtualConsole.on('jsdomError',e=>warnings.push(e.message));
+virtualConsole.on('error',(...args)=>warnings.push(args.map(x=>x && x.stack ? x.stack : String(x)).join(' ')));
+const dom=new JSDOM(html,{url:'https://fixture.invalid/',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole,
+beforeParse(w){
+  w.localStorage.setItem(storageKey,JSON.stringify({access_token:'fixture',refresh_token:'fixture',user:{id:'fixture-user'}}));
+  w.Response=Response; w.AbortController=AbortController;
+  w.fetch=async url=>{
+    if(url.includes('/auth/v1/user'))return response({id:'fixture-user'});
+    if(url.includes('/rest/v1/profiles'))return response([{id:'fixture-user',banned:false}]);
+    if(url.includes('papers-'))return response(url.includes('papers-1')?records:[]);
+    throw new Error('Unexpected fixture request');
+  };
+  w.matchMedia=()=>({matches:false,addEventListener(){},addListener(){}});
+  w.ResizeObserver=class{observe(){} disconnect(){}};
+  w.HTMLElement.prototype.scrollIntoView=function(){};
+  w.scrollTo=function(){};
+  w.HTMLCanvasElement.prototype.getContext=function(){
+    return new Proxy({measureText:()=>({width:50}),canvas:this}, {get:(obj,key)=>key in obj?obj[key]:()=>{},set:(obj,key,val)=>(obj[key]=val,true)});
+  };
+}});
+setTimeout(async()=>{
+  try{
+    const d=dom.window.document;
+    if(baseline){
+      assert.ok(warnings.some(x=>/Cannot set properties of null.*onclick/.test(x)),warnings.join('\n'));
+      assert.equal(d.getElementById('slot-classic-analytics').children.length,0);
+      console.log('PASS: unmodified GitHub HEAD reproduces the missing-element onclick error and empty analytics layout.');
+      return;
+    }
+    const meta=d.getElementById('dbmeta').textContent;
+    assert.match(meta,/已收录 105 篇/);
+    assert.ok(d.querySelector('#slot-classic-results #c-results'),'results moved into visible layout');
+    assert.ok(d.querySelector('#slot-classic-analytics #c-analytics'),'analytics moved into visible layout');
+    assert.ok(d.getElementById('results').textContent.includes('Cold-water immersion'));
+    assert.ok(!d.getElementById('a_authors').textContent.includes('画像数据加载中'));
+    assert.equal(d.getElementById('boot').style.display,'none');
+    assert.equal(warnings.filter(x=>/文献库初始化失败/.test(x)).length,0,warnings.join('\n'));
+    const w=dom.window;
+    w.confirm=()=>true;
+    const click=selector=>{const el=d.querySelector(selector);assert.ok(el,'Missing '+selector);el.click();return el;};
+    const change=(id,value)=>{const el=d.getElementById(id);el.value=value;el.dispatchEvent(new w.Event('change',{bubbles:true}));};
+    const delay=ms=>new Promise(r=>setTimeout(r,ms));
+    click('.folderbtn');
+    assert.equal(d.getElementById('folderPop').style.display,'block');
+    click('#newFolderInput');
+    assert.equal(d.getElementById('folderPop').style.display,'block','input click must not dismiss popup');
+    d.getElementById('newFolderInput').value='恢复资料 <&>';
+    click('#folderCreate');
+    assert.ok(d.querySelector('#folderPop [data-f]').checked,'create also adds paper');
+    click('#folderSave');
+    const memberships=JSON.parse(w.localStorage.getItem('envLitFolders'));
+    assert.equal(Object.keys(memberships).length,1);
+    const folderPaper=Object.keys(memberships)[0];
+    change('f_folder','folder:'+encodeURIComponent('恢复资料 <&>'));
+    assert.equal(d.querySelectorAll('#results .card').length,1,'folder filters results');
+    click('#btnReset');
+    click('#btnFolders');
+    assert.ok(d.getElementById('folderPop').textContent.includes('恢复资料 <&>'),'folder name safely round trips');
+    click('#folderSave');
+    click('#results .taglink');
+    d.getElementById('newTagInput').value='我的恢复分类';
+    click('#tagCreate');click('#tagSave');
+    change('f_mytag','我的恢复分类');
+    assert.equal(d.querySelectorAll('#results .card').length,1,'custom classification filters assigned paper');
+    click('#btnReset');
+    click('[data-layout="study"]');
+    assert.ok(d.querySelector('#slot-study-searchbar #q'));
+    assert.ok(d.querySelector('#slot-study-facets #f_author'));
+    assert.ok(d.querySelector('#slot-study-facets [data-pop]'));
+    assert.ok(d.querySelector('#slot-study-conditions #f_folder'));
+    click('#btnFolders');click('[data-delf]');click('#folderSave');
+    assert.equal(d.querySelectorAll('#results .card').length,20,'removing folder leaves papers');
+    change('pageSize','100');
+    assert.equal(d.querySelectorAll('#results .card').length,100);
+    click('#next');
+    assert.equal(d.querySelectorAll('#results .card').length,5);
+    click('#prev');
+    click('[data-layout="app"]');
+    assert.ok(d.querySelector('#libTop #q'),'workbench search above result columns');
+    assert.ok(d.querySelector('#slot-app-facets #f_author'));
+    assert.ok(d.getElementById('results').classList.contains('dens-3'));
+    const widthBefore=d.getElementById('colRight').style.width;
+    d.getElementById('splitV').dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}));
+    assert.notEqual(d.getElementById('colRight').style.width,widthBefore,'keyboard resizes correct reader column');
+    const first=d.querySelector('#results .card').dataset.pid;
+    click('#results .rellink');await delay(60);
+    assert.ok(d.querySelector('#results .relbox [data-rid]'),'related papers render');
+    click('#results .delbtn');
+    assert.equal(d.querySelectorAll('#results .card').length,100);
+    assert.ok(!Array.from(d.querySelectorAll('#results .card')).some(c=>c.dataset.pid===first),'deleted paper hidden');
+    click('#results .graphlink');await delay(100);
+    assert.ok(d.querySelector('#grRelated [data-paper]'),'graph has usable related bibliography');
+    assert.ok(!d.querySelector('#grRelated [data-paper="'+first+'"]'),'deleted paper excluded from relationships');
+    click('#grClose');click('#btnTrash');
+    click('#trashPop [data-undo]');
+    assert.ok(!JSON.parse(w.localStorage.getItem('envLitDeleted'))[first],'restore clears deleted marker');
+    assert.ok(d.getElementById('trashPop').textContent.includes('回收站为空'));
+    assert.ok(!d.querySelector('#btnCompare,#cmpModal,.cmpbtn'),'comparison removed');
+    click('#layout-app [data-layout="classic"]');
+    assert.ok(d.querySelector('#slot-classic-facets #f_author'),'returning to classic restores sidebar');
+    assert.ok(d.querySelector('#slot-classic-pills #l4Pills'));
+    assert.equal(d.querySelectorAll('#f_folder').length,1,'shared controls remain unique');
+    console.log('PASS: folders, safe names, deletion/restoration, related papers, 100-page pagination, shared top filters, and keyboard resizing.');
+
+    console.log('PASS: full page initializes with synthetic data; search and analytics are mounted; loader is dismissed.');
+    if(warnings.length) console.log('Optional fixture diagnostics:',warnings.slice(0,5));
+  }catch(e){console.error(e.message); console.error(warnings.slice(0,6));process.exitCode=1;}
+  finally{dom.window.close();}
+},1200);
