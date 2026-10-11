@@ -68,6 +68,9 @@ setTimeout(()=>{
     assert.equal(d.querySelector('#r_read .rabs').textContent,fullAbstract,'reader preserves final conclusion and paragraphs');
     assert.ok(d.querySelector('[data-pid="fixture1"] h3').textContent.includes('JCR Q'),'JCR shown at top of card');
     assert.equal(d.querySelectorAll('#results .citelink').length,0,'card footer citation button removed');
+    const jcrBadge=d.querySelector('[data-pid="fixture1"] h3 .badge.jcr');
+    assert.ok(jcrBadge);assert.ok(!jcrBadge.textContent.includes('2025'),'card badge omits year');
+    assert.ok(jcrBadge.title.includes('2025 数据年'),'year retained in tooltip');
     const filter=d.getElementById('f_jcr');
     filter.value='unknown';filter.dispatchEvent(new dom.window.Event('change'));
     assert.equal(d.querySelectorAll('#results .card').length,2,'unknown filter excludes matched journal');

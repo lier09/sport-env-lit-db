@@ -364,6 +364,8 @@ select:focus,input[type=number]:focus{outline:none;border-color:var(--accent)}
 .card .info{font-size:12.5px;color:var(--muted);margin-bottom:6px}
 .badge{display:inline-block;font-size:11px;border-radius:6px;padding:2px 9px;
   margin-right:6px;vertical-align:1px;font-weight:600}
+.badge.jcr{background:#e0f2f1;color:#00695c}
+[data-theme="dark"] .badge.jcr{background:#123c37;color:#80e4d5}
 .badge.type-a{background:#e7f3ff;color:#0f5cab}
 .badge.type-r{background:#f3e9ff;color:#6a2fc4}
 .badge.type-m{background:#fff2df;color:#a35a00}
@@ -1982,7 +1984,7 @@ await supaLoadData();
 var jcrMatcher=window.LitdbJcr?LitdbJcr.create(window.LITDB_JCR_DATA):function(){return {quartiles:[],categories:[],matched:false};};
 function jcrLabel(p){var j=p._jcr||{};return j.quartiles&&j.quartiles.length?"JCR "+j.quartiles.join(" / ")+"（"+j.year+"）":"JCR 未匹配／无分区";}
 function jcrDetails(p){var j=p._jcr||{};return j.categories&&j.categories.length?j.categories.map(function(c){return c.name+": "+c.quartile;}).join("；")+"；匹配："+j.method+"；2025 数据年／2026 发布，非论文发表当年分区。":(j.matched?"已匹配期刊，但来源未提供 JIF 分区。":"未匹配到分区数据，不代表期刊一定未被 JCR 收录。");}
-function jcrBadge(p){return ' <span class="badge" title="'+esc(jcrDetails(p))+'">'+esc(jcrLabel(p))+'</span>';}
+function jcrBadge(p){return ' <span class="badge jcr" title="'+esc(jcrDetails(p))+'">'+esc(jcrLabel(p).replace(/（\d{4}）$/,''))+'</span>';}
 function normalizePaper(p){
   if(!p || typeof p !== "object" || Array.isArray(p)) throw new Error("文献数据包含无效记录，请检查数据分片。");
   ["env", "tags", "authors"].forEach(function(key){
