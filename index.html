@@ -2430,7 +2430,6 @@ function render(){
       links+='<a href="'+scholarUrl(p.title)+'" target="_blank" rel="noopener">Google Scholar ↗</a>';
       links+='<a class="rellink" data-id="'+esc(p.id)+'">相关文献 ↓</a>';
       links+='<a class="graphlink" data-id="'+esc(p.id)+'" title="以此篇为中心的关系图谱">🕸️ 图谱</a>';
-      links+='<a class="citelink" data-id="'+esc(p.id)+'" title="复制引用格式">引用</a>';
       links+='<a class="taglink" data-id="'+esc(p.id)+'" title="打自定义标签">🏷️ 标签</a>';
       links+='<a class="readlink" data-id="'+esc(p.id)+'" title="在右侧阅读窗格打开">📖 阅读</a></div>';
       var mytagHtml=paperMyTags(p.id).map(function(t){
@@ -2446,12 +2445,12 @@ function render(){
         (p.retracted?' <span class="badge ret" title="该论文已被撤稿，引用请谨慎">⚠️ 已撤稿</span>':"")+
         (p.design!=="其他"&&p.design!==p.type?' <span class="badge design">'+esc(p.design)+'</span>':"")+
         evBadge(p)+surgeBadge(p)+
-        (p.env||[]).map(envBadge).join("")+
+        (p.env||[]).map(envBadge).join("")+jcrBadge(p)+
         (dUrl?'<a href="'+esc(dUrl)+'" target="_blank" rel="noopener">'
               +esc(p.title)+'</a>':esc(p.title))+'</h3>'+
         '<div class="info">'+authors+' · '+esc(p.journal||"—")+
         ' · '+p.year+' · 被引 '+p.cited+
-        jcrBadge(p)+(p.oa?' <span class="badge oa">开放获取</span>':"")+
+        (p.oa?' <span class="badge oa">开放获取</span>':"")+
         (readSt[p.id]?' <span class="badge read">已读</span>':"")+'</div>'+
         '<div class="ptags">'+(p.tags||[]).map(function(t){
           return '<span class="ptag">'+esc(t)+'</span>';}).join("")+
@@ -2519,14 +2518,6 @@ function render(){
   });
   box.querySelectorAll(".aulink").forEach(function(el){
     el.onclick=function(ev){ ev.stopPropagation(); openAuthor(el.getAttribute("data-a")); };
-  });
-  box.querySelectorAll(".citelink").forEach(function(el){
-    el.onclick=function(ev){
-      var p=id2paper[el.getAttribute("data-id")]; if(!p) return;
-      var r=el.getBoundingClientRect();
-      openCitePop(p,r.left,r.bottom+6);
-      ev.stopPropagation();
-    };
   });
   box.querySelectorAll(".graphlink").forEach(function(el){
     el.onclick=function(){ openPaperGraph(el.getAttribute("data-id")); };

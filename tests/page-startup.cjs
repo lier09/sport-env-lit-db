@@ -66,7 +66,8 @@ setTimeout(()=>{
     assert.ok(!coldCard.querySelector('.abs').textContent.includes('FINAL_ABSTRACT_SENTINEL'),'collapse restores preview');
     coldCard.querySelector('.readlink').click();
     assert.equal(d.querySelector('#r_read .rabs').textContent,fullAbstract,'reader preserves final conclusion and paragraphs');
-    assert.ok(d.querySelector('[data-pid="fixture1"]').textContent.includes('JCR Q'));
+    assert.ok(d.querySelector('[data-pid="fixture1"] h3').textContent.includes('JCR Q'),'JCR shown at top of card');
+    assert.equal(d.querySelectorAll('#results .citelink').length,0,'card footer citation button removed');
     const filter=d.getElementById('f_jcr');
     filter.value='unknown';filter.dispatchEvent(new dom.window.Event('change'));
     assert.equal(d.querySelectorAll('#results .card').length,2,'unknown filter excludes matched journal');
