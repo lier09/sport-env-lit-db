@@ -58,11 +58,9 @@ body.is-app{overflow:hidden}
   radial-gradient(800px 420px at 88% 6%,rgba(251,146,60,.06),transparent 65%),
   radial-gradient(700px 500px at 50% 110%,rgba(139,92,246,.05),transparent 65%),
   #070b16}
-[data-theme="dark"] .topnav{background:rgba(7,11,22,.82)}
-[data-theme="dark"] .card{background:rgba(255,255,255,.045);
-  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
-[data-theme="dark"] .panel{background:rgba(255,255,255,.045);
-  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+[data-theme="dark"] .topnav{background:#0b101c}
+/* Opaque surfaces avoid re-blurring every card while the page scrolls. */
+[data-theme="dark"] .card,[data-theme="dark"] .panel{background:#121622}
 
 /* ---- 布局切换器 ---- */
 .layout-sw{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;flex:none}
@@ -75,8 +73,7 @@ body.is-app{overflow:hidden}
 
 /* ============ 经典布局 chrome ============ */
 .topnav{position:sticky;top:0;z-index:50;background:var(--card);
-  background:color-mix(in srgb,var(--card) 82%,transparent);
-  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  background:var(--card);
   border-bottom:1px solid var(--line)}
 .nav-inner{display:flex;align-items:center;gap:12px;height:56px}
 .brand{font-weight:700;font-size:15px;color:var(--ink);text-decoration:none;
@@ -4718,7 +4715,28 @@ function drawBubble(){
 
 /* ---------- 网络图：ECharts 力导向 ---------- */
 var _ecCache={};
+var _netJobs=new Map(),_netObserver=null;
+function networkInView(el){
+  var r=el.getBoundingClientRect();return r.width>0&&r.height>0&&r.bottom>=-180&&r.top<=(window.innerHeight||900)+180;
+}
 function drawNet(cvId,tipId,nodes,edges,onClick){
+  var el=$(cvId);if(!el)return;
+  if(!window.IntersectionObserver||networkInView(el)){
+    _netJobs.delete(el);if(_netObserver)_netObserver.unobserve(el);
+    drawNetNow(cvId,tipId,nodes,edges,onClick);return;
+  }
+  _netJobs.set(el,[cvId,tipId,nodes,edges,onClick]);
+  if(!_netObserver)_netObserver=new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if(!entry.isIntersecting)return;
+      _netObserver.unobserve(entry.target);
+      var schedule=window.requestIdleCallback||function(fn){setTimeout(fn,0);};
+      schedule(function(){var args=_netJobs.get(entry.target);if(!args)return;_netJobs.delete(entry.target);runModule("图谱",function(){drawNetNow.apply(null,args);});},{timeout:500});
+    });
+  },{rootMargin:"180px"});
+  _netObserver.observe(el);
+}
+function drawNetNow(cvId,tipId,nodes,edges,onClick){
   var el=$(cvId);
   if(!el||!nodes||!nodes.length) return;
   if(!window.echarts){ el.innerHTML='<div class="empty">图表库未加载</div>'; return; }
@@ -4741,7 +4759,7 @@ function drawNet(cvId,tipId,nodes,edges,onClick){
       lineStyle:{width:Math.min(5,0.6+(e[2]||1)*0.18), opacity:0.55}};
   });
   chart.setOption({
-    animationDuration:900, animationEasingUpdate:"quinticInOut",
+    animation:false,
     tooltip:{trigger:"item"},
     series:[{
       type:"graph", layout:"force",
@@ -4758,7 +4776,7 @@ function drawNet(cvId,tipId,nodes,edges,onClick){
   });
 }
 function ecResizeAll(){
-  Object.keys(_ecCache).forEach(function(k){ try{_ecCache[k].resize();}catch(e){} });
+  Object.keys(_ecCache).forEach(function(k){ var el=$(k);if(!el||!networkInView(el))return;try{_ecCache[k].resize();}catch(e){} });
 }
 function searchTerm(t){
   $("q").value=t; readControls(); render();
@@ -5793,12 +5811,16 @@ function init(){
     applyLayout(savedLayout,false);
   });
   safe("resize", function(){
+    var resizeTimer,lastWidth=window.innerWidth;
     window.addEventListener("resize",function(){
-      if(!dataDrawn) return;
-      drawCharts(); drawBubble();
-      if(window.ANALYTICS){ renderAnalytics(); renderNetworks(); }
-      ecResizeAll();
-    });
+      clearTimeout(resizeTimer);
+      resizeTimer=setTimeout(function(){
+        if(!dataDrawn)return;
+        var width=window.innerWidth;
+        if(width!==lastWidth){lastWidth=width;drawCharts();drawBubble();}
+        ecResizeAll();
+      },160);
+    },{passive:true});
   });
   /* 首屏遮罩：初始化完成后淡出 */
   var bo=$("boot");
@@ -5849,6 +5871,7 @@ function applyLayout(name,save){
   /* 布局落定后重绘可见画布 */
   var raf=window.requestAnimationFrame||function(f){setTimeout(f,30);};
   raf(function(){
+    if(curLayout!==name)return;
     if(name==="classic"){ if(!dataDrawn) drawDataView(); else redrawData(); }
     else if(curView==="data"&&!dataDrawn){ drawDataView(); }
   });
@@ -5876,11 +5899,16 @@ function bindClassicNav(){
   var bt=$("backTop");
   if(bt){
     bt.onclick=function(){ window.scrollTo(0,0); };
+    var scrollFrame=false,backTopVisible=null;
+    function paintBackTop(){
+      scrollFrame=false;var visible=(window.scrollY||document.documentElement.scrollTop||0)>600;
+      if(visible!==backTopVisible){backTopVisible=visible;bt.classList.toggle("show",visible);}
+    }
     window.addEventListener("scroll",function(){
-      var y=0;
-      try{ y=window.scrollY||document.documentElement.scrollTop||0; }catch(e){}
-      bt.classList.toggle("show",y>600);
+      if(scrollFrame)return;scrollFrame=true;
+      (window.requestAnimationFrame||function(fn){setTimeout(fn,16);})(paintBackTop);
     },{passive:true});
+    paintBackTop();
   }
 }
 
