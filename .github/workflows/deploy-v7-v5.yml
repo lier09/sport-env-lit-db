@@ -1,0 +1,26 @@
+name: Deploy perfmod v7 and consensus v5
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy perfmod v7 and consensus v5
+        run: |
+          cp tmp-perfmod-v7/index.html perfmod/index.html
+          cp tmp-perfmod-v7/index.html perfmod-db-v7.html
+          cp tmp-consensus-v5/index.html consensus/index.html
+          cp tmp-consensus-v5/index.html consensus-db-v5.html
+          rm -rf tmp-perfmod-v7 tmp-consensus-v5
+          git config user.name "lier09"
+          git config user.email "lier09@users.noreply.github.com"
+          git add -A
+          git status
+          git commit -m "Deploy perfmod v7 (2151 papers) and consensus v5 (1144 papers)" || echo "Nothing to commit"
+          git push
