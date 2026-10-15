@@ -61,7 +61,7 @@ test('pagination reuses filter results, while hidden-paper changes invalidate th
  c.deletedIds['1']=true;assert.equal(c.filtered().length,0);assert.equal(scans,2);
 });
 test('BibTeX escapes reserved characters and gives different records different keys',()=>{
- const c=vm.createContext({});vm.runInContext(segment('function bibKey(', 'function exportBib(){'),c);
+ const c=vm.createContext({});vm.runInContext(segment('function bibKey(', 'function exportBib('),c);
  assert.equal(c.bibEscape('A & B_{x}'),String.raw`A \& B\_\{x\}`);
  assert.notEqual(c.bibKey({id:'W1',authors:['Ben Lee'],title:'Cold recovery',year:2026}),c.bibKey({id:'W2',authors:['Ben Lee'],title:'Cold recovery',year:2026}));
 });

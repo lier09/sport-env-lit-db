@@ -102,6 +102,11 @@ setTimeout(async()=>{
     click('#btnFolders');click('[data-delf]');click('#folderSave');
     assert.equal(d.querySelectorAll('#results .card').length,20,'removing folder leaves papers');
     change('pageSize','100');
+    const selectAll=d.getElementById('ckAll');selectAll.checked=true;selectAll.dispatchEvent(new w.Event('change'));
+    assert.equal(d.getElementById('batchCount').textContent,'105','select all spans all result pages');
+    assert.match(d.getElementById('exportSummary').textContent,/105/);
+    click('#bbClear');assert.equal(d.getElementById('batchbar').style.display,'none');
+
     assert.equal(d.querySelectorAll('#results .card').length,100);
     click('#next');
     assert.equal(d.querySelectorAll('#results .card').length,5);

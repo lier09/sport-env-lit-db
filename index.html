@@ -1219,12 +1219,13 @@ canvas.net{cursor:grab}
         <span class="dens-sw" title="每行显示篇数">
           <button data-dens="4" title="一行 4 篇">▦ 4</button><button data-dens="3" class="on" title="一行 3 篇">▦ 3</button><button data-dens="2" title="一行 2 篇">▤ 2</button><button data-dens="1" title="一行 1 篇">☰ 1</button>
         </span>
-        <label class="ckall" title="全选本页"><input type="checkbox" id="ckAll"> 全选</label>
+        <label class="ckall" title="选择当前筛选结果的全部文献，包含所有分页"><input type="checkbox" id="ckAll"> 全选筛选结果</label>
         <button class="btn ghost" id="btnShare">🔗 分享检索</button>
         <button class="btn ghost" id="btnSaveQ">💾 订阅检索</button>
         <button class="btn ghost" id="btnFavOnly" title="只看收藏的文献；此时导出按钮导出收藏">★ 收藏 (<span id="favCount">0</span>)</button>
         <button class="btn ghost" id="btnFolders">📁 文件夹</button><button class="btn ghost" id="btnTrash">🗑 回收站</button>
-        <select id="exportScope" aria-label="导出范围"><option value="selected">导出：已选优先</option><option value="all">导出：全部结果</option></select>
+        <select id="exportScope" aria-label="导出范围"><option value="selected">导出：已选优先</option><option value="all">导出：全部筛选结果</option></select>
+        <span id="exportSummary" style="font-size:12px;color:var(--muted)" aria-live="polite"></span>
       <button class="btn ghost" id="btnCsv">导出 CSV</button>
         <button class="btn ghost" id="btnBib">导出 BibTeX</button>
         <button class="btn ghost" id="btnRis">导出 RIS</button>
@@ -2497,7 +2498,7 @@ function render(){
   }
   $("count").textContent="共 "+list.length+" 篇文献";
   $("pageinfo").textContent="第 "+state.page+" / "+pages+" 页";
-  rCurListFull=list; renderProfile(list);
+  rCurListFull=list; renderProfile(list); renderBatchbar();
   renderPills();
   $("prev").disabled=state.page<=1;
   $("next").disabled=state.page>=pages;
@@ -3250,11 +3251,19 @@ function csvCell(v){
   v=String(v==null?"":v).replace(/"/g,'""');
   return '"'+v+'"';
 }
-function exportList(){
-  return $("exportScope") && $("exportScope").value==="all" ? filtered() : activeList();
+function exportList(scope){
+  var list=filtered();
+  if(scope==="all" || (scope!=="selected" && $("exportScope") && $("exportScope").value==="all"))return list;
+  var selected=list.filter(function(p){return !!batchSel[p.id];});
+  return scope==="selected"?selected:(selected.length?selected:list);
 }
-function exportCsv(){
-  var list=exportList();
+function renderExportSummary(){
+  var el=$("exportSummary");if(!el)return;
+  var count=exportList().length;el.textContent="将导出 "+count.toLocaleString()+" 篇";
+  ["btnCsv","btnBib","btnRis"].forEach(function(id){if($(id))$(id).title="导出 "+count.toLocaleString()+" 篇，不受分页限制";});
+}
+function exportCsv(scope){
+  var list=exportList(scope);
   var rows=[["标题","作者","期刊","年份","被引","类型","DOI","开放获取","主题标签","摘要","文献ID","环境","JCR分区","JCR数据年","JCR学科分区","JCR来源"]
     .map(csvCell).join(",")];
   list.forEach(function(p){
@@ -3264,6 +3273,7 @@ function exportCsv(){
       .map(csvCell).join(","));
   });
   download("cold-sport-lit.csv",rows.join("\n"),"text/csv;charset=utf-8");
+  toast("已导出 "+list.length+" 篇（CSV）");
 }
 function bibKey(p){
   var a=((p.authors||["anon"])[0]||"anon").split(" ").pop()
@@ -3275,8 +3285,8 @@ function bibEscape(value){
   var slash=String.fromCharCode(92);
   return String(value||"").replace(/[\\{}%&#_$]/g,function(c){return c===slash?slash+"textbackslash{}":slash+c;});
 }
-function exportBib(){
-  var list=exportList();
+function exportBib(scope){
+  var list=exportList(scope);
   var out=list.map(function(p){
     return "@article{"+bibKey(p)+",\n"+
       "  author = {"+(p.authors||[]).map(bibEscape).join(" and ")+"},\n"+
@@ -3286,6 +3296,7 @@ function exportBib(){
       (p.doi?"  doi = {"+bibEscape(p.doi)+"},\n":"")+"}";
   }).join("\n\n");
   download("cold-sport-lit.bib",out,"text/plain;charset=utf-8");
+  toast("已导出 "+list.length+" 篇（BibTeX）");
 }
 
 /* ---------- 学术画像 ---------- */
@@ -3610,12 +3621,13 @@ function renderBatchbar(){
   bb.style.display=n?"flex":"none";
   $("batchCount").textContent=n;
   syncCkAll();
+  renderExportSummary();
 }
-/* 全选框状态与本页实际选中保持一致（修：之前点完就被强制灭掉，看起来像没反应） */
+/* Selection covers all filtered records, independently of the current page. */
 function syncCkAll(){
   var ca=$("ckAll"); if(!ca) return;
-  var ids=rCurList.map(function(p){return p.id;});
-  ca.checked = ids.length>0 && ids.every(function(id){return batchSel[id];});
+  var ids=filtered().map(function(p){return p.id;}),selected=ids.filter(function(id){return batchSel[id];}).length;
+  ca.checked=ids.length>0&&selected===ids.length;ca.indeterminate=selected>0&&selected<ids.length;
 }
 function clearBatch(){ batchSel={}; renderBatchbar(); render(); }
 function bindBatchbar(){
@@ -3634,20 +3646,21 @@ function bindBatchbar(){
     openTagPop("__batch__",r.left,r.bottom+6);
   };
   $("bbOutline").onclick=function(){ buildOutline(); };
-  $("bbCsv").onclick=function(){ exportCsv(); };
-  $("bbBib").onclick=function(){ exportBib(); };
-  $("bbRis").onclick=function(){ exportRis(); };
+  $("bbCsv").onclick=function(){ exportCsv("selected"); };
+  $("bbBib").onclick=function(){ exportBib("selected"); };
+  $("bbRis").onclick=function(){ exportRis("selected"); };
   $("bbClear").onclick=function(){ clearBatch(); };
+  if($("exportScope"))$("exportScope").onchange=renderExportSummary;
   var ca=$("ckAll");
   if(ca) ca.onchange=function(){
-    var ids=rCurList.map(function(p){return p.id;});
-    if(ca.checked) ids.forEach(function(id){batchSel[id]=1;});
+    var ids=filtered().map(function(p){return p.id;});
+    if(ca.checked){batchSel={};ids.forEach(function(id){batchSel[id]=1;});}
     else ids.forEach(function(id){delete batchSel[id];});
     renderBatchbar(); render();
   };
 }
-function exportRis(){
-  var list=exportList();
+function exportRis(scope){
+  var list=exportList(scope);
   var out=list.map(function(p){
     var L=["TY  - JOUR"];
     (p.authors||[]).forEach(function(a){ L.push("AU  - "+a); });
@@ -3663,34 +3676,6 @@ function exportRis(){
   }).join("\n\n");
   download("sport-env-lit.ris",out,"application/x-research-info-systems;charset=utf-8");
   toast("已导出 "+list.length+" 篇（RIS）");
-}
-/* 让 CSV/BibTeX 也支持批量选择 */
-var _exportCsv=exportCsv, _exportBib=exportBib;
-exportCsv=function(){ var list=activeList(); _exportCsvList(list,"cold-sport-lit.csv"); };
-exportBib=function(){ var list=activeList(); _exportBibList(list,"cold-sport-lit.bib"); };
-function _exportCsvList(list,name){
-  var rows=[["标题","作者","期刊","年份","被引","类型","DOI","开放获取","主题标签","摘要"]
-    .map(csvCell).join(",")];
-  list.forEach(function(p){
-    rows.push([p.title,(p.authors||[]).join("; "),p.journal,p.year,p.cited,
-      p.type,p.doi||"",p.oa?"是":"否",(p.tags||[]).join("|"),
-      (p.abstract||"").replace(/\r?\n/g," ")]
-      .map(csvCell).join(","));
-  });
-  download(name,rows.join("\n"),"text/csv;charset=utf-8");
-  toast("已导出 "+list.length+" 篇（CSV）");
-}
-function _exportBibList(list,name){
-  var out=list.map(function(p){
-    return "@article{"+bibKey(p)+",\n"+
-      "  author = {"+(p.authors||[]).join(" and ")+"},\n"+
-      "  title = {"+p.title+"},\n"+
-      "  journal = {"+(p.journal||"")+"},\n"+
-      "  year = {"+p.year+"},\n"+
-      (p.doi?"  doi = {"+p.doi+"},\n":"")+"}";
-  }).join("\n\n");
-  download(name,out,"text/plain;charset=utf-8");
-  toast("已导出 "+list.length+" 篇（BibTeX）");
 }
 /* ---------- 自定义标签弹窗 ---------- */
 function openTagPop(id,x,y,draft){
