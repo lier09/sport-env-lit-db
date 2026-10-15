@@ -897,6 +897,17 @@ canvas.net{cursor:grab}
 .related-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:180px;overflow:auto}.related-paper{text-align:left;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer}.related-paper small{display:block;color:var(--muted);margin-top:5px}
 @media(min-width:801px){.wb-split-v,.wb-split-h{display:block}}@media(max-width:800px){#results.dens-3,#results.dens-4{grid-template-columns:repeat(2,minmax(0,1fr))}.related-list{grid-template-columns:1fr}}
 @media(max-width:520px){#results.dens-2,#results.dens-3,#results.dens-4{grid-template-columns:1fr}}
+
+/* Checkbox dropdowns: no Ctrl/Cmd key required for multiple choices. */
+.filters .filter-field{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--muted)}
+.multi-filter{position:relative;display:inline-block;min-width:100px}
+.multi-filter>summary{cursor:pointer;min-height:36px;max-width:240px;padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:13px;overflow-wrap:anywhere}
+.multi-filter>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.multi-options{position:fixed;z-index:1000;width:270px;max-width:calc(100vw - 16px);overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-hover);padding:8px}
+.filters .multi-options label{display:flex;gap:10px;justify-content:flex-start;min-height:40px;padding:8px;border-radius:6px;color:var(--ink);cursor:pointer;overflow-wrap:anywhere}
+.multi-options label:hover{background:var(--accent-soft)}
+.multi-options input[type=checkbox]{flex:none;accent-color:var(--accent);width:16px;height:16px}
+
 </style>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}</script>
 </head>
@@ -1175,6 +1186,8 @@ canvas.net{cursor:grab}
           <option value="学位论文">学位论文</option>
         </select>
       </label>
+      <label>研究对象 <select id="f_population"><option value="all">全部</option><option value="human">人类研究</option><option value="animal">动物实验</option><option value="both">人+动物</option><option value="unknown">未分类</option></select></label>
+      <span style="font-size:12px;color:var(--muted)">同一项可多选（或），不同项组合筛选（且）</span>
       <label>年份 <input type="number" id="f_ymin" min="1970" max="2026" value="1970"> – <input type="number" id="f_ymax" min="1970" max="2026" value="2026"></label>
       <label>期刊 <select id="f_journal"><option value="all">全部期刊</option></select></label>
       <label>JCR 分区 <select id="f_jcr"><option value="all">全部分区</option><option value="Q1">Q1</option><option value="Q2">Q2</option><option value="Q3">Q3</option><option value="Q4">Q4</option><option value="unknown">未匹配／无分区</option></select></label>
@@ -2314,6 +2327,56 @@ function paperAffiliations(p){
 }
 
 var filterMemo={key:null,records:null};
+var MULTI_FIELDS={type:"类型",population:"研究对象",journal:"期刊",jcr:"JCR 分区",design:"研究设计",ev:"证据等级"};
+function choiceValues(value){return (Array.isArray(value)?value:(value&&value!=="all"?[value]:[])).filter(function(v){return typeof v==="string"&&v!=="all";});}
+function choiceMatches(value,actual){var values=choiceValues(value);return !values.length||values.indexOf(actual)>=0;}
+function choiceToggle(value,item){var values=choiceValues(value).slice(),i=values.indexOf(item);if(i<0)values.push(item);else values.splice(i,1);return values.length?values:"all";}
+function choiceRead(id){var el=$(id);if(!el)return "all";var values=Array.from(el.selectedOptions).map(function(o){return o.value;}).filter(function(v){return v!=="all";});return values.length?values:"all";}
+function choiceWrite(id,value,allowNew){
+  var el=$(id);if(!el)return;var values=choiceValues(value);
+  if(allowNew)values.forEach(function(v){if(!Array.from(el.options).some(function(o){return o.value===v;})){var o=document.createElement("option");o.value=v;o.textContent=v;el.appendChild(o);}});
+  Array.from(el.options).forEach(function(o){o.selected=values.length?values.indexOf(o.value)>=0:o.value==="all";});
+  if(!Array.from(el.selectedOptions).length)el.value="all";
+}
+function choiceDecode(value){try{var parsed=JSON.parse(value);if(Array.isArray(parsed))return parsed;}catch(e){}return value||"all";}
+function syncMultiFilters(){
+  Object.keys(MULTI_FIELDS).forEach(function(field){
+    var el=$("f_"+field);if(!el||!el._multi)return;
+    choiceWrite(el.id,state[field],field==="journal");
+    var selected=choiceValues(state[field]),options=Array.from(el.options),texts=selected.map(function(v){var o=options.find(function(o){return o.value===v;});return o?o.textContent:v;});
+    el._multi.querySelector("summary").textContent=texts.length?(texts.slice(0,2).join(" / ")+(texts.length>2?" +"+(texts.length-2):"")):"全部";
+    el._multi.querySelector("summary").setAttribute("aria-label",MULTI_FIELDS[field]+"（可多选）："+(texts.join(" / ")||"全部"));
+    el._multi.querySelectorAll("input[type=checkbox]").forEach(function(input){input.checked=input.value==="all"?!selected.length:selected.indexOf(input.value)>=0;});
+  });
+}
+function initMultiFilters(){
+  Object.keys(MULTI_FIELDS).forEach(function(field){
+    var el=$("f_"+field);if(!el||el._multi)return;
+    var parent=el.parentElement;if(parent.tagName==="LABEL"){var wrapper=document.createElement("div");wrapper.className="filter-field";while(parent.firstChild)wrapper.appendChild(parent.firstChild);parent.replaceWith(wrapper);parent=wrapper;}
+    el.multiple=true;el.hidden=true;el.tabIndex=-1;
+    var details=document.createElement("details");details.className="multi-filter";details.dataset.field=field;
+    var summary=document.createElement("summary");details.appendChild(summary);
+    var panel=document.createElement("div");panel.className="multi-options";panel.setAttribute("role","group");panel.setAttribute("aria-label",MULTI_FIELDS[field]+"选项（同项按或匹配）");details.appendChild(panel);
+    Array.from(el.options).forEach(function(o){
+      var label=document.createElement("label"),input=document.createElement("input");input.type="checkbox";input.value=o.value;label.appendChild(input);label.appendChild(document.createTextNode(o.value==="all"?"全部（清除限制）":o.textContent));panel.appendChild(label);
+      input.onchange=function(){state[field]=o.value==="all"?"all":choiceToggle(state[field],o.value);choiceWrite(el.id,state[field]);el.dispatchEvent(new Event("change",{bubbles:true}));};
+    });
+    parent.appendChild(details);el._multi=details;
+    details.addEventListener("toggle",function(){if(!details.open)return;
+      document.querySelectorAll(".multi-filter[open]").forEach(function(other){if(other!==details)other.open=false;});
+      var r=summary.getBoundingClientRect(),height=window.innerHeight||800;
+      panel.style.left=Math.max(8,Math.min(r.left,(window.innerWidth||800)-280))+"px";
+      if(height-r.bottom<180&&r.top>220){panel.style.top="auto";panel.style.bottom=(height-r.top+6)+"px";panel.style.maxHeight=Math.min(320,r.top-20)+"px";}
+      else{panel.style.bottom="auto";panel.style.top=(r.bottom+6)+"px";panel.style.maxHeight=Math.max(100,Math.min(320,height-r.bottom-20))+"px";}
+    });
+  });
+  document.addEventListener("pointerdown",function(e){document.querySelectorAll(".multi-filter[open]").forEach(function(el){if(!el.contains(e.target))el.open=false;});});
+  document.addEventListener("keydown",function(e){if(e.key==="Escape")document.querySelectorAll(".multi-filter[open]").forEach(function(el){el.open=false;el.querySelector("summary").focus();});});
+  window.addEventListener("resize",function(){document.querySelectorAll(".multi-filter[open]").forEach(function(el){el.open=false;});});
+  document.addEventListener("scroll",function(e){document.querySelectorAll(".multi-filter[open]").forEach(function(el){if(!el.contains(e.target))el.open=false;});},true);
+  syncMultiFilters();
+}
+
 function filterKey(){
   var conditions=Object.assign({},state);delete conditions.page;
   return JSON.stringify([PAPERS.length,conditions,!!favOnly,window._aiMode?window._aiConcepts:null,window._aiAuthor,!!window._aiAuthorExpand,favs,myTags,folders,deletedIds]);
@@ -2338,18 +2401,18 @@ function filtered(){
     if(!aiMode || activeEnvs.length){
       if(!activeEnvs.some(function(e){return pe.indexOf(e)>=0;})) return false;
     }
-    if(state.type!=="all" && p.type!==state.type) return false;
-    if(state.design && state.design!=="all" && p.design!==state.design) return false;
-    if(state.ev && state.ev!=="all" && (EV_LEVEL[p.design]||"")!==state.ev) return false;
+    if(!choiceMatches(state.type,p.type))return false;
+    if(!choiceMatches(state.design,p.design))return false;
+    if(!choiceMatches(state.ev,EV_LEVEL[p.design]||""))return false;
     if(state.mytag && state.mytag!=="all" && paperMyTags(p.id).indexOf(state.mytag)<0) return false;
     if(state.folder && state.folder!=="all" && paperFolders(p.id).indexOf(decodeURIComponent(state.folder.slice(7)))<0) return false;
     if(p.year>0 && (p.year < state.ymin || p.year > state.ymax)) return false;
     if(!p.year && (state.ymin!==DATA_YEAR_MIN || state.ymax!==DATA_YEAR_MAX || adv.year)) return false;
-    if(state.jcr && state.jcr!=="all" && !LitdbJcr.matches(p,state.jcr)) return false;
-    if(state.journal!=="all" && (window._aiMode ? (p.journal||"").toLowerCase().indexOf(state.journal.toLowerCase())<0 : p.journal!==state.journal)) return false;
+    if(choiceValues(state.jcr).length&&!choiceValues(state.jcr).some(function(v){return LitdbJcr.matches(p,v);}))return false;
+    if(choiceValues(state.journal).length&&!choiceValues(state.journal).some(function(v){return window._aiMode?(p.journal||"").toLowerCase().indexOf(v.toLowerCase())>=0:p.journal===v;}))return false;
     if(p.cited < state.minCited) return false;
     if(state.oa && !p.oa) return false;
-    if(state.population!=="all" && (p.population||"unknown")!==state.population) return false;
+    if(!choiceMatches(state.population,p.population||"unknown"))return false;
     // 作者筛选：词元精确匹配（不区分大小写），不匹配姓名内部子串
     if(state.author && state.author.trim()){
       var aq=state.author.trim();
@@ -2429,6 +2492,7 @@ function scholarUrl(title){
 }
 var expandedAbs = {};
 function render(){
+  syncMultiFilters();
   var list = filtered();
   var pages = Math.max(1, Math.ceil(list.length/PAGE_SIZE));
   if(state.page>pages) state.page=pages;
@@ -2788,8 +2852,8 @@ function buildFacet(){
     }).join("");
   }
   html+='<h4>类型</h4>'+["原创研究","综述","Meta分析","学位论文"].map(function(t){
-    var on=state.type===t;
-    return '<div class="l4-frow'+(on||state.type==="all"?"":" off")+'" data-ty="'+esc(t)+'">'+
+    var on=choiceValues(state.type).indexOf(t)>=0;
+    return '<div class="l4-frow'+(on||!choiceValues(state.type).length?"":" off")+'" data-ty="'+esc(t)+'">'+
       '<input type="checkbox"'+(on?" checked":"")+' tabindex="-1">'+esc(t)+
       '<span class="n">'+(typeCounts[t]||0).toLocaleString()+'</span></div>';
   }).join("");
@@ -2797,8 +2861,8 @@ function buildFacet(){
   var popLabels={"human":"人类研究","animal":"动物实验","both":"人+动物","unknown":"未分类"};
   var popCounts={}; PAPERS.forEach(function(p){var k=p.population||"unknown";popCounts[k]=(popCounts[k]||0)+1;});
   html+='<h4>研究对象</h4>'+["human","animal","both","unknown"].map(function(k){
-    var on=state.population===k;
-    return '<div class="l4-frow'+(on||state.population==="all"?"":" off")+'" data-pop="'+k+'">'+
+    var on=choiceValues(state.population).indexOf(k)>=0;
+    return '<div class="l4-frow'+(on||!choiceValues(state.population).length?"":" off")+'" data-pop="'+k+'">'+
       '<input type="checkbox"'+(on?" checked":"")+' tabindex="-1">'+popLabels[k]+
       '<span class="n">'+(popCounts[k]||0).toLocaleString()+'</span></div>';
   }).join("");
@@ -2818,10 +2882,9 @@ function buildFacet(){
       }else if(t){
         state.tags[t]=!state.tags[t];
       }else if(ty){
-        state.type=(state.type===ty)?"all":ty;
-        try{$("f_type").value=state.type;}catch(err){}
+        state.type=choiceToggle(state.type,ty);choiceWrite("f_type",state.type);
       }else if(pop){
-        state.population=(state.population===pop)?"all":pop;
+        state.population=choiceToggle(state.population,pop);choiceWrite("f_population",state.population);
       }
       paintEnvbar(); buildFacet(); state.page=1; render();
     };
@@ -2855,17 +2918,16 @@ function renderPills(){
     if(state.tags[t]) pills.push({t:t,k:"tag:"+t,cls:""});
   });
   if(state.folder && state.folder!=="all") pills.push({t:"📁 "+decodeURIComponent(state.folder.slice(7)),k:"folder",cls:""});
-  if(state.type!=="all") pills.push({t:state.type,k:"type",cls:""});
-  if(state.population!=="all"){
-    var pl={"human":"人类研究","animal":"动物实验","both":"人+动物","unknown":"未分类"}[state.population]||state.population;
-    pills.push({t:pl,k:"population",cls:""});
-  }
+  Object.keys(MULTI_FIELDS).forEach(function(field){choiceValues(state[field]).forEach(function(value){
+    var label=value;if(field==="population")label={human:"人类研究",animal:"动物实验",both:"人+动物",unknown:"未分类"}[value]||value;
+    if(field==="jcr"&&value==="unknown")label="未匹配／无分区";
+    if(field==="ev")label={high:"高",mid:"中",low:"低"}[value]||value;
+    pills.push({t:MULTI_FIELDS[field]+"："+label,k:"choice:"+field+":"+encodeURIComponent(value),cls:""});
+  });});
   if(state.author) pills.push({t:"作者："+state.author,k:"author",cls:""});
   if(state.affiliation) pills.push({t:"单位："+state.affiliation,k:"affiliation",cls:""});
   if(state.ymin!==DATA_YEAR_MIN || state.ymax!==DATA_YEAR_MAX) pills.push({t:"年份："+state.ymin+"–"+state.ymax,k:"years",cls:""});
-  if(state.jcr!=="all") pills.push({t:state.jcr==="unknown"?"JCR 未匹配／无分区":"JCR "+state.jcr,k:"jcr",cls:""});
-  if(state.journal!=="all") pills.push({t:"期刊："+state.journal,k:"journal",cls:""});
-  ["design","ev","mytag"].forEach(function(k){if(state[k]!=="all") pills.push({t:state[k],k:k,cls:""});});
+  ["mytag"].forEach(function(k){if(state[k]!=="all") pills.push({t:state[k],k:k,cls:""});});
   if(state.minCited) pills.push({t:"被引≥"+state.minCited,k:"minCited",cls:""});
   if(state.oa) pills.push({t:"开放获取",k:"oa",cls:""});
   if(window._aiMode && window._aiConcepts) window._aiConcepts.forEach(function(group,i){pills.push({t:"必须包含："+group.join(" / "),k:"concept:"+i,cls:""});});
@@ -2879,6 +2941,7 @@ function renderPills(){
       var k=x.getAttribute("data-k");
       if(k.indexOf("env:")===0){ state.env[k.slice(4)]=false; state.tags={}; buildTagbar(); }
       else if(k.indexOf("tag:")===0){ delete state.tags[k.slice(4)]; }
+      else if(k.indexOf("choice:")===0){var bits=k.split(":"),field=bits[1],value=decodeURIComponent(bits.slice(2).join(":"));state[field]=choiceToggle(state[field],value);choiceWrite("f_"+field,state[field]);}
       else if(k==="type"){ state.type="all"; try{$("f_type").value="all";}catch(e){} }
       else if(k==="population"){ state.population="all"; }
       else if(k==="folder"){state.folder="all";buildFolderFilter();}
@@ -2965,15 +3028,16 @@ function bindL4(){
 
 function readControls(){
   state.q=$("q").value;
-  state.type=$("f_type").value;
-  state.design=$("f_design").value;
-  state.ev=$("f_ev").value;
+  state.type=choiceRead("f_type");
+  state.population=choiceRead("f_population");
+  state.design=choiceRead("f_design");
+  state.ev=choiceRead("f_ev");
   state.mytag=$("f_mytag").value;
   state.folder=$("f_folder").value;
   state.ymin=+$("f_ymin").value||DATA_YEAR_MIN;
   state.ymax=+$("f_ymax").value||DATA_YEAR_MAX;
-  state.journal=$("f_journal").value;
-  state.jcr=$("f_jcr").value;
+  state.journal=choiceRead("f_journal");
+  state.jcr=choiceRead("f_jcr");
   state.minCited=+$("f_cited").value||0;
   state.oa=$("f_oa").checked;
   state.sort=$("sort").value;
@@ -3013,7 +3077,7 @@ function bind(){
     $("q").value="";$("f_type").value="all";$("f_ymin").value=DATA_YEAR_MIN;
     $("f_ymax").value=DATA_YEAR_MAX;$("f_journal").value="all";$("f_jcr").value="all";$("f_cited").value=0;
     $("f_oa").checked=false;$("sort").value="year_desc";
-    $("f_design").value="all";$("f_ev").value="all";$("f_mytag").value="all";$("f_folder").value="all";
+    $("f_design").value="all";$("f_ev").value="all";$("f_population").value="all";$("f_mytag").value="all";$("f_folder").value="all";
     state.tags={}; state.population="all"; state.author=""; state.affiliation=""; state.authorExpand=false;
     window._aiAuthorExpand=false;
     try{$("aiQ").value="";}catch(e){}
@@ -3023,8 +3087,8 @@ function bind(){
     document.querySelectorAll("#tagbar .chip").forEach(function(c){c.classList.remove("on");});
     readControls();render();
   };
-  ["f_type","f_ymin","f_ymax","f_journal","f_jcr","f_cited","f_design","f_ev","f_mytag","f_folder","f_oa"].forEach(function(id){
-    $(id).addEventListener("change",function(){readControls();render();});
+  ["f_type","f_ymin","f_ymax","f_journal","f_jcr","f_population","f_cited","f_design","f_ev","f_mytag","f_folder","f_oa"].forEach(function(id){
+    $(id).addEventListener("change",function(){readControls();if(Object.prototype.hasOwnProperty.call(MULTI_FIELDS,id.slice(2)))buildFacet();render();});
   });
   $("prev").onclick=function(){if(state.page>1){state.page--;render();window.scrollTo(0,0);}};
   $("next").onclick=function(){state.page++;render();window.scrollTo(0,0);};
@@ -3166,7 +3230,7 @@ async function aiSearch(){
     state.author=""; state.journal="all"; state.jcr="all"; state.authorExpand=false;
     state.design="all"; state.ev="all"; state.mytag="all"; state.folder="all";
     state.affiliation=""; state.minCited=0; state.oa=false; state.showDeleted=false; favOnly=false;
-    ["f_design","f_ev","f_mytag","f_folder","f_journal","f_jcr"].forEach(function(id){if($(id)) $(id).value="all";});
+    ["f_design","f_ev","f_population","f_mytag","f_folder","f_journal","f_jcr"].forEach(function(id){if($(id)) $(id).value="all";});
     $("f_type").value="all"; $("f_cited").value=0; $("f_oa").checked=false;
     try{$("q").value="";}catch(e){}
     // 作者字段：词元精确匹配（不区分大小写），默认不扩展变体
@@ -3181,7 +3245,7 @@ async function aiSearch(){
     // 期刊字段
     if(f.journal){
       state.journal=f.journal;
-      try{$("f_journal").value=f.journal;}catch(e){}
+      choiceWrite("f_journal",f.journal,true);
     }
     // 语义匹配：概念组 OR 组内，AND 组间，按相关度排序
     var concepts=Array.isArray(f.concepts)?f.concepts.map(function(group){
@@ -4019,20 +4083,21 @@ function suggestJournals(){
 }
 /* ---------- 检索订阅 ---------- */
 function snapshotSearch(){
-  return {q:$("q").value, type:$("f_type").value, design:$("f_design").value,
-    ev:$("f_ev").value, mytag:$("f_mytag").value, folder:$("f_folder").value,
-    ymin:$("f_ymin").value, ymax:$("f_ymax").value, journal:$("f_journal").value, jcr:$("f_jcr").value,
-    cited:$("f_cited").value, oa:$("f_oa").checked,
+  return {q:$("q").value, type:choiceRead("f_type"), design:choiceRead("f_design"),
+    ev:choiceRead("f_ev"), mytag:$("f_mytag").value, folder:$("f_folder").value,
+    ymin:$("f_ymin").value, ymax:$("f_ymax").value, journal:choiceRead("f_journal"), jcr:choiceRead("f_jcr"),
+    population:choiceRead("f_population"),cited:$("f_cited").value, oa:$("f_oa").checked,
     env:Object.keys(state.env).filter(function(e){return state.env[e];}),
     tags:Object.keys(state.tags).filter(function(t){return state.tags[t];})};
 }
 function applySnapshot(s){
-  $("q").value=s.q||""; $("f_type").value=s.type||"all";
-  $("f_design").value=s.design||"all"; $("f_ev").value=s.ev||"all";
+  $("q").value=s.q||""; choiceWrite("f_type",s.type||"all");
+  choiceWrite("f_design",s.design||"all"); choiceWrite("f_ev",s.ev||"all");
   $("f_mytag").value=s.mytag||"all";
   $("f_folder").value=s.folder||"all";if(!$("f_folder").value)$("f_folder").value="all";
   $("f_ymin").value=s.ymin||DATA_YEAR_MIN; $("f_ymax").value=s.ymax||DATA_YEAR_MAX;
-  $("f_journal").value=s.journal||"all"; $("f_jcr").value=s.jcr||"all"; $("f_cited").value=s.cited||0;
+  choiceWrite("f_journal",s.journal||"all",true); choiceWrite("f_jcr",s.jcr||"all"); $("f_cited").value=s.cited||0;
+  choiceWrite("f_population",s.population||"all");
   $("f_oa").checked=!!s.oa;
   Object.keys(state.env).forEach(function(e){ state.env[e]=(s.env||[]).indexOf(e)>=0; });
   paintEnvbar();
@@ -5357,10 +5422,11 @@ function shareLink(){
   var h="#q="+encodeURIComponent(state.q)+
     "&env="+encodeURIComponent(envs)+
     "&tags="+encodeURIComponent(tags)+
-    "&type="+encodeURIComponent(state.type)+
-    "&design="+encodeURIComponent(state.design||"all")+
+    "&type="+encodeURIComponent(JSON.stringify(state.type))+
+    "&design="+encodeURIComponent(JSON.stringify(state.design||"all"))+
     "&ymin="+state.ymin+"&ymax="+state.ymax+
-    "&journal="+encodeURIComponent(state.journal)+"&jcr="+encodeURIComponent(state.jcr)+
+    "&journal="+encodeURIComponent(JSON.stringify(state.journal))+"&jcr="+encodeURIComponent(JSON.stringify(state.jcr))+
+    "&population="+encodeURIComponent(JSON.stringify(state.population))+"&ev="+encodeURIComponent(JSON.stringify(state.ev))+
     "&cited="+state.minCited+(state.oa?"&oa=1":"")+
     "&sort="+encodeURIComponent(state.sort);
   var url=curHref()+h;
@@ -5383,12 +5449,14 @@ function applyHash(){
     try{ q[kv.slice(0,i)]=decodeURIComponent(kv.slice(i+1)); }catch(e){}
   });
   if(q.q!==undefined) $("q").value=q.q;
-  if(q.type) $("f_type").value=q.type;
-  if(q.design&&$("f_design")) $("f_design").value=q.design;
+  if(q.type)choiceWrite("f_type",choiceDecode(q.type));
+  if(q.design)choiceWrite("f_design",choiceDecode(q.design));
   if(q.ymin) $("f_ymin").value=q.ymin;
   if(q.ymax) $("f_ymax").value=q.ymax;
-  if(q.journal) $("f_journal").value=q.journal;
-  if(q.jcr && ["all","Q1","Q2","Q3","Q4","unknown"].indexOf(q.jcr)>=0) $("f_jcr").value=q.jcr;
+  if(q.journal)choiceWrite("f_journal",choiceDecode(q.journal),true);
+  if(q.jcr)choiceWrite("f_jcr",choiceDecode(q.jcr));
+  if(q.population)choiceWrite("f_population",choiceDecode(q.population));
+  if(q.ev)choiceWrite("f_ev",choiceDecode(q.ev));
   if(q.cited) $("f_cited").value=q.cited;
   if(q.sort) $("sort").value=q.sort;
   $("f_oa").checked=!!q.oa;
@@ -5610,6 +5678,7 @@ function init(){
   safe("环境条", buildEnvbar);
   safe("标签条", buildTagbar);
   safe("期刊", buildJournals);
+  safe("多选筛选", initMultiFilters);
   safe("绑定", bind);
   safe("密度", bindDensity);
   safe("渲染", render);

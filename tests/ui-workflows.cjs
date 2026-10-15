@@ -59,6 +59,17 @@ setTimeout(async()=>{
     const click=selector=>{const el=d.querySelector(selector);assert.ok(el,'Missing '+selector);el.click();return el;};
     const change=(id,value)=>{const el=d.getElementById(id);el.value=value;el.dispatchEvent(new w.Event('change',{bubbles:true}));};
     const delay=ms=>new Promise(r=>setTimeout(r,ms));
+    click('[data-field="population"] input[value="human"]');
+    assert.match(d.getElementById('exportSummary').textContent,/104/,'human filter applies to full results');
+    click('[data-field="population"] input[value="unknown"]');
+    assert.match(d.getElementById('exportSummary').textContent,/105/,'population choices are OR');
+    click('[data-field="type"] input[value="综述"]');
+    assert.equal(d.querySelectorAll('#results .card').length,0,'type and population combine with AND');
+    click('[data-field="type"] input[value="原创研究"]');
+    assert.match(d.getElementById('exportSummary').textContent,/105/,'type choices are OR');
+    click('#btnReset');
+    assert.equal(d.querySelectorAll('.multi-options input:checked:not([value="all"])').length,0,'reset clears all multiple choices');
+    console.log('PASS: real page multi-select filters combine within and across fields and reset correctly.');
     d.getElementById('aiEndpoint').value='https://ai.fixture.invalid/v1';d.getElementById('aiKey').value='fixture-key';d.getElementById('btnAiSave').click();
     w.fetch=async url=>response({choices:[{message:{content:JSON.stringify({env:['低温'],author:'Ben Lee',concepts:[['cold','低温'],['recovery','恢复']]})}}]});
     change('f_cited','999');
