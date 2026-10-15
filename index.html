@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>环境与运动科学文献总库（1970–2026）</title>
 <link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="./follow-hub.css">
 <meta name="theme-color" content="#0e9f6e">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -916,7 +917,7 @@ canvas.net{cursor:grab}
         <a href="#z-analytics" data-z="z-analytics">学术画像</a>
         <a href="#z-network" data-z="z-network">知识网络</a>
         <a href="#z-lab" data-z="z-lab">工具箱</a>
-        <a href="#z-follow" data-z="z-follow">关注</a>
+        <a href="#following" data-follow-open>我的关注 ↗</a>
       </div>
       <button class="hbtn cmdkBtn" title="命令面板 (⌘K)">⌘K</button>
       <div class="layout-sw" data-sw>
@@ -983,10 +984,6 @@ canvas.net{cursor:grab}
     <section class="zone" id="z-lab">
       <div class="zone-head"><span class="znum">06</span><h2>工具箱</h2><span class="zsub">阅读统计 · 空白探测 · 检索订阅</span></div>
       <div id="slot-classic-lab"></div>
-    </section>
-    <section class="zone" id="z-follow">
-      <div class="zone-head"><span class="znum">07</span><h2>我的关注</h2><span class="zsub">追踪作者与期刊的新动态 · 只保存在本浏览器</span></div>
-      <div id="slot-classic-follow"></div>
     </section>
     <section class="zone" id="z-diss">
       <div class="zone-head"><span class="znum">08</span><h2>🎓 学位论文</h2><span class="zsub">英文博硕学位论文 · 每日回填 · 可与期刊论文交叉验证</span></div>
@@ -1083,7 +1080,7 @@ canvas.net{cursor:grab}
 <div id="layout-study" hidden>
   <header class="study-top">
     <span class="study-brand">🌡 环境运动科学文献总库 <span class="study-tag">纯净学习</span></span>
-    <span class="study-tools">
+    <span class="study-tools"><button type="button" class="hbtn" data-follow-open>我的关注</button>
       <span class="layout-sw" data-sw>
         <button data-layout="classic">经典</button><button data-layout="app">工作台</button><button data-layout="study" class="on">学习</button>
       </span>
@@ -1098,6 +1095,18 @@ canvas.net{cursor:grab}
       <div id="slot-study-facets" class="top-facets"></div><div id="slot-study-envtags" style="margin-top:8px"></div>
     </details>
     <div id="slot-study-results"></div>
+  </main>
+</div>
+
+<!-- Independent following workspace; library layouts retain their state when returning. -->
+<div id="followHub" hidden>
+  <header class="follow-header"><div class="follow-bar"><button type="button" class="btn ghost" id="folBack">← 返回文献库</button><span class="follow-brand">我的关注</span><span class="follow-local">关注、收藏仅保存在本浏览器</span><button class="iconbtn themeToggle" aria-label="切换深色或浅色">🌙</button></div></header>
+  <main class="follow-main" id="c-follow">
+    <div class="follow-intro"><div><p class="follow-eyebrow">FOLLOWING / 研究追踪</p><h1 id="followHeading" tabindex="-1">跟进你关心的研究</h1><p>选择作者或期刊，阅读库内全部文献。</p></div><div class="follow-summary"><div><strong id="folAuthorCount">0</strong><span>关注作者</span></div><div><strong id="folJournalCount">0</strong><span>关注期刊</span></div></div></div>
+    <div class="follow-grid">
+      <aside class="follow-directory" aria-label="关注对象"><div class="follow-tabs"><button type="button" class="on" id="folTabAu" aria-pressed="true">作者</button><button type="button" id="folTabJo" aria-pressed="false">期刊</button></div><label for="folSearch">查找库内作者或期刊</label><input type="search" id="folSearch" placeholder="输入姓名或期刊名称" autocomplete="off"><div class="follow-directory-meta" id="folDirectoryMeta" aria-live="polite"></div><div id="folList"></div></aside>
+      <section class="follow-results" aria-label="关注对象的全部文献"><div class="follow-result-head" id="folResultsHead"><div class="follow-result-title"><h2 id="folSelected">选择一位作者</h2><button type="button" class="btn ghost" id="folToggle" hidden>＋ 关注</button></div><p id="folScope"></p></div><div class="follow-filter"><label>搜索其文献<input type="search" id="folPaperQuery" placeholder="标题、摘要、主题关键词"></label><label>排序<select id="folSort"><option value="year">发表年份 · 最新优先</option><option value="cited">被引次数 · 从高到低</option></select></label><label>每页篇数<select id="folPageSize"><option value="20">20 篇</option><option value="50">50 篇</option><option value="100">100 篇</option></select></label></div><div class="follow-count" id="folPaperCount" aria-live="polite"></div><div id="folPapers"></div><nav class="follow-pagination" aria-label="关注文献分页"><button type="button" class="btn ghost" id="folPrev">上一页</button><span id="folPaginationInfo" aria-live="polite"></span><button type="button" class="btn ghost" id="folNext">下一页</button></nav></section>
+    </div>
   </main>
 </div>
 
@@ -1418,22 +1427,7 @@ canvas.net{cursor:grab}
       </div>
     </div>
   </div>
-  <div id="c-follow">
-    <div class="panel">
-      <h3 class="sub-h">⭐ 我的关注 <span class="sub">作者 / 期刊有新论文时，在每日新增中高亮提醒</span></h3>
-      <div class="fol-tabs">
-        <button class="btn on" id="folTabAu">👤 作者</button>
-        <button class="btn" id="folTabJo">📰 期刊</button>
-        <button class="btn" id="folTabDel">🗑 已删除</button>
-      </div>
-      <div class="fol-search">
-        <input id="folSearch" placeholder="搜索作者 / 期刊名…" autocomplete="off">
-        <button class="btn" id="folSearchBtn">搜索</button>
-      </div>
-      <div id="folSearchRes"></div>
-      <div id="folList"></div>
-    </div>
-  </div>
+
 </div>
 
 <div id="cmdkModal" class="modal"><div class="cmdk-box">
@@ -1520,6 +1514,7 @@ var Fr={},Gr={};var Wr,Hr=function(){function t(t,e,n){var i=this;this._sleepAft
 </script>
 <script src="./jcr-data.js"></script>
 <script src="./library-jcr.js"></script>
+<script src="./follow-hub.js"></script>
 <script src="./library-storage.js"></script>
 <script src="./library-cache.js"></script>
 <script>/* 低温与运动科学文献数据库 - 前端逻辑 */
@@ -3508,140 +3503,18 @@ function newSince(list,since){
   var n=0; Object.keys(ids).forEach(function(id){ if(idset[id]) n++; });
   return n;
 }
-/* ---------- 关注区渲染 ---------- */
-var folTab="au";
-function topAuthorIndex(){
-  var seen={}, out=[], A=window.ANALYTICS;
-  if(A&&A.data) Object.keys(A.data).forEach(function(e){
-    (A.data[e].authors||[]).forEach(function(a){
-      if(a&&a.name&&!seen[a.name]){ seen[a.name]=1; out.push(a); }
-    });
-  });
-  return out;
-}
-function folAffil(name){
-  if(typeof auAffil!=="undefined"&&auAffil[name]) return auAffil[name];
-  var A=window.ANALYTICS, f=null;
-  if(A&&A.data) Object.keys(A.data).some(function(e){
-    return (A.data[e].authors||[]).some(function(a){ if(a.name===name){ f=a.affiliation; return true; } return false; });
-  });
-  return f||"";
-}
-function folRowAuthor(name,meta){
-  var plist=papersOfAuthor(name).sort(function(a,b){ return (b.year-a.year)||(b.cited-a.cited); });
-  var nw=newSince(plist,meta.since);
-  var latest=plist.slice(0,5).map(function(p){
-    return '<div class="apaper" data-id="'+esc(p.id)+'"><div class="t">'+esc(p.title)+'</div>'+
-      '<div class="m">'+esc(p.journal||"—")+' · '+p.year+' · 被引 '+p.cited+'</div></div>';
-  }).join("");
-  return '<div class="fol-row"><div class="who"><div class="nm">'+esc(name)+'</div>'+
-    '<div class="af">'+esc(folAffil(name))+'</div></div>'+
-    '<div class="st">库内 <b>'+plist.length+'</b> 篇'+(nw?' · <span class="fol-new">新增 '+nw+'</span>':"")+'</div>'+
-    '<button class="fol-btn on" data-unfollow-au="'+esc(name)+'">取消关注</button></div>'+
-    (latest?'<div class="fol-papers">'+latest+'</div>':"");
-}
-function folRowJournal(name,meta){
-  var plist=papersOfJournal(name).sort(function(a,b){ return (b.year-a.year)||(b.cited-a.cited); });
-  var nw=newSince(plist,meta.since);
-  var latest=plist.slice(0,5).map(function(p){
-    var au=(p.authors||[]).slice(0,3).join(", ");
-    return '<div class="apaper" data-id="'+esc(p.id)+'"><div class="t">'+esc(p.title)+'</div>'+
-      '<div class="m">'+esc(au)+' · '+p.year+' · 被引 '+p.cited+'</div></div>';
-  }).join("");
-  return '<div class="fol-row"><div class="who"><div class="nm">'+esc(name)+'</div></div>'+
-    '<div class="st">库内 <b>'+plist.length+'</b> 篇'+(nw?' · <span class="fol-new">新增 '+nw+'</span>':"")+'</div>'+
-    '<button class="fol-btn on" data-unfollow-jo="'+esc(name)+'">取消关注</button></div>'+
-    (latest?'<div class="fol-papers">'+latest+'</div>':"");
-}
-function renderFollowZone(){
-  var box=$("folList"); if(!box) return;
-  var an=Object.keys(follows.authors), jn=Object.keys(follows.journals);
-  $("folTabAu").classList.toggle("on",folTab==="au");
-  $("folTabJo").classList.toggle("on",folTab==="jo");
-  $("folTabDel").classList.toggle("on",folTab==="del");
-  var html="";
-  if(folTab==="au"){
-    html=an.length?an.map(function(n){ return folRowAuthor(n,follows.authors[n]); }).join(""):
-      '<div class="empty">还没有关注作者。去学术画像榜、作者页或文献卡片点作者名，在弹窗里 ＋关注，或在上方搜索。</div>';
-  }else if(folTab==="jo"){
-    html=jn.length?jn.map(function(n){ return folRowJournal(n,follows.journals[n]); }).join(""):
-      '<div class="empty">还没有关注期刊。去期刊榜点 ＋关注，或在上方搜索期刊名。</div>';
-  }else if(folTab==="del"){
-    var delIds=Object.keys(deletedIds);
-    html=delIds.length?delIds.map(function(id){
-      var p=id2paper[id];
-      if(!p) return "";
-      return '<div class="fol-row"><span class="t" style="cursor:pointer" data-id="'+esc(id)+'">'+esc(p.title||"无标题")+'</span>'+
-        '<span style="color:var(--muted);font-size:12px">'+p.year+'</span>'+
-        '<button class="btn ghost sm" data-restore="'+esc(id)+'">恢复</button></div>';
-    }).join(""):'<div class="empty">没有已删除的文献。</div>';
-  }
-  box.innerHTML=html;
-  box.querySelectorAll("[data-unfollow-au]").forEach(function(b){
-    b.onclick=function(){ toggleFollowAuthor(b.getAttribute("data-unfollow-au")); };
-  });
-  box.querySelectorAll("[data-unfollow-jo]").forEach(function(b){
-    b.onclick=function(){ toggleFollowJournal(b.getAttribute("data-unfollow-jo")); };
-  });
-  box.querySelectorAll("[data-restore]").forEach(function(b){
-    b.onclick=function(){ restorePaper(b.getAttribute("data-restore")); renderFollowZone(); render(); };
-  });
-  box.querySelectorAll(".fol-row .t").forEach(function(el){
-    el.onclick=function(){ openReader(el.getAttribute("data-id")); };
-  });
-  box.querySelectorAll(".fol-papers .apaper").forEach(function(el){
-    el.querySelector(".t").onclick=function(){ openReader(el.getAttribute("data-id")); };
-  });
-}
-var folSearchTimer=null;
-function folDoSearch(){
-  var q=$("folSearch").value.trim(), box=$("folSearchRes");
-  if(!q){ box.innerHTML=""; return; }
-  var ql=q.toLowerCase(), rows=[], seen={};
-  if(folTab==="au"){
-    topAuthorIndex().forEach(function(a){
-      if(a.name.toLowerCase().indexOf(ql)<0) return;
-      if(seen[a.name]) return; seen[a.name]=1;
-      var n=papersOfAuthor(a.name).length;
-      rows.push({name:a.name,aff:a.affiliation||"",n:n});
-    });
-    rows=rows.slice(0,12);
-    /* 手动精确名兜底 */
-    if(!seen[q]){
-      var n0=papersOfAuthor(q).length;
-      rows.push({name:q,aff:"",n:n0,manual:1});
-    }
-  }else{
-    (journals||[]).forEach(function(j){
-      if(j.toLowerCase().indexOf(ql)<0) return;
-      if(seen[j]) return; seen[j]=1;
-      rows.push({name:j,aff:"",n:papersOfJournal(j).length});
-    });
-    rows=rows.slice(0,12);
-    if(!seen[q]) rows.push({name:q,aff:"",n:papersOfJournal(q).length,manual:1});
-  }
-  box.innerHTML='<div class="fol-sec"><h4>搜索结果</h4>'+(rows.length?rows.map(function(r){
-    var followed=folTab==="au"?isAuFollowed(r.name):isJoFollowed(r.name);
-    return '<div class="fol-row"><div class="who"><div class="nm">'+esc(r.name)+
-      (r.manual?' <span class="af">(手动输入)</span>':"")+'</div>'+
-      (r.aff?'<div class="af">'+esc(r.aff)+'</div>':"")+'</div>'+
-      '<div class="st">库内 <b>'+r.n+'</b> 篇</div>'+
-      (folTab==="au"?folBtnAu(r.name):folBtnJo(r.name))+'</div>';
-  }).join(""):'<div class="empty">没有匹配，可尝试手动输入完整名称。</div>')+'</div>';
-  bindFollowBtns(box);
-}
-function bindFollowZone(){
-  if($("folTabAu")._fb) return; $("folTabAu")._fb=1;
-  $("folTabAu").onclick=function(){ folTab="au"; $("folSearch").value=""; $("folSearchRes").innerHTML=""; renderFollowZone(); };
-  $("folTabJo").onclick=function(){ folTab="jo"; $("folSearch").value=""; $("folSearchRes").innerHTML=""; renderFollowZone(); };
-  $("folTabDel").onclick=function(){ folTab="del"; $("folSearch").value=""; $("folSearchRes").innerHTML=""; renderFollowZone(); };
-  $("folSearchBtn").onclick=folDoSearch;
-  $("folSearch").addEventListener("input",function(){
-    clearTimeout(folSearchTimer);
-    folSearchTimer=setTimeout(folDoSearch,280);
-  });
-  $("folSearch").addEventListener("keydown",function(e){ if(e.key==="Enter") folDoSearch(); });
-}
+/* ---------- Independent following workspace ---------- */
+var followHub=LitdbFollow.create({document:document,window:window,escape:esc,
+  papers:function(){return PAPERS;},follows:function(){return follows;},deleted:isDeleted,
+  badges:function(p){return typeBadge(p.type)+(p.env||[]).map(envBadge).join('')+jcrBadge(p);},
+  toggle:function(tab,name){if(tab==='au')toggleFollowAuthor(name);else toggleFollowJournal(name);},
+  read:function(id){openReader(id,true);},favorited:function(id){return !!favs[id];},
+  favorite:function(id){if(favs[id])delete favs[id];else favs[id]=1;saveFavs();},
+  enter:function(){if($('readerModal'))$('readerModal').hidden=true;['classic','app','study'].forEach(function(n){$('layout-'+n).hidden=true;});},
+  leave:function(){applyLayout(curLayout,false);}
+});
+function renderFollowZone(){followHub.render();}
+function bindFollowZone(){followHub.bind();}
 
 /* ---------- 相关文献 ---------- */
 var kwCache={}, relCache={};
@@ -4115,6 +3988,7 @@ function renderGaps(){
   });
 }
 function gotoResults(){
+  if(followHub.isOpen())followHub.close();
   if(curLayout==="app"){ switchView("lib"); }
   else{ var z=$("z-search"); if(z){ try{z.scrollIntoView({behavior:"auto",block:"start"});}catch(e){} } }
 }
@@ -4905,7 +4779,7 @@ function refreshRItem(id){
     }
   }
 }
-function openReader(id){
+function openReader(id,forceModal){
   var p=id2paper[id]; if(!p) return;
   if(window.speechSynthesis) speechSynthesis.cancel();
   ttsSpeaking=false;
@@ -4915,7 +4789,8 @@ function openReader(id){
     el.classList.toggle("sel",el.getAttribute("data-id")===id);
   });
   // 工作台模式：右侧列内联显示；其他模式走全局弹窗
-  var isApp=(typeof curLayout!=="undefined"&&curLayout==="app");
+  var isApp=(!forceModal&&typeof curLayout!=="undefined"&&curLayout==="app");
+  var readerSlot=$(isApp?"slot-app-reader":"slot-modal-reader");if(readerSlot&&$("c-reader"))readerSlot.appendChild($("c-reader"));
   var rm=$("readerModal");
   if(isApp){
     if(rm) rm.hidden=true;
@@ -5810,6 +5685,7 @@ function init(){
     if(["classic","app","study"].indexOf(savedLayout)<0) savedLayout="classic";
     applyLayout(savedLayout,false);
   });
+  safe("关注页面路由",function(){followHub.route();});
   safe("resize", function(){
     var resizeTimer,lastWidth=window.innerWidth;
     window.addEventListener("resize",function(){
@@ -5831,7 +5707,7 @@ function init(){
 }
 /* ---------- 三布局：经典 / 工作台 / 纯净学习 ---------- */
 var curLayout="classic";
-var LAYOUT_COMPS=["dbmeta","stats","searchbar","conditions","envtags","results","reader","charts","daily","analytics","networks","lab","follow"];
+var LAYOUT_COMPS=["dbmeta","stats","searchbar","conditions","envtags","results","reader","charts","daily","analytics","networks","lab"];
 function applyLayout(name,save){
   curLayout=name;
   var facets=$("l4FacetBody"), fs=$("slot-"+name+"-facets"), pills=$("l4Pills"), ps=$("slot-"+name+"-pills");
@@ -5915,6 +5791,7 @@ function bindClassicNav(){
 /* ---------- 客户端壳：视图切换 ---------- */
 var curView="lib", dataDrawn=false;
 function switchView(v){
+  if(v==="follow"){followHub.open();return;}
   if(curLayout!=="app") return;
   curView=v;
   document.querySelectorAll(".view").forEach(function(s){

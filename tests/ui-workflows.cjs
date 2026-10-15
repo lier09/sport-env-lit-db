@@ -7,7 +7,7 @@ const {JSDOM, VirtualConsole} = jsdom;
 const root = path.join(__dirname, '..');
 const baseline=process.argv.includes('--baseline');
 const sourceHtml = baseline ? require('node:child_process').execFileSync('git',['show','HEAD:index.html'],{cwd:root,encoding:'utf8',maxBuffer:8*1024*1024}) : fs.readFileSync(path.join(root,'index.html'),'utf8');
-const html=sourceHtml.replace('<script src="./library-jcr.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-jcr.js'),'utf8')+'</script>').replace('<script src="./library-storage.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-storage.js'),'utf8')+'</script>').replace('<script src="./library-cache.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-cache.js'),'utf8')+'</script>');
+const html=sourceHtml.replace('<script src="./follow-hub.js"></script>','<script>'+fs.readFileSync(path.join(root,'follow-hub.js'),'utf8')+'</script>').replace('<script src="./library-jcr.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-jcr.js'),'utf8')+'</script>').replace('<script src="./library-storage.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-storage.js'),'utf8')+'</script>').replace('<script src="./library-cache.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-cache.js'),'utf8')+'</script>');
 const storageKey = html.match(/var LS_SESS\s*=\s*"([^"]+)"/)[1];
 const warnings=[];
 const records=[{id:'fixture1',title:'Cold-water immersion after exercise',abstract:'Exercise recovery in cold water.',authors:['Ben Lee'],env:['低温'],tags:['冷水浸泡'],type:'原创研究',year:2026,cited:1,journal:'Fixture Journal',population:'human'},
@@ -131,6 +131,23 @@ setTimeout(async()=>{
     assert.ok(d.querySelector('#slot-classic-facets #f_author'),'returning to classic restores sidebar');
     assert.ok(d.querySelector('#slot-classic-pills #l4Pills'));
     assert.equal(d.querySelectorAll('#f_folder').length,1,'shared controls remain unique');
+    click('#navLinks [data-follow-open]');
+    assert.equal(d.getElementById('followHub').hidden,false);
+    assert.equal(d.getElementById('layout-classic').hidden,true,'following is a separate page');
+    d.getElementById('folSearch').value='Ben Lee';d.getElementById('folSearch').dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+    click('#folList [data-person="0"]');click('#folToggle');
+    assert.match(d.getElementById('folPaperCount').textContent,new RegExp('全部 '+records.filter(p=>Array.isArray(p.authors)&&p.authors.includes('Ben Lee')).length+' 篇'));
+    assert.equal(d.querySelectorAll('#folPapers [data-paper]').length,20);
+    click('#folNext');assert.match(d.getElementById('folPaginationInfo').textContent,/第 2/);
+    click('#folPrev');const followReadId=d.querySelector('#folPapers [data-read]').dataset.read;click('#folPapers [data-read]');
+    assert.equal(d.getElementById('readerModal').hidden,false);assert.equal(d.querySelector('#r_read .rabs').textContent,records.find(p=>p.id===followReadId).abstract);
+    click('#readerModalClose');click('#folBack');assert.equal(d.getElementById('layout-classic').hidden,false);
+    click('#layout-classic [data-layout="app"]');click('#layout-app [data-view="follow"]');
+    assert.equal(d.getElementById('followHub').hidden,false);click('#folPapers [data-read]');
+    assert.equal(d.getElementById('readerModal').hidden,false,'follow reader opens modally even from workbench');
+    assert.ok(d.querySelector('#slot-modal-reader #c-reader'));
+    click('#readerModalClose');click('#folBack');assert.equal(d.getElementById('layout-app').hidden,false);
+    console.log('PASS: independent following page, complete author papers, pagination, and reader from classic/workbench.');
     console.log('PASS: folders, safe names, deletion/restoration, related papers, 100-page pagination, shared top filters, and keyboard resizing.');
 
     console.log('PASS: full page initializes with synthetic data; search and analytics are mounted; loader is dismissed.');
