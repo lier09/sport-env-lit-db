@@ -7,3 +7,5 @@
 - Keep data refreshes separate from application source changes. Preserve current public access, full abstracts, multi-choice filters, all-result exports, independent following, local folders/notes, and lazy chart rendering.
 - Before publishing, run `npm test`, inspect the diff, and bump the shell cache in `sw.js` when changing shell assets. Every new external application asset must be included in the service worker shell list.
 - The regression workflow reports failures; it does not itself block GitHub Pages deployment. Do not describe it as a deployment gate unless repository deployment settings actually enforce it.
+
+- The memo and following assets use versioned URLs to avoid mixing a new page with older cached modules. When changing these assets, keep their URL revisions in `index.html` and `sw.js` consistent, and update the full-page test inlining references.
