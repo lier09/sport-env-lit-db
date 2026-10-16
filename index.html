@@ -930,6 +930,7 @@ canvas.net{cursor:grab}
         <a href="#z-network" data-z="z-network">知识网络</a>
         <a href="#z-lab" data-z="z-lab">工具箱</a>
         <a href="#z-follow" data-z="z-follow">关注</a>
+        <a href="#z-memo" data-z="z-memo">📝 备忘录</a>
       </div>
       <button class="hbtn cmdkBtn" title="命令面板 (⌘K)">⌘K</button>
       <div class="layout-sw" data-sw>
@@ -1001,6 +1002,18 @@ canvas.net{cursor:grab}
     <section class="zone" id="z-follow">
       <div class="zone-head"><span class="znum">07</span><h2>我的关注</h2><span class="zsub">追踪作者与期刊的新动态 · 只保存在本浏览器</span></div>
       <div id="slot-classic-follow"></div>
+    </section>
+    <section class="zone" id="z-memo">
+      <div class="zone-head"><span class="znum">09</span><h2>📝 备忘录</h2><span class="zsub">文字 · 图片 · PDF · RIS 导入 · 只保存在本浏览器</span></div>
+      <div id="slot-classic-memo">
+        <div class="memo-toolbar">
+          <button class="btn" id="memoNew2">＋ 新建备忘录</button>
+          <label class="btn" style="cursor:pointer">📚 导入 RIS <input type="file" id="memoRIS2" accept=".ris,.txt" style="display:none"></label>
+          <input id="memoSearch2" class="memo-input" placeholder="搜索备忘录…" style="margin-left:12px;flex:1;max-width:300px">
+        </div>
+        <div class="memo-hint">备忘录只存在这台浏览器的 IndexedDB 里，不上传、不同步。支持文字、图片、PDF 附件，RIS 文件会自动解析成条目。</div>
+        <div id="memoList2"></div>
+      </div>
     </section>
     <section class="zone" id="z-diss">
       <div class="zone-head"><span class="znum">08</span><h2>🎓 学位论文</h2><span class="zsub">英文博硕学位论文 · 每日回填 · 可与期刊论文交叉验证</span></div>
@@ -6122,15 +6135,12 @@ if(document.readyState==="loading")
 else bootApp();
 })();
 
-/* ---------- 备忘录 Memo (IndexedDB 本地存储) ---------- */
+/* ---------- 备忘录 Memo (IndexedDB 本地存储, 支持工作台+经典双布局) ---------- */
 (function(){
 "use strict";
+var DB_NAME = "litdb-memo", DB_VER = 1, db = null;
+var memoList = [], memoFilter = "";
 
-var DB_NAME = "litdb-memo";
-var DB_VER = 1;
-var db = null;
-
-/* ---------- IndexedDB 初始化 ---------- */
 function openDB(){
   return new Promise(function(resolve, reject){
     var req = indexedDB.open(DB_NAME, DB_VER);
@@ -6141,392 +6151,196 @@ function openDB(){
         ms.createIndex("created", "created", {unique: false});
         ms.createIndex("paperId", "paperId", {unique: false});
       }
-      if(!d.objectStoreNames.contains("files")){
-        d.createObjectStore("files", {keyPath: "id", autoIncrement: true});
-      }
+      if(!d.objectStoreNames.contains("files")) d.createObjectStore("files", {keyPath: "id", autoIncrement: true});
     };
     req.onsuccess = function(e){ db = e.target.result; resolve(db); };
     req.onerror = function(e){ reject(e); };
   });
 }
-
-function tx(store, mode){
-  return db.transaction([store], mode || "readonly").objectStore(store);
-}
-
-/* ---------- Memo CRUD ---------- */
-function addMemo(memo){
-  return new Promise(function(resolve, reject){
-    memo.created = Date.now();
-    memo.updated = Date.now();
-    var req = tx("memos", "readwrite").add(memo);
-    req.onsuccess = function(e){ resolve(e.target.result); };
-    req.onerror = reject;
+function tx(s, m){ return db.transaction([s], m || "readonly").objectStore(s); }
+function addMemo(m){
+  return new Promise(function(res, rej){
+    m.created = Date.now(); m.updated = Date.now();
+    var r = tx("memos", "readwrite").add(m);
+    r.onsuccess = function(e){ res(e.target.result); }; r.onerror = rej;
   });
 }
-
 function getMemos(){
-  return new Promise(function(resolve, reject){
-    var out = [];
-    var req = tx("memos").index("created").openCursor(null, "prev");
-    req.onsuccess = function(e){
-      var c = e.target.result;
-      if(c){ out.push(c.value); c.continue(); }
-      else resolve(out);
-    };
-    req.onerror = reject;
+  return new Promise(function(res, rej){
+    var out = [], r = tx("memos").index("created").openCursor(null, "prev");
+    r.onsuccess = function(e){ var c = e.target.result; if(c){ out.push(c.value); c.continue(); } else res(out); };
+    r.onerror = rej;
   });
 }
-
-function getMemosByPaper(paperId){
-  return new Promise(function(resolve, reject){
-    var out = [];
-    var req = tx("memos").index("paperId").getAll(paperId);
-    req.onsuccess = function(e){ resolve(e.target.result || []); };
-    req.onerror = reject;
-  });
-}
-
 function deleteMemo(id){
-  return new Promise(function(resolve, reject){
-    var req = tx("memos", "readwrite").delete(id);
-    req.onsuccess = function(){ resolve(); };
-    req.onerror = reject;
+  return new Promise(function(res, rej){
+    var r = tx("memos", "readwrite").delete(id);
+    r.onsuccess = function(){ res(); }; r.onerror = rej;
   });
 }
-
-function updateMemo(memo){
-  return new Promise(function(resolve, reject){
-    memo.updated = Date.now();
-    var req = tx("memos", "readwrite").put(memo);
-    req.onsuccess = function(){ resolve(); };
-    req.onerror = reject;
+function updateMemo(m){
+  return new Promise(function(res, rej){
+    m.updated = Date.now();
+    var r = tx("memos", "readwrite").put(m);
+    r.onsuccess = function(){ res(); }; r.onerror = rej;
   });
 }
-
-/* ---------- File 存储 ---------- */
-function saveFile(file){
-  return new Promise(function(resolve, reject){
-    var reader = new FileReader();
-    reader.onload = function(){
-      var rec = {
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        data: reader.result,
-        created: Date.now()
-      };
-      var req = tx("files", "readwrite").add(rec);
-      req.onsuccess = function(e){ resolve(e.target.result); };
-      req.onerror = reject;
+function saveFile(f){
+  return new Promise(function(res, rej){
+    var rd = new FileReader();
+    rd.onload = function(){
+      var rec = {name: f.name, type: f.type, size: f.size, data: rd.result, created: Date.now()};
+      var r = tx("files", "readwrite").add(rec);
+      r.onsuccess = function(e){ res(e.target.result); }; r.onerror = rej;
     };
-    reader.onerror = reject;
-    reader.readAsArrayBuffer(file);
+    rd.onerror = rej; rd.readAsArrayBuffer(f);
   });
 }
-
 function getFile(id){
-  return new Promise(function(resolve, reject){
-    var req = tx("files").get(id);
-    req.onsuccess = function(e){ resolve(e.target.result); };
-    req.onerror = reject;
+  return new Promise(function(res, rej){
+    var r = tx("files").get(id);
+    r.onsuccess = function(e){ res(e.target.result); }; r.onerror = rej;
   });
 }
-
-function deleteFile(id){
-  return new Promise(function(resolve, reject){
-    var req = tx("files", "readwrite").delete(id);
-    req.onsuccess = function(){ resolve(); };
-    req.onerror = reject;
-  });
-}
-
-/* ---------- RIS 解析 ---------- */
-function parseRIS(text){
-  var records = [];
-  var cur = {};
-  var lines = text.split(/\r?\n/);
-  lines.forEach(function(line){
-    var m = line.match(/^([A-Z][A-Z0-9])\s*-\s?(.*)$/);
+function parseRIS(t){
+  var rs = [], cur = {};
+  t.split(/\r?\n/).forEach(function(l){
+    var m = l.match(/^([A-Z][A-Z0-9])\s*-\s?(.*)$/);
     if(!m) return;
     var tag = m[1], val = m[2].trim();
-    if(tag === "TY"){
-      if(cur.TY) records.push(cur);
-      cur = {TY: val, AU: [], KW: []};
-    } else if(tag === "ER"){
-      records.push(cur); cur = {};
-    } else if(tag === "AU" || tag === "A1"){
-      cur.AU.push(val);
-    } else if(tag === "KW"){
-      cur.KW.push(val);
-    } else {
-      if(cur[tag] && tag !== "TY") cur[tag] = cur[tag] + "; " + val;
-      else cur[tag] = val;
-    }
+    if(tag === "TY"){ if(cur.TY) rs.push(cur); cur = {TY: val, AU: [], KW: []}; }
+    else if(tag === "ER"){ rs.push(cur); cur = {}; }
+    else if(tag === "AU" || tag === "A1") cur.AU.push(val);
+    else if(tag === "KW") cur.KW.push(val);
+    else { if(cur[tag] && tag !== "TY") cur[tag] += "; " + val; else cur[tag] = val; }
   });
-  if(cur.TY) records.push(cur);
-  return records;
+  if(cur.TY) rs.push(cur);
+  return rs;
 }
-
 function risToMemo(r){
-  var parts = [];
-  if(r.TI) parts.push("标题: " + r.TI);
-  if(r.AU && r.AU.length) parts.push("作者: " + r.AU.join("; "));
-  if(r.JO || r.JF) parts.push("期刊: " + (r.JO || r.JF));
-  if(r.PY) parts.push("年份: " + r.PY);
-  if(r.DO) parts.push("DOI: " + r.DO);
-  if(r.AB) parts.push("\n摘要: " + r.AB);
-  if(r.KW && r.KW.length) parts.push("\n关键词: " + r.KW.join("; "));
-  return {
-    kind: "ris",
-    title: r.TI || "(无标题)",
-    body: parts.join("\n"),
-    ris: r,
-    paperId: null,
-    fileIds: []
-  };
+  var p = [];
+  if(r.TI) p.push("标题: " + r.TI);
+  if(r.AU && r.AU.length) p.push("作者: " + r.AU.join("; "));
+  if(r.JO || r.JF) p.push("期刊: " + (r.JO || r.JF));
+  if(r.PY) p.push("年份: " + r.PY);
+  if(r.DO) p.push("DOI: " + r.DO);
+  if(r.AB) p.push("\n摘要: " + r.AB);
+  if(r.KW && r.KW.length) p.push("\n关键词: " + r.KW.join("; "));
+  return {kind: "ris", title: r.TI || "(无标题)", body: p.join("\n"), ris: r, paperId: null, fileIds: []};
 }
-
-/* ---------- UI 渲染 ---------- */
-var memoList = [];
-var memoFilter = "";
-
-function esc(s){
-  return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-}
-
-function fmtSize(b){
-  if(b < 1024) return b + "B";
-  if(b < 1048576) return (b/1024).toFixed(1) + "KB";
-  return (b/1048576).toFixed(1) + "MB";
-}
-
-function fmtDate(t){
-  var d = new Date(t);
-  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0") +
-         " " + String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
-}
+function esc(s){ return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function fmtSize(b){ if(b < 1024) return b + "B"; if(b < 1048576) return (b/1024).toFixed(1) + "KB"; return (b/1048576).toFixed(1) + "MB"; }
+function fmtDate(t){ var d = new Date(t); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0") + " " + String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0"); }
 
 async function renderMemoList(){
-  var el = document.getElementById("memoList");
-  if(!el) return;
+  var lists = [document.getElementById("memoList"), document.getElementById("memoList2")].filter(Boolean);
+  if(!lists.length) return;
   memoList = await getMemos();
   var q = memoFilter.toLowerCase();
-  var filtered = memoList.filter(function(m){
-    if(!q) return true;
-    return (m.title + " " + m.body).toLowerCase().indexOf(q) >= 0;
-  });
-  if(!filtered.length){
-    el.innerHTML = '<div class="memo-empty">暂无备忘录，点上面新建一条吧</div>';
-    return;
-  }
-  el.innerHTML = filtered.map(function(m){
-    var kindIcon = m.kind === "image" ? "🖼" : m.kind === "pdf" ? "📄" : m.kind === "ris" ? "📚" : "📝";
-    var fileInfo = "";
-    if(m.fileIds && m.fileIds.length){
-      fileInfo = '<div class="memo-files">' + m.fileIds.map(function(fid, i){
-        return '<button class="btn btn-xs" data-mfile="' + fid + '">附件' + (i+1) + '</button>';
-      }).join(" ") + "</div>";
-    }
-    var paperTag = m.paperId ? '<span class="memo-paper">📎 ' + esc(m.paperId) + "</span>" : "";
-    return '<div class="memo-card" data-mid="' + m.id + '">' +
-      '<div class="memo-head"><span class="memo-kind">' + kindIcon + '</span>' +
-      '<span class="memo-title">' + esc(m.title || "(无标题)") + "</span>" + paperTag +
-      '<span class="memo-date">' + fmtDate(m.created) + "</span></div>" +
-      '<div class="memo-body">' + esc((m.body || "").slice(0, 300)) + ((m.body||"").length > 300 ? "…" : "") + "</div>" +
-      fileInfo +
-      '<div class="memo-actions">' +
-      '<button class="btn btn-xs" data-mview="' + m.id + '">查看</button> ' +
-      '<button class="btn btn-xs" data-medit="' + m.id + '">编辑</button> ' +
-      '<button class="btn btn-xs btn-danger" data-mdel="' + m.id + '">删除</button>' +
-      "</div></div>";
-  }).join("");
-
-  // 绑定事件
-  el.querySelectorAll("[data-mview]").forEach(function(b){
-    b.onclick = function(){ viewMemo(+b.getAttribute("data-mview")); };
-  });
-  el.querySelectorAll("[data-medit]").forEach(function(b){
-    b.onclick = function(){ editMemo(+b.getAttribute("data-medit")); };
-  });
-  el.querySelectorAll("[data-mdel]").forEach(function(b){
-    b.onclick = function(){
-      if(confirm("确定删除这条备忘录？")){
-        deleteMemo(+b.getAttribute("data-mdel")).then(renderMemoList);
-      }
-    };
-  });
-  el.querySelectorAll("[data-mfile]").forEach(function(b){
-    b.onclick = function(e){
-      e.stopPropagation();
-      downloadFile(+b.getAttribute("data-mfile"));
-    };
+  var fl = memoList.filter(function(m){ return !q || (m.title + " " + m.body).toLowerCase().indexOf(q) >= 0; });
+  var html = fl.length ? fl.map(function(m){
+    var ic = m.kind === "image" ? "🖼" : m.kind === "pdf" ? "📄" : m.kind === "ris" ? "📚" : "📝";
+    var fi = (m.fileIds && m.fileIds.length) ? '<div class="memo-files">' + m.fileIds.map(function(f,i){ return '<button class="btn btn-xs" data-mfile="'+f+'">附件'+(i+1)+'</button>'; }).join(" ") + "</div>" : "";
+    var pt = m.paperId ? '<span class="memo-paper">📎 ' + esc(m.paperId) + "</span>" : "";
+    return '<div class="memo-card"><div class="memo-head"><span class="memo-kind">'+ic+'</span><span class="memo-title">'+esc(m.title||"(无标题)")+"</span>"+pt+'<span class="memo-date">'+fmtDate(m.created)+"</span></div>"+
+      '<div class="memo-body">'+esc((m.body||"").slice(0,300))+((m.body||"").length>300?"…":"")+"</div>"+fi+
+      '<div class="memo-actions"><button class="btn btn-xs" data-mview="'+m.id+'">查看</button> <button class="btn btn-xs" data-medit="'+m.id+'">编辑</button> <button class="btn btn-xs btn-danger" data-mdel="'+m.id+'">删除</button></div></div>';
+  }).join("") : '<div class="memo-empty">暂无备忘录，点上面新建一条吧</div>';
+  lists.forEach(function(el){
+    el.innerHTML = html;
+    el.querySelectorAll("[data-mview]").forEach(function(b){ b.onclick = function(){ viewMemo(+b.dataset.mview); }; });
+    el.querySelectorAll("[data-medit]").forEach(function(b){ b.onclick = function(){ editMemo(+b.dataset.medit); }; });
+    el.querySelectorAll("[data-mdel]").forEach(function(b){ b.onclick = function(){ if(confirm("确定删除？")) deleteMemo(+b.dataset.mdel).then(renderMemoList); }; });
+    el.querySelectorAll("[data-mfile]").forEach(function(b){ b.onclick = function(e){ e.stopPropagation(); downloadFile(+b.dataset.mfile); }; });
   });
 }
-
 async function downloadFile(fid){
-  var f = await getFile(fid);
-  if(!f) return alert("文件不存在");
-  var blob = new Blob([f.data], {type: f.type});
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement("a");
-  a.href = url; a.download = f.name;
-  document.body.appendChild(a); a.click();
-  setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 1000);
+  var f = await getFile(fid); if(!f) return alert("文件不存在");
+  var u = URL.createObjectURL(new Blob([f.data], {type: f.type}));
+  var a = document.createElement("a"); a.href = u; a.download = f.name;
+  document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(u); a.remove(); }, 1000);
 }
-
 async function viewMemo(id){
-  var m = memoList.find(function(x){ return x.id === id; });
-  if(!m) return;
-  var fileLinks = "";
+  var m = memoList.find(function(x){ return x.id === id; }); if(!m) return;
+  var fl = "";
   if(m.fileIds && m.fileIds.length){
-    fileLinks = "<p><b>附件:</b><br>" + (await Promise.all(m.fileIds.map(async function(fid){
-      var f = await getFile(fid);
-      return f ? '<a href="#" data-dl="' + fid + '">' + esc(f.name) + " (" + fmtSize(f.size) + ")</a>" : "";
+    fl = "<p><b>附件:</b><br>" + (await Promise.all(m.fileIds.map(async function(fid){
+      var f = await getFile(fid); return f ? '<a href="#" data-dl="'+fid+'">'+esc(f.name)+" ("+fmtSize(f.size)+")</a>" : "";
     }))).join("<br>") + "</p>";
   }
-  showMemoModal(
-    esc(m.title || "(无标题)"),
-    '<pre class="memo-fullbody">' + esc(m.body || "") + "</pre>" + fileLinks,
-    null
-  );
-  document.querySelectorAll("[data-dl]").forEach(function(a){
-    a.onclick = function(e){ e.preventDefault(); downloadFile(+a.getAttribute("data-dl")); };
-  });
+  showMemoModal(esc(m.title || "(无标题)"), '<pre class="memo-fullbody">' + esc(m.body || "") + "</pre>" + fl, null);
+  document.querySelectorAll("[data-dl]").forEach(function(a){ a.onclick = function(e){ e.preventDefault(); downloadFile(+a.dataset.dl); }; });
 }
-
-function showMemoModal(title, bodyHTML, onSave){
+function showMemoModal(t, bh, onSave){
   var ov = document.getElementById("memoModal");
   if(!ov){
-    ov = document.createElement("div");
-    ov.id = "memoModal";
-    ov.className = "memo-modal-ov";
+    ov = document.createElement("div"); ov.id = "memoModal"; ov.className = "memo-modal-ov";
     ov.innerHTML = '<div class="memo-modal"><div class="memo-modal-head"><span id="memoModalTitle"></span><button class="btn btn-xs" id="memoModalX">✕</button></div><div class="memo-modal-body" id="memoModalBody"></div><div class="memo-modal-foot" id="memoModalFoot"></div></div>';
     document.body.appendChild(ov);
     document.getElementById("memoModalX").onclick = function(){ ov.style.display = "none"; };
     ov.onclick = function(e){ if(e.target === ov) ov.style.display = "none"; };
   }
-  document.getElementById("memoModalTitle").textContent = title;
-  document.getElementById("memoModalBody").innerHTML = bodyHTML;
-  var foot = document.getElementById("memoModalFoot");
-  foot.innerHTML = "";
-  if(onSave){
-    var btn = document.createElement("button");
-    btn.className = "btn"; btn.textContent = "保存";
-    btn.onclick = onSave;
-    foot.appendChild(btn);
-  }
-  ov.style.display = "flex";
-  return ov;
+  document.getElementById("memoModalTitle").textContent = t;
+  document.getElementById("memoModalBody").innerHTML = bh;
+  var ft = document.getElementById("memoModalFoot"); ft.innerHTML = "";
+  if(onSave){ var b = document.createElement("button"); b.className = "btn"; b.textContent = "保存"; b.onclick = onSave; ft.appendChild(b); }
+  ov.style.display = "flex"; return ov;
 }
-
 function memoFormHTML(m){
   m = m || {};
-  return '<label>标题<br><input id="memoFTitle" class="memo-input" value="' + esc(m.title || "") + '"></label><br><br>' +
-    '<label>备注<br><textarea id="memoFBody" class="memo-input memo-textarea" rows="6">' + esc(m.body || "") + "</textarea></label><br><br>" +
-    '<label>关联文献ID (可选)<br><input id="memoFPaper" class="memo-input" value="' + esc(m.paperId || "") + '" placeholder="如 OpenAlex ID"></label><br><br>' +
-    '<label>附件 (图片/PDF)<br><input type="file" id="memoFFile" multiple accept="image/*,.pdf"></label><div id="memoFFileList"></div>';
+  return '<label>标题<br><input id="memoFTitle" class="memo-input" value="'+esc(m.title||"")+'"></label><br><br>'+
+    '<label>备注<br><textarea id="memoFBody" class="memo-input memo-textarea" rows="6">'+esc(m.body||"")+"</textarea></label><br><br>"+
+    '<label>关联文献ID (可选)<br><input id="memoFPaper" class="memo-input" value="'+esc(m.paperId||"")+'" placeholder="如 OpenAlex ID"></label><br><br>'+
+    '<label>附件 (图片/PDF)<br><input type="file" id="memoFFile" multiple accept="image/*,.pdf"></label>';
 }
-
 function newMemo(){
   showMemoModal("新建备忘录", memoFormHTML(), async function(){
-    var title = document.getElementById("memoFTitle").value.trim();
-    var body = document.getElementById("memoFBody").value.trim();
-    var paperId = document.getElementById("memoFPaper").value.trim() || null;
-    if(!title && !body){ alert("标题和备注至少填一个"); return; }
-    var fileIds = [];
-    var fi = document.getElementById("memoFFile");
-    if(fi && fi.files.length){
-      for(var i = 0; i < fi.files.length; i++){
-        var fid = await saveFile(fi.files[i]);
-        fileIds.push(fid);
-      }
-    }
+    var ti = document.getElementById("memoFTitle").value.trim(), bo = document.getElementById("memoFBody").value.trim();
+    var pi = document.getElementById("memoFPaper").value.trim() || null;
+    if(!ti && !bo){ alert("标题和备注至少填一个"); return; }
+    var fids = [], fi = document.getElementById("memoFFile");
+    if(fi && fi.files.length) for(var i = 0; i < fi.files.length; i++) fids.push(await saveFile(fi.files[i]));
     var kind = "text";
-    if(fileIds.length){
-      // 根据第一个文件类型判断
-      var f0 = await getFile(fileIds[0]);
-      if(f0 && f0.type.indexOf("image") === 0) kind = "image";
-      else if(f0 && f0.type === "application/pdf") kind = "pdf";
-    }
-    await addMemo({kind: kind, title: title, body: body, paperId: paperId, fileIds: fileIds});
-    document.getElementById("memoModal").style.display = "none";
-    renderMemoList();
+    if(fids.length){ var f0 = await getFile(fids[0]); if(f0 && f0.type.indexOf("image") === 0) kind = "image"; else if(f0 && f0.type === "application/pdf") kind = "pdf"; }
+    await addMemo({kind: kind, title: ti, body: bo, paperId: pi, fileIds: fids});
+    document.getElementById("memoModal").style.display = "none"; renderMemoList();
   });
 }
-
 async function editMemo(id){
-  var m = memoList.find(function(x){ return x.id === id; });
-  if(!m) return;
+  var m = memoList.find(function(x){ return x.id === id; }); if(!m) return;
   showMemoModal("编辑备忘录", memoFormHTML(m), async function(){
     m.title = document.getElementById("memoFTitle").value.trim();
     m.body = document.getElementById("memoFBody").value.trim();
     m.paperId = document.getElementById("memoFPaper").value.trim() || null;
     var fi = document.getElementById("memoFFile");
-    if(fi && fi.files.length){
-      for(var i = 0; i < fi.files.length; i++){
-        var fid = await saveFile(fi.files[i]);
-        m.fileIds = m.fileIds || [];
-        m.fileIds.push(fid);
-      }
-    }
-    await updateMemo(m);
-    document.getElementById("memoModal").style.display = "none";
-    renderMemoList();
+    if(fi && fi.files.length) for(var i = 0; i < fi.files.length; i++){ m.fileIds = m.fileIds || []; m.fileIds.push(await saveFile(fi.files[i])); }
+    await updateMemo(m); document.getElementById("memoModal").style.display = "none"; renderMemoList();
   });
 }
-
-async function importRIS(file){
-  var text = await file.text();
-  var records = parseRIS(text);
-  if(!records.length){ alert("RIS 文件中没有解析到记录"); return; }
-  var n = 0;
-  for(var i = 0; i < records.length; i++){
-    var memo = risToMemo(records[i]);
-    await addMemo(memo);
-    n++;
-  }
-  alert("已导入 " + n + " 条文献备忘录");
-  renderMemoList();
+async function importRIS(f){
+  var rs = parseRIS(await f.text());
+  if(!rs.length){ alert("RIS 文件中没有解析到记录"); return; }
+  for(var i = 0; i < rs.length; i++) await addMemo(risToMemo(rs[i]));
+  alert("已导入 " + rs.length + " 条文献备忘录"); renderMemoList();
 }
-
-/* ---------- 初始化 ---------- */
 async function initMemo(){
-  try { await openDB(); } catch(e){
-    console.error("Memo DB 打开失败", e);
-    return;
-  }
-  var btn = document.getElementById("memoNew");
-  if(btn) btn.onclick = newMemo;
-  var ris = document.getElementById("memoRIS");
-  if(ris) ris.onchange = function(){
-    if(ris.files.length) importRIS(ris.files[0]);
-    ris.value = "";
-  };
-  var search = document.getElementById("memoSearch");
-  if(search) search.oninput = function(){ memoFilter = search.value; renderMemoList(); };
+  try { await openDB(); } catch(e){ console.error("Memo DB 打开失败", e); return; }
+  [["memoNew","memoRIS","memoSearch"],["memoNew2","memoRIS2","memoSearch2"]].forEach(function(ids){
+    var b = document.getElementById(ids[0]); if(b) b.onclick = newMemo;
+    var r = document.getElementById(ids[1]); if(r) r.onchange = function(){ if(r.files.length) importRIS(r.files[0]); r.value = ""; };
+    var s = document.getElementById(ids[2]); if(s) s.oninput = function(){ memoFilter = s.value; renderMemoList(); };
+  });
   renderMemoList();
 }
-
-// 暴露给外部的接口：在文献卡片上快速添加备注
-window.MemoQuickAdd = async function(paperId, paperTitle){
+window.MemoQuickAdd = async function(pid, pti){
   await openDB();
-  showMemoModal("给文献加备注", memoFormHTML({title: paperTitle || "", paperId: paperId}), async function(){
-    var title = document.getElementById("memoFTitle").value.trim();
-    var body = document.getElementById("memoFBody").value.trim();
-    if(!body){ alert("备注内容不能为空"); return; }
-    await addMemo({kind: "text", title: title, body: body, paperId: paperId, fileIds: []});
-    document.getElementById("memoModal").style.display = "none";
-    renderMemoList();
+  showMemoModal("给文献加备注", memoFormHTML({title: pti || "", paperId: pid}), async function(){
+    var bo = document.getElementById("memoFBody").value.trim(); if(!bo){ alert("备注内容不能为空"); return; }
+    await addMemo({kind: "text", title: document.getElementById("memoFTitle").value.trim(), body: bo, paperId: pid, fileIds: []});
+    document.getElementById("memoModal").style.display = "none"; renderMemoList();
   });
 };
-
-if(document.readyState === "loading"){
-  document.addEventListener("DOMContentLoaded", initMemo);
-} else {
-  initMemo();
-}
-
+if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", initMemo); else initMemo();
 })();
 </script>
 </body>
