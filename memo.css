@@ -1,0 +1,25 @@
+/* ---------- 备忘录 Memo ---------- */
+.memo-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.memo-hint{color:var(--muted);font-size:12px;margin-bottom:12px}
+.memo-empty{text-align:center;color:var(--muted);padding:40px 0}
+#memoList{display:flex;flex-direction:column;gap:12px}
+.memo-card{border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--card)}
+.memo-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.memo-kind{font-size:18px}
+.memo-title{font-weight:600;flex:1}
+.memo-paper{font-size:12px;color:var(--muted);background:var(--accent-soft);padding:2px 8px;border-radius:10px}
+.memo-date{font-size:12px;color:var(--muted)}
+.memo-body{color:var(--ink);font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.memo-files{margin-top:8px}
+.memo-actions{margin-top:10px}
+.memo-input{border:1px solid var(--line);border-radius:6px;padding:8px 12px;font-size:14px;width:100%;box-sizing:border-box}
+.memo-textarea{resize:vertical;min-height:100px}
+.memo-fullbody{white-space:pre-wrap;word-break:break-word;font-size:14px;line-height:1.7;max-height:60vh;overflow:auto}
+.memo-modal-ov{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center}
+.memo-modal{background:var(--card);border-radius:12px;max-width:600px;width:90%;max-height:85vh;display:flex;flex-direction:column}
+.memo-modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid var(--line);font-weight:600}
+.memo-modal-body{padding:16px;overflow:auto}
+.memo-modal-foot{padding:16px;border-top:1px solid var(--line);text-align:right}
+
+.memo-input,.memo-modal,.memo-card{color:var(--ink);background:var(--card)}
+.memo-modal-ov{padding:12px}.memo-head{flex-wrap:wrap}.memo-fullbody{font-family:inherit}.memo-input:focus-visible{outline:2px solid var(--accent)}
