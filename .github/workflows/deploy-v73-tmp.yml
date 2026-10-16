@@ -1,0 +1,23 @@
+name: Deploy v73 to index.html (temp)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Copy v73 build to index.html
+        run: cp sport-env-lit-db-v73.html index.html
+      - name: Commit and push index.html
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet || git commit -m "Deploy v73 (memo entry in classic top nav) to index.html"
+          git push
