@@ -53,7 +53,7 @@
     }
     function open(push){
       if(!opened){returnHash=w.location.hash.startsWith('#following')||w.location.hash==='#z-follow'?'#z-search':w.location.hash||'#z-search';returnScroll=w.scrollY||0;returnFocus=d.activeElement;}
-      opened=true;api.enter();$('followHub').hidden=false;d.body.classList.add('follow-open');
+      if(api.enter()===false)return;opened=true;$('followHub').hidden=false;d.body.classList.add('follow-open');
       if(push!==false)w.history.pushState(null,'',routeHash());render();w.scrollTo(0,0);$('followHeading').focus({preventScroll:true});
     }
     function close(push){if(!opened)return;opened=false;$('followHub').hidden=true;d.body.classList.remove('follow-open');api.leave();if(push!==false)w.history.pushState(null,'',returnHash);w.scrollTo(0,returnScroll);if(returnFocus&&returnFocus.isConnected&&!$('followHub').contains(returnFocus))returnFocus.focus({preventScroll:true});}

@@ -1,207 +1,135 @@
-/* ---------- 备忘录 Memo (IndexedDB 本地存储, 支持工作台+经典双布局) ---------- */
+/* Independent research notebook; original IndexedDB schema retained. */
 (function(){
-"use strict";
-var DB_NAME = "litdb-memo", DB_VER = 1, db = null;
-var memoList = [], memoFilter = "";
-
-function openDB(){
-  return new Promise(function(resolve, reject){
-    var req = indexedDB.open(DB_NAME, DB_VER);
-    req.onupgradeneeded = function(e){
-      var d = e.target.result;
-      if(!d.objectStoreNames.contains("memos")){
-        var ms = d.createObjectStore("memos", {keyPath: "id", autoIncrement: true});
-        ms.createIndex("created", "created", {unique: false});
-        ms.createIndex("paperId", "paperId", {unique: false});
-      }
-      if(!d.objectStoreNames.contains("files")) d.createObjectStore("files", {keyPath: "id", autoIncrement: true});
-    };
-    req.onsuccess = function(e){ db = e.target.result; resolve(db); };
-    req.onerror = function(e){ reject(e); };
-  });
+'use strict';
+var w=window,d=document,dbp,db,rows=[],api={},isOpen=false,selected=null,draft=null,dirty=false,busy=false,pending=[],fileIds=[],prevHash='#z-search',prevScroll=0,prevFocus,layouts=[],query='',scope='all',type='all',project='all',status='all',sort='updated',page=1;
+var cats={reading:'文献阅读',idea:'研究想法',experiment:'实验记录',free:'自由笔记'},statuses={todo:'待整理',active:'进行中',done:'已整理'};
+var templates={reading:'## 研究问题\n\n## 研究设计与样本\n\n## 主要发现与原文依据\n\n## 局限性与下一步\n',idea:'## 研究问题\n\n## 理论依据与来源\n\n## 可检验的假设\n\n## 验证方案与不确定性\n',experiment:'## 实验目的\n\n## 设计、样本与对照\n\n## 操作流程与测量指标\n\n## 原始观察与数据位置\n\n## 偏差、局限与下一步\n',free:''};
+function $(id){return d.getElementById(id);}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function norm(s){return String(s||'').normalize('NFKC').toLocaleLowerCase().trim();}
+function cat(m){return cats[m.category]?m.category:m.kind==='ris'?'reading':'free';}
+function stage(m){return statuses[m.status]?m.status:'todo';}
+function identity(m){return m.uid||'legacy:'+m.id+':'+m.created;}
+function uuid(){return w.crypto&&w.crypto.randomUUID?w.crypto.randomUUID():Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);}
+function date(t){return t?new Date(t).toLocaleString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}):'时间未记录';}
+function icon(name){var paths={back:'M19 12H5m7-7-7 7 7 7',note:'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M8 13h8 M8 17h6',pin:'m16 3 5 5-4 2-3 6-2-2-7 7 M8 5l5-2m-5 2 3 6-1 3 3 3',archive:'M3 3h18v4H3z M5 7v14h14V7 M10 11h4',idea:'M9 18h6m-5 4h4 M8 14a7 7 0 1 1 8 0l-1 4H9z',experiment:'M9 3h6m-5 0v7L4 20a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1l-6-10V3 M8 14h8',tag:'M3 3h8l10 10-8 8L3 11z M7 7h.01',folder:'M3 7V5h7l2 2h9v14H3z',plus:'M12 5v14 M5 12h14',download:'M12 3v12m-5-5 5 5 5-5 M4 16v5h16v-5',edit:'m16 3 5 5-12 12-6 1 1-6z M14 5l5 5',clip:'m8 13 7-7a4 4 0 0 1 6 6L10 23a6 6 0 0 1-8-8L13 4',search:'M21 21l-5-5 M19 10a9 9 0 1 1-18 0 9 9 0 0 1 18 0',trash:'M3 6h18 M9 6V3h6v3 M5 6l1 15h12l1-15 M10 10v7 M14 10v7'};return '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="'+(paths[name]||paths.note)+'"/></svg>';}
+function btn(a,label,ico,cls){return '<button type="button" class="memo-btn '+(cls||'')+'" data-ma="'+a+'">'+(ico?icon(ico):'')+label+'</button>';}
+function opts(o,v){return Object.keys(o).map(function(k){return '<option value="'+esc(k)+'"'+(k===v?' selected':'')+'>'+esc(o[k])+'</option>';}).join('');}
+function announce(t,error){if($('memoNotice')){$('memoNotice').textContent=t||'';$('memoNotice').classList.toggle('error',!!error);}}
+function fail(e){console.error('Memo:',e);announce(e&&e.name==='QuotaExceededError'?'浏览器空间不足。编辑内容已保留，请导出备份后释放空间。':'操作未完成，编辑内容仍保留。请检查本地存储或文件后重试。',true);}
+function database(){if(dbp)return dbp;dbp=new Promise(function(resolve,reject){var r=w.indexedDB.open('litdb-memo',1);r.onupgradeneeded=function(){var x=r.result;if(!x.objectStoreNames.contains('memos')){var ms=x.createObjectStore('memos',{keyPath:'id',autoIncrement:true});ms.createIndex('created','created',{unique:false});ms.createIndex('paperId','paperId',{unique:false});}if(!x.objectStoreNames.contains('files'))x.createObjectStore('files',{keyPath:'id',autoIncrement:true});};r.onsuccess=function(){db=r.result;db.onversionchange=function(){db.close();dbp=null;};resolve(db);};r.onerror=function(){dbp=null;reject(r.error);};r.onblocked=function(){announce('请关闭正在使用此数据库的旧页面，然后重试。',true);};});return dbp;}
+async function all(store){await database();return new Promise(function(res,rej){var r=db.transaction(store).objectStore(store).getAll();r.onsuccess=function(){res(r.result);};r.onerror=function(){rej(r.error);};});}
+async function put(m){await database();return new Promise(function(res,rej){var tx=db.transaction('memos','readwrite'),id;var r=tx.objectStore('memos').put(m);r.onsuccess=function(){id=r.result;};tx.oncomplete=function(){res(id);};tx.onerror=tx.onabort=function(){rej(tx.error||new Error('Write failed'));};});}
+function current(){return rows.find(function(m){return m.id===selected;});}
+function match(m){if(scope==='trash'?!m.deletedAt:!!m.deletedAt)return false;if(scope==='archived'?!m.archived:scope!=='trash'&&!!m.archived)return false;if(scope==='pinned'&&!m.pinned)return false;if(type!=='all'&&cat(m)!==type||project!=='all'&&(m.project||'')!==project||status!=='all'&&stage(m)!==status)return false;return !query||norm([m.title,m.body,m.project,(m.tags||[]).join(' '),m.paperId].join(' ')).includes(norm(query));}
+function filtered(){return rows.filter(match).sort(function(a,b){return Number(!!b.pinned)-Number(!!a.pinned)||(sort==='title'?String(a.title||'').localeCompare(String(b.title||''),'zh-CN'):Number(b[sort]||b.created||0)-Number(a[sort]||a.created||0))||b.id-a.id;});}
+function shell(){
+ if($('memoHub'))return;
+ var el=d.createElement('div');el.id='memoHub';el.hidden=true;
+ el.innerHTML='<header class="memo-header"><div class="memo-bar">'+btn('back','返回文献库','back')+'<strong>科研备忘录</strong><span class="memo-privacy">仅保存在本浏览器</span><div class="memo-bar-actions">'+btn('backup','导出备份','download')+'<details class="memo-tools"><summary>导入</summary><div>'+btn('restore','导入备份')+btn('ris','导入 RIS')+'</div></details>'+btn('new','新建笔记','plus','primary')+'</div></div></header><main class="memo-main"><div class="memo-intro"><h1 id="memoHeading" tabindex="-1">把阅读转化为研究线索</h1><p>记录证据、方法与想法，保留每一步思考。</p></div><p id="memoNotice" role="status" aria-live="polite"></p><div class="memo-grid">'+
+ '<aside class="memo-directory" aria-label="笔记筛选"><nav aria-label="笔记范围">'+[['all','全部笔记','note'],['pinned','已置顶','pin'],['archived','已归档','archive'],['trash','回收站','trash']].map(function(x){return '<button type="button" data-mscope="'+x[0]+'">'+icon(x[2])+x[1]+'<span data-mcount="'+x[0]+'">0</span></button>';}).join('')+'</nav><h2>笔记类型</h2><div id="memoCategories">'+Object.keys(cats).map(function(k){return '<button type="button" data-mcat="'+k+'">'+icon(k==='reading'?'note':k==='free'?'edit':k)+cats[k]+'</button>';}).join('')+'</div><h2>项目与标签</h2><label for="memoProject">所属项目</label><select id="memoProject"><option value="all">全部项目</option></select><label for="memoStatus">整理状态</label><select id="memoStatus"><option value="all">全部状态</option>'+opts(statuses,'')+'</select>'+btn('clear','清除筛选')+'<p class="memo-local-note">笔记与附件保存在当前浏览器。定期导出备份，可在其他设备恢复。</p></aside>'+
+ '<section class="memo-browser" aria-label="笔记列表"><div class="memo-list-tools"><label class="memo-search">'+icon('search')+'<input id="memoSearch" type="search" aria-label="搜索笔记" placeholder="搜索标题、正文、标签…"></label><div><span id="memoListCount" aria-live="polite"></span><select id="memoSort" aria-label="笔记排序"><option value="updated">最近更新</option><option value="created">最近创建</option><option value="title">标题排序</option></select></div></div><div id="memoList"></div><nav class="memo-pagination" aria-label="笔记分页">'+btn('prev','上一页')+'<span id="memoPageInfo"></span>'+btn('next','下一页')+'</nav></section><section class="memo-detail" id="memoDetail" aria-label="笔记阅读与编辑"></section></div></main><input id="memoBackupFile" type="file" accept=".json,application/json" hidden><input id="memoRIS" type="file" accept=".ris,.txt" hidden>';
+ d.body.appendChild(el);bind();
 }
-function tx(s, m){ return db.transaction([s], m || "readonly").objectStore(s); }
-function addMemo(m){
-  return new Promise(function(res, rej){
-    m.created = Date.now(); m.updated = Date.now();
-    var r = tx("memos", "readwrite").add(m);
-    r.onsuccess = function(e){ res(e.target.result); }; r.onerror = rej;
-  });
+function renderList(){
+ if(!$('memoList'))return;
+ var active=rows.filter(function(m){return !m.deletedAt&&!m.archived;}),counts={all:active.length,pinned:active.filter(function(m){return m.pinned;}).length,archived:rows.filter(function(m){return !m.deletedAt&&m.archived;}).length,trash:rows.filter(function(m){return m.deletedAt;}).length};
+ d.querySelectorAll('[data-mcount]').forEach(function(el){el.textContent=counts[el.dataset.mcount];});
+ d.querySelectorAll('[data-mscope]').forEach(function(el){el.classList.toggle('on',el.dataset.mscope===scope);el.setAttribute('aria-pressed',String(el.dataset.mscope===scope));});
+ d.querySelectorAll('[data-mcat]').forEach(function(el){el.classList.toggle('on',el.dataset.mcat===type);el.setAttribute('aria-pressed',String(el.dataset.mcat===type));});
+ var projects=Array.from(new Set(rows.filter(function(m){return !m.deletedAt;}).map(function(m){return m.project||'';}).filter(Boolean))).sort();
+ $('memoProject').innerHTML='<option value="all">全部项目</option>'+projects.map(function(p){return '<option value="'+esc(p)+'">'+esc(p)+'</option>';}).join('');$('memoProject').value=project;$('memoStatus').value=status;
+ var list=filtered(),pages=Math.max(1,Math.ceil(list.length/20));page=Math.min(page,pages);
+ $('memoListCount').textContent='筛选结果（'+list.length+'）';$('memoPageInfo').textContent=page+' / '+pages;
+ $('memoHub').querySelector('[data-ma="prev"]').disabled=page<=1;$('memoHub').querySelector('[data-ma="next"]').disabled=page>=pages;
+ $('memoList').innerHTML=list.slice((page-1)*20,page*20).map(function(m){return '<button type="button" class="memo-row'+(m.id===selected?' selected':'')+'" data-mnote="'+m.id+'" aria-current="'+(m.id===selected)+'"><strong>'+esc(m.title||'未命名笔记')+'</strong><span class="memo-row-tags"><span class="memo-chip '+cat(m)+'">'+cats[cat(m)]+'</span>'+(m.pinned?'<span>已置顶</span>':'')+'</span><span class="memo-excerpt">'+esc(String(m.body||'暂无正文').replace(/##?\s*/g,'').slice(0,90))+'</span><time>'+date(m.updated||m.created)+'</time></button>';}).join('')||'<div class="memo-empty"><strong>没有符合条件的笔记</strong><p>清除筛选，或新建一条笔记。</p>'+btn('clear','清除筛选')+'</div>';
 }
-function getMemos(){
-  return new Promise(function(res, rej){
-    var out = [], r = tx("memos").index("created").openCursor(null, "prev");
-    r.onsuccess = function(e){ var c = e.target.result; if(c){ out.push(c.value); c.continue(); } else res(out); };
-    r.onerror = rej;
-  });
+function prose(text){
+ var blocks=[],part={title:'',lines:[]};String(text).split(/\r?\n/).forEach(function(line){var h=line.match(/^##?\s+(.+)$/);if(h){if(part.title||part.lines.some(function(v){return v.trim();}))blocks.push(part);part={title:h[1],lines:[]};}else part.lines.push(line);});blocks.push(part);
+ return blocks.map(function(p){var body=p.lines.join('\n').trim();return p.title?'<section class="memo-section"><h3>'+esc(p.title)+'</h3><div class="memo-block-body'+(body?'':' memo-muted')+'">'+(body?esc(body):'待记录。')+'</div></section>':body?'<div class="memo-text">'+esc(body)+'</div>':'';}).join('');
 }
-function deleteMemo(id){
-  return new Promise(function(res, rej){
-    var r = tx("memos", "readwrite").delete(id);
-    r.onsuccess = function(){ res(); }; r.onerror = rej;
-  });
+function paper(id){var n=norm(id).replace(/^https?:\/\/doi\.org\//,'');if(!n)return null;return (api.papers?api.papers():[]).find(function(p){return [p.id,p.doi,String(p.id||'').split('/').pop()].some(function(v){return norm(v).replace(/^https?:\/\/doi\.org\//,'')===n;});});}
+function source(m){var p=paper(m.paperId);return '<div class="memo-source">'+icon('note')+'<div><strong>关联文献</strong>'+(p?'<span>'+esc(p.title)+'</span><small>'+esc([p.journal,p.year].filter(Boolean).join(' · '))+'</small>':m.paperId?'<span>'+esc(m.paperId)+'</span><small>暂未匹配库内记录，保留原始来源标识。</small>':'<span>选择库内文献，保留来源。</span>')+'</div>'+btn(p?'read':'source',p?'阅读文献':'选择文献',p?null:'plus')+'</div>';}
+async function renderDetail(){
+ var m=current(),el=$('memoDetail');if(!el)return;
+ if(!m){el.innerHTML='<div class="memo-welcome">'+icon('note')+'<h2>从一个研究问题开始</h2><p>选择左侧笔记，或用模板记录你的阅读、想法与实验。</p><div class="memo-template-choices">'+Object.keys(cats).map(function(k){return '<button type="button" class="memo-btn" data-mtemplate="'+k+'">'+icon(k==='reading'?'note':k==='free'?'edit':k)+cats[k]+'</button>';}).join('')+'</div><small>模板只提供记录框架，不生成研究结论。</small></div>';return;}
+ el.innerHTML=btn('list','返回笔记列表','back','memo-mobile-back')+'<div class="memo-detail-head"><h2 tabindex="-1" id="memoTitle">'+esc(m.title||'未命名笔记')+'</h2><div class="memo-detail-actions">'+(m.deletedAt?btn('restore-note','恢复笔记','back'):btn('edit','编辑','edit')+btn('pin',m.pinned?'取消置顶':'置顶','pin')+btn('archive',m.archived?'取消归档':'归档','archive'))+'</div></div><div class="memo-meta"><span class="memo-chip '+cat(m)+'">'+cats[cat(m)]+'</span><span class="memo-chip">'+statuses[stage(m)]+'</span><small>更新于 '+date(m.updated||m.created)+'</small></div><div class="memo-project-line">'+(m.project?'<span>'+icon('folder')+'项目：'+esc(m.project)+'</span>':'<span>未指定项目</span>')+(m.tags||[]).map(function(t){return '<button type="button" class="memo-chip" data-mtag="'+esc(t)+'">'+icon('tag')+esc(t)+'</button>';}).join('')+'</div>'+source(m)+'<div class="memo-prose">'+(m.body?prose(m.body):'<p class="memo-muted">暂无正文，点击编辑开始记录。</p>')+'</div><section class="memo-attachments"><h3>'+icon('clip')+'附件</h3><div id="memoAttachments"></div>'+(m.deletedAt?'':btn('attach','添加图片或 PDF','plus'))+'</section><footer class="memo-detail-foot">'+btn('export-note','导出 Markdown','download')+(m.deletedAt?'':btn('trash','移入回收站','trash','quiet'))+'</footer>';
+ var id=m.id,files=await all('files');if(selected!==id||draft)return;
+ $('memoAttachments').innerHTML=(m.fileIds||[]).map(function(fid){var f=files.find(function(x){return x.id===fid;});return f?'<button type="button" class="memo-file" data-mfile="'+fid+'">'+icon('clip')+'<span>'+esc(f.name)+'</span><small>'+Math.max(1,Math.round(f.size/1024))+' KB</small></button>':'<span class="memo-muted">附件 #'+fid+' 不可用（原始记录已保留）</span>';}).join('')||'<p class="memo-muted">暂无附件</p>';
+ $('memoAttachments').innerHTML+=(m.missingFileIds||[]).map(function(id){return '<p class="memo-muted">原始附件 #'+esc(id)+' 未包含在备份中，来源标识已保留。</p>';}).join('');
 }
-function updateMemo(m){
-  return new Promise(function(res, rej){
-    m.updated = Date.now();
-    var r = tx("memos", "readwrite").put(m);
-    r.onsuccess = function(){ res(); }; r.onerror = rej;
-  });
+async function refresh(){rows=await all('memos');renderList();if(!draft)await renderDetail();}
+function leaveDraft(){if(busy){announce("笔记正在保存，请稍候。");return false;}if(!dirty)return true;if(!w.confirm('当前笔记尚未保存，放弃这些编辑？'))return false;draft=null;dirty=false;pending=[];return true;}
+function hash(){return '#memos'+(selected?'?note='+selected:'');}
+function setHash(push){if(isOpen)w.history[push?'pushState':'replaceState'](null,'',hash());}
+async function open(push){
+ await ready;if(!isOpen){prevHash=/^#(?:memos|z-memo)/.test(w.location.hash)?'#z-search':w.location.hash||'#z-search';prevScroll=w.scrollY||0;prevFocus=d.activeElement;layouts=['classic','app','study'].map(function(n){var el=$('layout-'+n);return {el:el,hidden:el?el.hidden:true};});}
+ if(api.enter)api.enter();else layouts.forEach(function(x){if(x.el)x.el.hidden=true;});
+ if(!selected&&filtered().length)selected=filtered()[0].id;isOpen=true;$('memoHub').hidden=false;d.body.classList.add('memo-open');if(push!==false)setHash(true);renderList();if(!draft)await renderDetail();w.scrollTo(0,0);$('memoHeading').focus({preventScroll:true});
 }
-function saveFile(f){
-  return new Promise(function(res, rej){
-    var rd = new FileReader();
-    rd.onload = function(){
-      var rec = {name: f.name, type: f.type, size: f.size, data: rd.result, created: Date.now()};
-      var r = tx("files", "readwrite").add(rec);
-      r.onsuccess = function(e){ res(e.target.result); }; r.onerror = rej;
-    };
-    rd.onerror = rej; rd.readAsArrayBuffer(f);
-  });
+function close(push){if(!isOpen)return true;if(!leaveDraft())return false;isOpen=false;draft=null;dirty=false;$('memoHub').hidden=true;d.body.classList.remove('memo-open');if(api.leave)api.leave();else layouts.forEach(function(x){if(x.el)x.el.hidden=x.hidden;});if(push!==false)w.history.pushState(null,'',prevHash);w.scrollTo(0,prevScroll);if(prevFocus&&prevFocus.isConnected)prevFocus.focus({preventScroll:true});return true;}
+async function route(){var h=w.location.hash;if(/^#(?:memos(?:\?|$)|z-memo$)/.test(h)){var n=Number(new URLSearchParams(h.split('?')[1]||'').get('note'));if(draft&&selected!==n&&!leaveDraft()){setHash(false);return;}if(n)selected=n;await open(false);}else if(isOpen&&!close(false))setHash(true);}
+async function select(id){if(!leaveDraft())return;selected=id;draft=null;setHash(false);renderList();await renderDetail();if(w.innerWidth<=600)$('memoDetail').scrollIntoView({block:'start'});}
+function formData(){var m=Object.assign({},draft);m.title=$('memoFTitle').value.trim();m.body=$('memoFBody').value;m.category=$('memoFCategory').value;m.status=$('memoFStatus').value;m.project=$('memoFProject').value.trim();m.tags=Array.from(new Set($('memoFTags').value.split(/[,，;；\n]/).map(function(v){return v.trim();}).filter(Boolean)));m.paperId=$('memoFPaper').value.trim()||null;m.fileIds=fileIds.slice();return m;}
+function edit(m,template){
+ if(!leaveDraft())return;
+ draft=Object.assign({},m||{kind:'text',category:template||'free',status:'todo',title:'',body:template?templates[template]:'',fileIds:[]});fileIds=(draft.fileIds||[]).slice();pending=[];dirty=false;
+ $('memoDetail').innerHTML=btn('list','返回笔记列表','back','memo-mobile-back')+'<form id="memoForm"><div class="memo-editor-bar"><strong>'+(m?'编辑笔记':'新建笔记')+'</strong><span id="memoSaveState">尚未修改</span>'+btn('cancel','取消')+'<button type="submit" class="memo-btn primary">保存笔记</button></div><label>标题<input id="memoFTitle" maxlength="500" placeholder="给这条笔记一个清晰的标题" value="'+esc(draft.title)+'"></label><div class="memo-fields"><label>笔记类型<select id="memoFCategory">'+opts(cats,cat(draft))+'</select></label><label>整理状态<select id="memoFStatus">'+opts(statuses,stage(draft))+'</select></label><label>所属项目<input id="memoFProject" value="'+esc(draft.project||'')+'" placeholder="如：恢复策略"></label><label>标签<input id="memoFTags" value="'+esc((draft.tags||[]).join('，'))+'" placeholder="逗号分隔"></label></div><div class="memo-source-editor"><label>关联文献<input id="memoPaperSearch" type="search" placeholder="输入库内文献标题、DOI 或 OpenAlex ID"></label><div id="memoPaperMatches"></div><label class="memo-muted">来源标识（也可手动粘贴）<input id="memoFPaper" value="'+esc(draft.paperId||'')+'" placeholder="DOI 或 OpenAlex ID（选填）"></label></div><div class="memo-body-label"><label for="memoFBody">正文</label>'+btn('template','插入当前类型模板')+'</div><textarea id="memoFBody" rows="16" placeholder="记录原文依据，区分观察、推测与待验证的问题。">'+esc(draft.body||'')+'</textarea><p class="memo-editor-tip">用 ## 标题分段。建议记录设计、样本、原文依据与局限性。Ctrl / ⌘ + S 保存。</p><div class="memo-draft-files"><strong>附件</strong><div id="memoDraftFiles"></div><label class="memo-upload">'+icon('plus')+'添加图片或 PDF<input id="memoFFile" type="file" multiple accept="image/*,.pdf"></label></div><p id="memoFormError" role="alert"></p></form>';
+ paintFiles().catch(fail);$('memoFTitle').focus();
+ $('memoForm').oninput=function(e){if(e.target.id!=='memoPaperSearch'){dirty=true;$('memoSaveState').textContent='有未保存修改';}};
+ $('memoForm').onsubmit=function(e){e.preventDefault();save().catch(fail);};
+ $('memoFFile').onchange=function(){pending=pending.concat(Array.from(this.files));this.value='';dirty=true;paintFiles().catch(fail);};
+ $('memoPaperSearch').oninput=function(){var q=norm(this.value),found=q?(api.papers?api.papers():[]).filter(function(p){return norm([p.title,p.doi,p.id].join(' ')).includes(q);}).slice(0,8):[];$('memoPaperMatches').innerHTML=found.map(function(p){return '<button type="button" data-msource="'+esc(p.id)+'"><strong>'+esc(p.title)+'</strong><small>'+esc([p.journal,p.year].filter(Boolean).join(' · '))+'</small></button>';}).join('')||(q?'<small>未匹配库内文献，可手动保留来源标识。</small>':'');};
 }
-function getFile(id){
-  return new Promise(function(res, rej){
-    var r = tx("files").get(id);
-    r.onsuccess = function(e){ res(e.target.result); }; r.onerror = rej;
-  });
+async function paintFiles(){var records=await all('files');if(!draft||!$('memoDraftFiles'))return;$('memoDraftFiles').innerHTML=fileIds.map(function(id){var f=records.find(function(x){return x.id===id;});return '<span class="memo-file">'+esc(f?f.name:'附件 #'+id)+'<button type="button" data-mremove="'+id+'" aria-label="移除此附件">×</button></span>';}).join('')+pending.map(function(f,i){return '<span class="memo-file">'+esc(f.name)+'<button type="button" data-mpending="'+i+'" aria-label="移除此待上传附件">×</button></span>';}).join('');}
+async function fileRecord(f){var data=f.arrayBuffer?await f.arrayBuffer():await new Promise(function(res,rej){var r=new w.FileReader();r.onload=function(){res(r.result);};r.onerror=rej;r.readAsArrayBuffer(f);});return {name:f.name,type:f.type,size:f.size,data:data,created:Date.now()};}
+async function save(){
+ if(busy)return;var m=formData();if(!m.title&&!m.body.trim()){$('memoFormError').textContent='标题和正文至少填写一项。';$('memoFTitle').focus();return;}
+ busy=true;var submit=$('memoForm').querySelector('[type="submit"]');submit.disabled=true;submit.textContent='正在保存…';
+ try{var files=await Promise.all(pending.map(fileRecord));await database();m.created=m.created||Date.now();m.updated=Date.now();m.uid=m.id?identity(m):uuid();
+ var id=await new Promise(function(res,rej){var tx=db.transaction(['memos','files'],'readwrite'),ids=m.fileIds.slice(),left=files.length,result;function write(){m.fileIds=ids;var r=tx.objectStore('memos').put(m);r.onsuccess=function(){result=r.result;};}if(!left)write();files.forEach(function(f){var r=tx.objectStore('files').add(f);r.onsuccess=function(){ids.push(r.result);if(!--left)write();};});tx.oncomplete=function(){res(result);};tx.onerror=tx.onabort=function(){rej(tx.error||new Error('Save failed'));};});
+ selected=id;dirty=false;draft=null;pending=[];scope='all';type='all';project='all';status='all';query='';$('memoSearch').value='';setHash(false);await refresh();announce('笔记已保存到本浏览器。');
+ }catch(e){if($('memoFormError'))$('memoFormError').textContent='保存失败，编辑内容仍保留。请导出备份或释放浏览器空间后重试。';throw e;}finally{busy=false;if(submit.isConnected){submit.disabled=false;submit.textContent='保存笔记';}}
 }
-function parseRIS(t){
-  var rs = [], cur = {};
-  t.split(/\r?\n/).forEach(function(l){
-    var m = l.match(/^([A-Z][A-Z0-9])\s*-\s?(.*)$/);
-    if(!m) return;
-    var tag = m[1], val = m[2].trim();
-    if(tag === "TY"){ if(cur.TY) rs.push(cur); cur = {TY: val, AU: [], KW: []}; }
-    else if(tag === "ER"){ rs.push(cur); cur = {}; }
-    else if(tag === "AU" || tag === "A1") cur.AU.push(val);
-    else if(tag === "KW") cur.KW.push(val);
-    else { if(cur[tag] && tag !== "TY") cur[tag] += "; " + val; else cur[tag] = val; }
-  });
-  if(cur.TY) rs.push(cur);
-  return rs;
+async function change(field,value){var m=current();if(!m)return;var copy=Object.assign({},m);copy[field]=value;copy.updated=Date.now();await put(copy);await refresh();}
+function download(name,data,mime){var u=URL.createObjectURL(new Blob([data],{type:mime||'application/json'})),a=d.createElement('a');a.href=u;a.download=name;d.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(u);a.remove();},1000);}
+async function downloadFile(id){var f=(await all('files')).find(function(x){return x.id===id;});if(!f)return announce('附件不可用，原始记录已保留。',true);download(f.name,f.data,f.type);}
+function base64(data){var a=new Uint8Array(data),s='';for(var i=0;i<a.length;i+=8192)s+=String.fromCharCode.apply(null,a.subarray(i,i+8192));return w.btoa(s);}
+async function snapshot(){var memos=await all('memos'),files=await all('files'),used=new Set();memos.forEach(function(m){(m.fileIds||[]).forEach(function(id){used.add(id);});});return {format:'sport-env-memo-backup',version:1,exportedAt:new Date().toISOString(),memos:memos.map(function(m){return Object.assign({},m,{uid:identity(m)});}),files:files.filter(function(f){return used.has(f.id);}).map(function(f){return {id:f.id,name:f.name,type:f.type,size:f.size,created:f.created,data:base64(f.data)};})};}
+async function restore(payload){
+ if(!payload||payload.format!=='sport-env-memo-backup'||payload.version!==1||!Array.isArray(payload.memos)||!Array.isArray(payload.files))throw new Error('Invalid backup');
+ var seen=new Set(),mapping=new Map();
+ var files=payload.files.map(function(f){if(!f||!Number.isSafeInteger(f.id)||seen.has(f.id)||typeof f.name!=='string'||typeof f.type!=='string'||typeof f.data!=='string'||!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(f.data))throw new Error('Invalid attachment');seen.add(f.id);var a=Uint8Array.from(w.atob(f.data),function(c){return c.charCodeAt(0);});return {oldId:f.id,name:f.name,type:f.type,data:a.buffer,size:a.length,created:f.created||Date.now()};});
+ payload.memos.forEach(function(m){if(!m||!Number.isSafeInteger(m.id)||typeof m.title!=='string'||typeof m.body!=='string'||!Number.isFinite(m.created)||!Array.isArray(m.fileIds)||m.fileIds.some(function(id){return !Number.isSafeInteger(id);})||m.tags&&(!Array.isArray(m.tags)||m.tags.some(function(t){return typeof t!=='string';}))||m.uid!=null&&typeof m.uid!=='string'||m.project!=null&&typeof m.project!=='string'||m.paperId!=null&&typeof m.paperId!=='string'||m.missingFileIds!=null&&(!Array.isArray(m.missingFileIds)||m.missingFileIds.some(function(id){return !Number.isSafeInteger(id);})))throw new Error('Invalid memo');});
+ await database();var existing=await all('memos'),known=new Set(existing.map(identity)),incoming=payload.memos.filter(function(m){var u=identity(m);if(known.has(u))return false;known.add(u);return true;});
+ if(!incoming.length)return 0;
+ var used=new Set();incoming.forEach(function(m){m.fileIds.forEach(function(id){used.add(id);});});var needed=files.filter(function(f){return used.has(f.oldId);});
+ await new Promise(function(res,rej){var tx=db.transaction(['memos','files'],'readwrite'),left=needed.length;function write(){incoming.forEach(function(m){var copy=Object.assign({},m,{uid:identity(m),missingFileIds:(m.missingFileIds||[]).concat(m.fileIds.filter(function(id){return !mapping.has(id);})),fileIds:m.fileIds.map(function(id){return mapping.has(id)?mapping.get(id):null;}).filter(function(id){return id!==null;})});delete copy.id;tx.objectStore('memos').add(copy);});}if(!left)write();needed.forEach(function(f){var copy=Object.assign({},f);delete copy.oldId;var r=tx.objectStore('files').add(copy);r.onsuccess=function(){mapping.set(f.oldId,r.result);if(!--left)write();};});tx.oncomplete=res;tx.onerror=tx.onabort=function(){rej(tx.error||new Error('Restore failed'));};});await refresh();return incoming.length;
 }
-function risToMemo(r){
-  var p = [];
-  if(r.TI) p.push("标题: " + r.TI);
-  if(r.AU && r.AU.length) p.push("作者: " + r.AU.join("; "));
-  if(r.JO || r.JF) p.push("期刊: " + (r.JO || r.JF));
-  if(r.PY) p.push("年份: " + r.PY);
-  if(r.DO) p.push("DOI: " + r.DO);
-  if(r.AB) p.push("\n摘要: " + r.AB);
-  if(r.KW && r.KW.length) p.push("\n关键词: " + r.KW.join("; "));
-  return {kind: "ris", title: r.TI || "(无标题)", body: p.join("\n"), ris: r, paperId: null, fileIds: []};
+function parseRIS(text){var out=[],cur=null,last='';String(text).split(/\r?\n/).forEach(function(line){var m=line.match(/^([A-Z][A-Z0-9])\s*-\s?(.*)$/);if(m){var tag=m[1],v=m[2].trim();if(tag==='TY'){if(cur)out.push(cur);cur={TY:v,AU:[],KW:[]};last='';}else if(tag==='ER'){if(cur)out.push(cur);cur=null;last='';}else if(cur){if(tag==='AU'||tag==='A1')cur.AU.push(v);else if(tag==='KW')cur.KW.push(v);else cur[tag]=(cur[tag]?cur[tag]+'\n':'')+v;last=tag;}}else if(cur&&last&&line.trim()&&!['AU','A1','KW'].includes(last))cur[last]=(cur[last]||'')+'\n'+line.trim();});if(cur)out.push(cur);return out;}
+async function importRIS(text){var rs=parseRIS(text);await database();if(!rs.length)return 0;await new Promise(function(res,rej){var tx=db.transaction('memos','readwrite');rs.forEach(function(r){var abs=Array.from(new Set([r.AB,r.N2].filter(Boolean))).join('\n\n'),body=[r.AU.length?'作者：'+r.AU.join('; '):'',r.JO||r.JF?'期刊：'+(r.JO||r.JF):'',r.PY?'年份：'+r.PY:'',r.DO?'DOI：'+r.DO:'',abs?'## 摘要\n'+abs:''].filter(Boolean).join('\n\n');tx.objectStore('memos').add({uid:uuid(),created:Date.now(),updated:Date.now(),kind:'ris',category:'reading',status:'todo',title:r.TI||r.T1||'未命名 RIS 条目',body:body,tags:r.KW,ris:r,paperId:r.DO||null,fileIds:[]});});tx.oncomplete=res;tx.onerror=tx.onabort=function(){rej(tx.error||new Error('Import failed'));};});await refresh();return rs.length;}
+function clear(){scope='all';type='all';project='all';status='all';query='';page=1;$('memoSearch').value='';renderList();}
+async function action(name){
+ var m=current();if(name==='list'){$('memoHub').querySelector('.memo-browser').scrollIntoView({block:'start'});return;}if(name==='back'){close();return;}if(name==='new'){edit(null,'free');return;}if(['edit','source','attach'].includes(name)){edit(m);if(name==='source')$('memoPaperSearch').focus();if(name==='attach')$('memoFFile').click();return;}
+ if(name==='cancel'){if(leaveDraft()){draft=null;renderDetail();}return;}if(name==='template'){if(!$('memoFBody').value.trim()||w.confirm('将当前类型的模板追加到正文末尾？')){$('memoFBody').value+=($('memoFBody').value?'\n\n':'')+templates[$('memoFCategory').value];dirty=true;$('memoSaveState').textContent='有未保存修改';}return;}
+ if(name==='pin')await change('pinned',!m.pinned);if(name==='archive')await change('archived',!m.archived);if(name==='trash')await change('deletedAt',Date.now());if(name==='restore-note')await change('deletedAt',null);
+ if(name==='clear'){if(leaveDraft()){draft=null;clear();await renderDetail();}}if(name==='prev'||name==='next'){page+=name==='prev'?-1:1;renderList();}
+ if(name==='read'){var p=paper(m.paperId);if(p&&api.read)api.read(p.id);else announce('文献库尚未就绪，请稍后重试。',true);}
+ if(name==='backup'){download('科研备忘录备份-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(await snapshot()));announce('备份包含全部笔记、归档、回收站及附件。未保存编辑不在备份中。');}
+ if(name==='restore')$('memoBackupFile').click();if(name==='ris')$('memoRIS').click();
+ if(name==='export-note'&&m)download((m.title||'科研笔记').replace(/[\\/:*?"<>|]/g,'_')+'.md','# '+(m.title||'未命名笔记')+'\n\n'+(m.paperId?'来源：'+m.paperId+'\n\n':'')+(m.body||''),'text/markdown;charset=utf-8');
 }
-function esc(s){ return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
-function fmtSize(b){ if(b < 1024) return b + "B"; if(b < 1048576) return (b/1024).toFixed(1) + "KB"; return (b/1048576).toFixed(1) + "MB"; }
-function fmtDate(t){ var d = new Date(t); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0") + " " + String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0"); }
-
-async function renderMemoList(){
-  var lists = [document.getElementById("memoList"), document.getElementById("memoList2")].filter(Boolean);
-  if(!lists.length) return;
-  memoList = await getMemos();
-  var q = memoFilter.toLowerCase();
-  var fl = memoList.filter(function(m){ return !q || (m.title + " " + m.body).toLowerCase().indexOf(q) >= 0; });
-  var html = fl.length ? fl.map(function(m){
-    var ic = m.kind === "image" ? "🖼" : m.kind === "pdf" ? "📄" : m.kind === "ris" ? "📚" : "📝";
-    var fi = (m.fileIds && m.fileIds.length) ? '<div class="memo-files">' + m.fileIds.map(function(f,i){ return '<button class="btn btn-xs" data-mfile="'+f+'">附件'+(i+1)+'</button>'; }).join(" ") + "</div>" : "";
-    var pt = m.paperId ? '<span class="memo-paper">📎 ' + esc(m.paperId) + "</span>" : "";
-    return '<div class="memo-card"><div class="memo-head"><span class="memo-kind">'+ic+'</span><span class="memo-title">'+esc(m.title||"(无标题)")+"</span>"+pt+'<span class="memo-date">'+fmtDate(m.created)+"</span></div>"+
-      '<div class="memo-body">'+esc((m.body||"").slice(0,300))+((m.body||"").length>300?"…":"")+"</div>"+fi+
-      '<div class="memo-actions"><button class="btn btn-xs" data-mview="'+m.id+'">查看</button> <button class="btn btn-xs" data-medit="'+m.id+'">编辑</button> <button class="btn btn-xs btn-danger" data-mdel="'+m.id+'">删除</button></div></div>';
-  }).join("") : '<div class="memo-empty">暂无备忘录，点上面新建一条吧</div>';
-  lists.forEach(function(el){
-    el.innerHTML = html;
-    el.querySelectorAll("[data-mview]").forEach(function(b){ b.onclick = function(){ viewMemo(+b.dataset.mview); }; });
-    el.querySelectorAll("[data-medit]").forEach(function(b){ b.onclick = function(){ editMemo(+b.dataset.medit); }; });
-    el.querySelectorAll("[data-mdel]").forEach(function(b){ b.onclick = function(){ if(confirm("确定删除？")) deleteMemo(+b.dataset.mdel).then(renderMemoList); }; });
-    el.querySelectorAll("[data-mfile]").forEach(function(b){ b.onclick = function(e){ e.stopPropagation(); downloadFile(+b.dataset.mfile); }; });
-  });
+function bind(){
+ $('memoHub').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;if(b.dataset.ma){action(b.dataset.ma).catch(fail);return;}if(b.dataset.mnote){select(Number(b.dataset.mnote)).catch(fail);return;}if(b.dataset.mscope||b.dataset.mcat){if(!leaveDraft())return;draft=null;if(b.dataset.mscope)scope=b.dataset.mscope;else type=type===b.dataset.mcat?'all':b.dataset.mcat;page=1;renderList();renderDetail().catch(fail);return;}if(b.dataset.mtemplate){edit(null,b.dataset.mtemplate);return;}if(b.dataset.mtag){query=b.dataset.mtag;$('memoSearch').value=query;page=1;renderList();return;}if(b.dataset.msource){$('memoFPaper').value=b.dataset.msource;$('memoPaperMatches').innerHTML='';$('memoPaperSearch').value=b.textContent;dirty=true;return;}if(b.dataset.mfile){downloadFile(Number(b.dataset.mfile)).catch(fail);return;}if(b.dataset.mremove){fileIds=fileIds.filter(function(id){return id!==Number(b.dataset.mremove);});dirty=true;paintFiles().catch(fail);}if(b.hasAttribute('data-mpending')){pending.splice(Number(b.dataset.mpending),1);dirty=true;paintFiles().catch(fail);}});
+ d.addEventListener('click',function(e){if(e.target.closest('[data-memo-open]')){e.preventDefault();open().catch(fail);}});
+ $('memoSearch').oninput=function(){query=this.value;page=1;renderList();};$('memoProject').onchange=function(){project=this.value;page=1;renderList();};$('memoStatus').onchange=function(){status=this.value;page=1;renderList();};$('memoSort').onchange=function(){sort=this.value;page=1;renderList();};
+ $('memoBackupFile').onchange=async function(){try{if(this.files[0]){var n=await restore(JSON.parse(await this.files[0].text()));announce('已恢复 '+n+' 条笔记，重复条目已跳过。');}}catch(e){announce('备份无效或恢复失败，原有笔记未被覆盖。',true);}this.value='';};
+ $('memoRIS').onchange=async function(){try{if(this.files[0])announce('已导入 '+await importRIS(await this.files[0].text())+' 条 RIS 笔记。');}catch(e){fail(e);}this.value='';};
+ w.addEventListener('hashchange',function(){route().catch(fail);});w.addEventListener('popstate',function(){route().catch(fail);});w.addEventListener('beforeunload',function(e){if(dirty){e.preventDefault();e.returnValue='';}});
+ d.addEventListener('keydown',function(e){if(isOpen&&draft&&(e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();save().catch(fail);}});
 }
-async function downloadFile(fid){
-  var f = await getFile(fid); if(!f) return alert("文件不存在");
-  var u = URL.createObjectURL(new Blob([f.data], {type: f.type}));
-  var a = document.createElement("a"); a.href = u; a.download = f.name;
-  document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(u); a.remove(); }, 1000);
-}
-async function viewMemo(id){
-  var m = memoList.find(function(x){ return x.id === id; }); if(!m) return;
-  var fl = "";
-  if(m.fileIds && m.fileIds.length){
-    fl = "<p><b>附件:</b><br>" + (await Promise.all(m.fileIds.map(async function(fid){
-      var f = await getFile(fid); return f ? '<a href="#" data-dl="'+fid+'">'+esc(f.name)+" ("+fmtSize(f.size)+")</a>" : "";
-    }))).join("<br>") + "</p>";
-  }
-  showMemoModal(esc(m.title || "(无标题)"), '<pre class="memo-fullbody">' + esc(m.body || "") + "</pre>" + fl, null);
-  document.querySelectorAll("[data-dl]").forEach(function(a){ a.onclick = function(e){ e.preventDefault(); downloadFile(+a.dataset.dl); }; });
-}
-function showMemoModal(t, bh, onSave){
-  var ov = document.getElementById("memoModal");
-  if(!ov){
-    ov = document.createElement("div"); ov.id = "memoModal"; ov.className = "memo-modal-ov";
-    ov.innerHTML = '<div class="memo-modal"><div class="memo-modal-head"><span id="memoModalTitle"></span><button class="btn btn-xs" id="memoModalX">✕</button></div><div class="memo-modal-body" id="memoModalBody"></div><div class="memo-modal-foot" id="memoModalFoot"></div></div>';
-    document.body.appendChild(ov);
-    document.getElementById("memoModalX").onclick = function(){ ov.style.display = "none"; };
-    ov.onclick = function(e){ if(e.target === ov) ov.style.display = "none"; };
-  }
-  document.getElementById("memoModalTitle").textContent = t;
-  document.getElementById("memoModalBody").innerHTML = bh;
-  var ft = document.getElementById("memoModalFoot"); ft.innerHTML = "";
-  if(onSave){ var b = document.createElement("button"); b.className = "btn"; b.textContent = "保存"; b.onclick = onSave; ft.appendChild(b); }
-  ov.style.display = "flex"; return ov;
-}
-function memoFormHTML(m){
-  m = m || {};
-  return '<label>标题<br><input id="memoFTitle" class="memo-input" value="'+esc(m.title||"")+'"></label><br><br>'+
-    '<label>备注<br><textarea id="memoFBody" class="memo-input memo-textarea" rows="6">'+esc(m.body||"")+"</textarea></label><br><br>"+
-    '<label>关联文献ID (可选)<br><input id="memoFPaper" class="memo-input" value="'+esc(m.paperId||"")+'" placeholder="如 OpenAlex ID"></label><br><br>'+
-    '<label>附件 (图片/PDF)<br><input type="file" id="memoFFile" multiple accept="image/*,.pdf"></label>';
-}
-function newMemo(){
-  showMemoModal("新建备忘录", memoFormHTML(), async function(){
-    var ti = document.getElementById("memoFTitle").value.trim(), bo = document.getElementById("memoFBody").value.trim();
-    var pi = document.getElementById("memoFPaper").value.trim() || null;
-    if(!ti && !bo){ alert("标题和备注至少填一个"); return; }
-    var fids = [], fi = document.getElementById("memoFFile");
-    if(fi && fi.files.length) for(var i = 0; i < fi.files.length; i++) fids.push(await saveFile(fi.files[i]));
-    var kind = "text";
-    if(fids.length){ var f0 = await getFile(fids[0]); if(f0 && f0.type.indexOf("image") === 0) kind = "image"; else if(f0 && f0.type === "application/pdf") kind = "pdf"; }
-    await addMemo({kind: kind, title: ti, body: bo, paperId: pi, fileIds: fids});
-    document.getElementById("memoModal").style.display = "none"; renderMemoList();
-  });
-}
-async function editMemo(id){
-  var m = memoList.find(function(x){ return x.id === id; }); if(!m) return;
-  showMemoModal("编辑备忘录", memoFormHTML(m), async function(){
-    m.title = document.getElementById("memoFTitle").value.trim();
-    m.body = document.getElementById("memoFBody").value.trim();
-    m.paperId = document.getElementById("memoFPaper").value.trim() || null;
-    var fi = document.getElementById("memoFFile");
-    if(fi && fi.files.length) for(var i = 0; i < fi.files.length; i++){ m.fileIds = m.fileIds || []; m.fileIds.push(await saveFile(fi.files[i])); }
-    await updateMemo(m); document.getElementById("memoModal").style.display = "none"; renderMemoList();
-  });
-}
-async function importRIS(f){
-  var rs = parseRIS(await f.text());
-  if(!rs.length){ alert("RIS 文件中没有解析到记录"); return; }
-  for(var i = 0; i < rs.length; i++) await addMemo(risToMemo(rs[i]));
-  alert("已导入 " + rs.length + " 条文献备忘录"); renderMemoList();
-}
-async function initMemo(){
-  try { await openDB(); } catch(e){ console.error("Memo DB 打开失败", e); return; }
-  [["memoNew","memoRIS","memoSearch"],["memoNew2","memoRIS2","memoSearch2"]].forEach(function(ids){
-    var b = document.getElementById(ids[0]); if(b) b.onclick = newMemo;
-    var r = document.getElementById(ids[1]); if(r) r.onchange = function(){ if(r.files.length) importRIS(r.files[0]); r.value = ""; };
-    var s = document.getElementById(ids[2]); if(s) s.oninput = function(){ memoFilter = s.value; renderMemoList(); };
-  });
-  renderMemoList();
-}
-window.MemoQuickAdd = async function(pid, pti){
-  await openDB();
-  showMemoModal("给文献加备注", memoFormHTML({title: pti || "", paperId: pid}), async function(){
-    var bo = document.getElementById("memoFBody").value.trim(); if(!bo){ alert("备注内容不能为空"); return; }
-    await addMemo({kind: "text", title: document.getElementById("memoFTitle").value.trim(), body: bo, paperId: pid, fileIds: []});
-    document.getElementById("memoModal").style.display = "none"; renderMemoList();
-  });
-};
-if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", initMemo); else initMemo();
+shell();var ready=database().then(refresh).catch(function(e){fail(e);throw e;});ready.catch(function(){});
+w.LitdbMemo={open:open,close:close,route:route,isOpen:function(){return isOpen;},configure:function(config){api=config||{};if(isOpen&&api.enter)api.enter();renderList();if(!draft)renderDetail().catch(fail);},ready:ready,snapshot:snapshot,restore:restore,importRIS:importRIS};
+w.MemoQuickAdd=async function(id,title){await open();edit({kind:'text',category:'reading',status:'todo',title:title||'',paperId:id,fileIds:[],body:templates.reading});};
+route().catch(fail);
 })();

@@ -930,7 +930,7 @@ canvas.net{cursor:grab}
         <a href="#z-network" data-z="z-network">知识网络</a>
         <a href="#z-lab" data-z="z-lab">工具箱</a>
         <a href="#following" data-follow-open>我的关注 ↗</a>
-        <a href="#z-memo" data-z="z-memo">备忘录</a>
+        <a href="#memos" data-memo-open>科研备忘录 ↗</a>
       </div>
       <button class="hbtn cmdkBtn" title="命令面板 (⌘K)">⌘K</button>
       <div class="layout-sw" data-sw>
@@ -998,18 +998,6 @@ canvas.net{cursor:grab}
       <div class="zone-head"><span class="znum">06</span><h2>工具箱</h2><span class="zsub">阅读统计 · 空白探测 · 检索订阅</span></div>
       <div id="slot-classic-lab"></div>
     </section>
-    <section class="zone" id="z-memo">
-      <div class="zone-head"><span class="znum">09</span><h2>📝 备忘录</h2><span class="zsub">文字 · 图片 · PDF · RIS 导入 · 只保存在本浏览器</span></div>
-      <div id="slot-classic-memo">
-        <div class="memo-toolbar">
-          <button class="btn" id="memoNew2">＋ 新建备忘录</button>
-          <label class="btn" style="cursor:pointer">📚 导入 RIS <input type="file" id="memoRIS2" accept=".ris,.txt" style="display:none"></label>
-          <input id="memoSearch2" class="memo-input" placeholder="搜索备忘录…" style="margin-left:12px;flex:1;max-width:300px">
-        </div>
-        <div class="memo-hint">备忘录只存在这台浏览器的 IndexedDB 里，不上传、不同步。支持文字、图片、PDF 附件，RIS 文件会自动解析成条目。</div>
-        <div id="memoList2"></div>
-      </div>
-    </section>
     <section class="zone" id="z-diss">
       <div class="zone-head"><span class="znum">08</span><h2>🎓 学位论文</h2><span class="zsub">英文博硕学位论文 · 每日回填 · 可与期刊论文交叉验证</span></div>
       <div class="panel">
@@ -1036,7 +1024,7 @@ canvas.net{cursor:grab}
     <button class="ritem" data-view="data" title="数据"><span class="ri">📊</span><span class="rl">数据</span></button>
     <button class="ritem" data-view="lab" title="工具箱"><span class="ri">🧪</span><span class="rl">工具</span></button>
     <button class="ritem" data-view="follow" title="我的关注"><span class="ri">⭐</span><span class="rl">关注</span></button>
-    <button class="ritem" data-view="memo" title="备忘录"><span class="ri">📝</span><span class="rl">备忘录</span></button>
+    <button class="ritem" data-memo-open title="备忘录"><span class="ri">📝</span><span class="rl">备忘录</span></button>
     <div class="rail-sp"></div>
     <button class="ritem themeToggle" title="切换深色 / 浅色"><span class="ri">🌙</span><span class="rl">主题</span></button>
   </aside>
@@ -1093,17 +1081,6 @@ canvas.net{cursor:grab}
     <section class="view" id="view-follow">
       <div class="datapane"><div id="slot-app-follow"></div></div>
     </section>
-    <section class="view" id="view-memo">
-      <div class="datapane"><div id="slot-app-memo">
-        <div class="memo-toolbar">
-          <button class="btn" id="memoNew">＋ 新建备忘录</button>
-          <label class="btn" style="cursor:pointer">📚 导入 RIS <input type="file" id="memoRIS" accept=".ris,.txt" style="display:none"></label>
-          <input id="memoSearch" class="memo-input" placeholder="搜索备忘录…" style="margin-left:12px;flex:1;max-width:300px">
-        </div>
-        <div class="memo-hint">备忘录只存在这台浏览器的 IndexedDB 里，不上传、不同步。支持文字、图片、PDF 附件，RIS 文件会自动解析成条目。</div>
-        <div id="memoList"></div>
-      </div></div>
-    </section>
     <footer class="statusbar">
       <span class="sb-item">🌡 环境运动科学文献总库</span><span class="sb-dot">·</span>
       <span class="sb-item" id="slot-app-stats"></span><span class="sb-dot">·</span>
@@ -1117,7 +1094,7 @@ canvas.net{cursor:grab}
 <div id="layout-study" hidden>
   <header class="study-top">
     <span class="study-brand">🌡 环境运动科学文献总库 <span class="study-tag">纯净学习</span></span>
-    <span class="study-tools"><button type="button" class="hbtn" data-follow-open>我的关注</button>
+    <span class="study-tools"><button type="button" class="hbtn" data-follow-open>我的关注</button><button type="button" class="hbtn" data-memo-open>科研备忘录</button>
       <span class="layout-sw" data-sw>
         <button data-layout="classic">经典</button><button data-layout="app">工作台</button><button data-layout="study" class="on">学习</button>
       </span>
@@ -3611,8 +3588,8 @@ var followHub=LitdbFollow.create({document:document,window:window,escape:esc,
   toggle:function(tab,name){if(tab==='au')toggleFollowAuthor(name);else toggleFollowJournal(name);},
   read:function(id){openReader(id,true);},favorited:function(id){return !!favs[id];},
   favorite:function(id){if(favs[id])delete favs[id];else favs[id]=1;saveFavs();},
-  enter:function(){if($('readerModal'))$('readerModal').hidden=true;['classic','app','study'].forEach(function(n){$('layout-'+n).hidden=true;});},
-  leave:function(){applyLayout(curLayout,false);}
+  enter:function(){if(window.LitdbMemo&&!window.LitdbMemo.close(false))return false;if($('readerModal'))$('readerModal').hidden=true;['classic','app','study'].forEach(function(n){$('layout-'+n).hidden=true;});},
+  leave:function(){if(!window.LitdbMemo||!window.LitdbMemo.isOpen())applyLayout(curLayout,false);}
 });
 function renderFollowZone(){followHub.render();}
 function bindFollowZone(){followHub.bind();}
@@ -4063,6 +4040,7 @@ function renderGaps(){
   });
 }
 function gotoResults(){
+  if(window.LitdbMemo&&window.LitdbMemo.isOpen()&&!window.LitdbMemo.close())return;
   if(followHub.isOpen())followHub.close();
   if(curLayout==="app"){ switchView("lib"); }
   else{ var z=$("z-search"); if(z){ try{z.scrollIntoView({behavior:"auto",block:"start"});}catch(e){} } }
@@ -4894,6 +4872,7 @@ function openReader(id,forceModal){
     '<div class="rbtns">'+
     '<button class="btn ghost'+(isFav?" on":"")+'" id="r_btnFav">'+(isFav?"★ 已收藏":"☆ 收藏")+'</button>'+
     '<button class="btn ghost'+(isRead?" on":"")+'" id="r_btnRead">'+(isRead?"✓ 已读":"○ 标为已读")+'</button>'+
+    '<button class="btn ghost" id="r_btnMemo">科研笔记 ↗</button>'+
     '<button class="btn ghost" id="r_btnCite">📋 引用</button>'+
     '<button class="btn ghost" id="r_btnGraph">🕸️ 图谱</button>'+
     '<button class="btn ghost" id="r_btnRel">相关文献</button>'+
@@ -4905,6 +4884,7 @@ function openReader(id,forceModal){
     esc(notes[id]||"")+'</textarea>'+
     '<div class="rnav"><button class="btn ghost" id="r_prev">← 上一篇</button>'+
     '<button class="btn ghost" id="r_next">下一篇 →</button></div>';
+  $("r_btnMemo").onclick=function(){if(window.MemoQuickAdd)window.MemoQuickAdd(p.id,p.title);};
   var ta=$("r_note");
   ta.oninput=function(){
     clearTimeout(noteTimer);
@@ -5765,7 +5745,13 @@ function init(){
     if(["classic","app","study"].indexOf(savedLayout)<0) savedLayout="classic";
     applyLayout(savedLayout,false);
   });
+  safe("科研备忘录",function(){if(window.LitdbMemo)window.LitdbMemo.configure({
+    papers:function(){return PAPERS;},read:function(id){openReader(id,true);},
+    enter:function(){if(followHub.isOpen())followHub.close(false);if($("readerModal"))$("readerModal").hidden=true;["classic","app","study"].forEach(function(n){$("layout-"+n).hidden=true;});},
+    leave:function(){if(!followHub.isOpen())applyLayout(curLayout,false);}
+  });});
   safe("关注页面路由",function(){followHub.route();});
+  safe("备忘录页面路由",function(){if(window.LitdbMemo)window.LitdbMemo.route();});
   safe("resize", function(){
     var resizeTimer,lastWidth=window.innerWidth;
     window.addEventListener("resize",function(){

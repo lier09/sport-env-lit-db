@@ -4,10 +4,11 @@ const assert = require('node:assert/strict');
 let jsdom;
 try{jsdom=require('jsdom');}catch(e){jsdom=require(path.join(process.env.TEMP, 'sport-env-startup-tests', 'node_modules', 'jsdom'));}
 const {JSDOM, VirtualConsole} = jsdom;
+let IDBFactory;try{({IDBFactory}=require('fake-indexeddb'));}catch(e){({IDBFactory}=require(path.join(process.env.TEMP,'sport-env-startup-tests','node_modules','fake-indexeddb')));}
 const root = path.join(__dirname, '..');
 const baseline=process.argv.includes('--baseline');
 const sourceHtml = baseline ? require('node:child_process').execFileSync('git',['show','HEAD:index.html'],{cwd:root,encoding:'utf8',maxBuffer:8*1024*1024}) : fs.readFileSync(path.join(root,'index.html'),'utf8');
-const html=sourceHtml.replace('<script src="./follow-hub.js"></script>','<script>'+fs.readFileSync(path.join(root,'follow-hub.js'),'utf8')+'</script>').replace('<script src="./library-jcr.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-jcr.js'),'utf8')+'</script>').replace('<script src="./library-storage.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-storage.js'),'utf8')+'</script>').replace('<script src="./library-cache.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-cache.js'),'utf8')+'</script>');
+const html=sourceHtml.replace('<script src="./memo.js"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'memo.js'),'utf8')+'</script>').replace('<script src="./follow-hub.js"></script>','<script>'+fs.readFileSync(path.join(root,'follow-hub.js'),'utf8')+'</script>').replace('<script src="./library-jcr.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-jcr.js'),'utf8')+'</script>').replace('<script src="./library-storage.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-storage.js'),'utf8')+'</script>').replace('<script src="./library-cache.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-cache.js'),'utf8')+'</script>');
 const storageKey = html.match(/var LS_SESS\s*=\s*"([^"]+)"/)[1];
 const warnings=[];
 const records=[{id:'fixture1',title:'Cold-water immersion after exercise',abstract:'Exercise recovery in cold water.',authors:['Ben Lee'],env:['低温'],tags:['冷水浸泡'],type:'原创研究',year:2026,cited:1,journal:'Fixture Journal',population:'human'},
@@ -20,6 +21,7 @@ virtualConsole.on('jsdomError',e=>warnings.push(e.message));
 virtualConsole.on('error',(...args)=>warnings.push(args.map(x=>x && x.stack ? x.stack : String(x)).join(' ')));
 const dom=new JSDOM(html,{url:'https://fixture.invalid/',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole,
 beforeParse(w){
+  w.indexedDB=new IDBFactory();
   w.localStorage.setItem(storageKey,JSON.stringify({access_token:'fixture',refresh_token:'fixture',user:{id:'fixture-user'}}));
   w.Response=Response; w.AbortController=AbortController;w.TextDecoder=TextDecoder;
   w.fetch=async url=>{
@@ -70,6 +72,18 @@ setTimeout(async()=>{
     click('#btnReset');
     assert.equal(d.querySelectorAll('.multi-options input:checked:not([value="all"])').length,0,'reset clears all multiple choices');
     console.log('PASS: real page multi-select filters combine within and across fields and reset correctly.');
+    await w.LitdbMemo.ready;
+    click('[data-memo-open]');await delay(50);
+    assert.equal(d.getElementById('memoHub').hidden,false,'memo opens independently');
+    assert.equal(d.getElementById('layout-classic').hidden,true);
+    click('#memoHub [data-ma="new"]');
+    d.getElementById('memoFTitle').value='Workspace note';d.getElementById('memoFBody').value='Source-supported note';
+    d.getElementById('memoForm').dispatchEvent(new w.Event('submit',{cancelable:true,bubbles:true}));await delay(80);
+    assert.match(d.getElementById('memoDetail').textContent,/Workspace note/);
+    click('#memoHub [data-ma="back"]');
+    assert.equal(d.getElementById('layout-classic').hidden,false);
+    assert.equal(d.getElementById('memoHub').hidden,true);
+    console.log('PASS: independent memo saves and returns to the original library layout.');
     d.getElementById('aiEndpoint').value='https://ai.fixture.invalid/v1';d.getElementById('aiKey').value='fixture-key';d.getElementById('btnAiSave').click();
     w.fetch=async url=>response({choices:[{message:{content:JSON.stringify({env:['低温'],author:'Ben Lee',concepts:[['cold','低温'],['recovery','恢复']]})}}]});
     change('f_cited','999');
