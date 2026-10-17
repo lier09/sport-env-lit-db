@@ -13,3 +13,5 @@
 - Figure study lives in `figure-hub.js` / `.css` and `figure-extract.js`. Preserve whole figures; never split A/B/C panels. Keep the vendored PDF.js worker, decoders and licenses together and lazy-load them; never add the 7 MB PDF runtime to the initial shell cache list.
 
 - Figure study uses `litdb-figures` version 2 (`papers`, `figures`, `folders`). Upgrade additively; preserve PDF/image blobs, notes and manual paper titles. Figure backups v2 include folders and must still import v1 backups. Removing a folder moves its papers to unfiled without deleting their contents.
+
+- Homepage research rings live independently in `paradigm-rings.js` / `.css`. Preserve the supplied 12 / 9 / 14 / 6 concepts plus 4 time scales, independent selections, slide-up dismissal and a reopen control. Auto-open only on homepage routes, never interrupt deep links to personal workspaces; do not couple the sheet to corpus loading or add a network/API dependency.
