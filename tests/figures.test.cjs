@@ -26,3 +26,37 @@ test('figure backups restore images and notes, repeated imports do not overwrite
  const bad=JSON.parse(JSON.stringify(b));bad.figures[0].blob='bad!';await assert.rejects(w.LitdbFigures.restore(bad));assert.equal((await w.LitdbFigures.snapshot()).figures.length,1);
  }finally{dom.window.close();}
 });
+test('paper titles prefer meaningful metadata and fall back to multiline first-page headings',()=>{
+ const rows=[{text:'Nature Communications',x:40,y:40,bottom:75,h:35},{text:'Exercise recovery after repeated',x:40,y:125,bottom:149,h:24},{text:'whole-body heating interventions',x:40,y:155,bottom:179,h:24},{text:'Patrick Rodrigues and colleagues',x:40,y:205,bottom:217,h:12}];
+ assert.equal(E.paperTitle({info:{Title:'s41467-025-56084-6'}},rows,'s41467-025-56084-6.pdf',800),'Exercise recovery after repeated whole-body heating interventions');
+ assert.equal(E.paperTitle({info:{Title:'A real scientific paper title'}},rows,'paper.pdf',800),'A real scientific paper title');
+ assert.equal(E.paperTitle({info:{Title:'Microsoft Word - manuscript'}},rows,'paper.pdf',800),'Exercise recovery after repeated whole-body heating interventions');
+ assert.equal(E.paperTitle({info:{Title:'Untitled document'}},[],'paper.pdf',800),'');
+ assert.equal(E.paperTitle(null,[{text:'Ordinary abstract text',x:0,y:300,bottom:310,h:10}],'scan.pdf',800),'');
+});
+test('folders organize papers, title edits persist and folder backups preserve existing notes',async()=>{
+ const dom=await page(),w=dom.window,d=w.document;
+ function click(a){d.querySelector('[data-fa="'+a+'"]').click();}
+ function submit(id){d.getElementById(id).dispatchEvent(new w.Event('submit',{cancelable:true}));}
+ // jsdom has no native dialogs; keep UI state observable.
+ w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
+ try{
+ await w.LitdbFigures.addPaper({id:'Wfolder',title:'Initial paper title'});
+ click('new-folder');d.getElementById('figFolderName').value='热适应';submit('figFolderForm');await until(()=>d.querySelector('[data-ffolder]:last-child').textContent.includes('热适应'));
+ assert.equal(d.getElementById('figDirectoryCount').textContent,'热适应 · 0 篇');
+ d.querySelector('[data-ffolder="all"]').click();await until(()=>d.querySelector('[data-fpaper]'));
+ const move=d.getElementById('figMoveFolder');move.value=d.querySelector('[data-ffolder]:last-child').dataset.ffolder;move.dispatchEvent(new w.Event('change',{bubbles:true}));await until(()=>d.getElementById('figStatus').textContent.includes('论文已移动'));
+ click('edit-title');d.getElementById('figTitleInput').value='Correct scientific paper title';submit('figTitleForm');await until(()=>d.getElementById('figStatus').textContent.includes('标题已保存'));
+ assert.match(d.querySelector('[data-fpaper]').textContent,/Correct scientific paper title/);
+ click('rename-folder');d.getElementById('figFolderName').value='热环境与恢复';submit('figFolderForm');await until(()=>d.querySelector('[data-ffolder]:last-child').textContent.includes('热环境与恢复'));
+ const backup=await w.LitdbFigures.snapshot();assert.equal(backup.version,2);assert.equal(backup.folders.length,1);assert.equal(backup.papers[0].folderId,backup.folders[0].id);assert.equal(backup.papers[0].titleSource,'manual');
+ const other=await page();try{await other.window.LitdbFigures.restore(backup);const restored=await other.window.LitdbFigures.snapshot();assert.equal(restored.folders[0].name,'热环境与恢复');assert.equal(restored.papers[0].title,'Correct scientific paper title');assert.equal((await other.window.LitdbFigures.restore(backup)).papers,0);}finally{other.window.close();}
+ click('remove-folder');await until(()=>d.getElementById('figStatus').textContent.includes('论文已保留'));
+ const after=await w.LitdbFigures.snapshot();assert.equal(after.folders.length,0);assert.equal(after.papers.length,1);assert.equal(after.papers[0].folderId,'');assert.match(d.querySelector('[data-fpaper]').textContent,/Correct scientific/);
+ }finally{w.close();}
+});
+test('upgrading the original figure database retains saved PDF and image blobs',async()=>{
+ const factory=new IDBFactory();await new Promise((resolve,reject)=>{const r=factory.open('litdb-figures',1);r.onupgradeneeded=()=>{r.result.createObjectStore('papers',{keyPath:'id'});r.result.createObjectStore('figures',{keyPath:'id'}).createIndex('paperId','paperId');};r.onsuccess=()=>{const db=r.result,tx=db.transaction(['papers','figures'],'readwrite');tx.objectStore('papers').put({id:'legacy',title:'Legacy paper title',pages:1,pdf:new Blob(['%PDF-old'])});tx.objectStore('figures').put({id:'legacy-image',paperId:'legacy',blob:new Blob(['PNG']),note:'Do not lose this note'});tx.oncomplete=()=>{db.close();resolve();};};r.onerror=()=>reject(r.error);});
+ const dom=new JSDOM('<body></body>',{url:'https://fixture.invalid/',runScripts:'dangerously'}),w=dom.window;w.indexedDB=factory;w.Blob=Blob;w.URL.createObjectURL=()=> 'blob:test';w.URL.revokeObjectURL=()=>{};w.LitdbFigureExtract=E;
+ try{w.eval(fs.readFileSync(path.join(__dirname,'../figure-hub.js'),'utf8'));await w.LitdbFigures.ready;const b=await w.LitdbFigures.snapshot();assert.equal(b.papers.length,1);assert.equal(Buffer.from(b.papers[0].pdf,'base64').toString(),'%PDF-old');assert.equal(b.figures[0].note,'Do not lose this note');assert.equal(Buffer.from(b.figures[0].blob,'base64').toString(),'PNG');assert.equal(b.folders.length,0);}finally{w.close();}
+});

@@ -11,3 +11,5 @@
 - The memo and following assets use versioned URLs to avoid mixing a new page with older cached modules. When changing these assets, keep their URL revisions in `index.html` and `sw.js` consistent, and update the full-page test inlining references.
 
 - Figure study lives in `figure-hub.js` / `.css` and `figure-extract.js`. Preserve whole figures; never split A/B/C panels. Keep the vendored PDF.js worker, decoders and licenses together and lazy-load them; never add the 7 MB PDF runtime to the initial shell cache list.
+
+- Figure study uses `litdb-figures` version 2 (`papers`, `figures`, `folders`). Upgrade additively; preserve PDF/image blobs, notes and manual paper titles. Figure backups v2 include folders and must still import v1 backups. Removing a folder moves its papers to unfiled without deleting their contents.
