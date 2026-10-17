@@ -15,3 +15,5 @@
 - Figure study uses `litdb-figures` version 2 (`papers`, `figures`, `folders`). Upgrade additively; preserve PDF/image blobs, notes and manual paper titles. Figure backups v2 include folders and must still import v1 backups. Removing a folder moves its papers to unfiled without deleting their contents.
 
 - Homepage research rings live independently in `paradigm-rings.js` / `.css`. Preserve the supplied 12 / 9 / 14 / 6 concepts plus 4 time scales, independent selections, slide-up dismissal and a reopen control. Auto-open only on homepage routes, never interrupt deep links to personal workspaces; do not couple the sheet to corpus loading or add a network/API dependency.
+
+- Research prompts and primary method sources are in `paradigm-guide.js`; keep their editorial attribution (not a validated taxonomy or efficacy claim). The rings theme follows the main `data-theme` setting. Preserve the local Thinker asset, contextual links and independent selections when restyling.
