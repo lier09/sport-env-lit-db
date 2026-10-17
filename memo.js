@@ -64,7 +64,7 @@ function hash(){return '#memos'+(selected?'?note='+selected:'');}
 function setHash(push){if(isOpen)w.history[push?'pushState':'replaceState'](null,'',hash());}
 async function open(push){
  await ready;if(!isOpen){prevHash=/^#(?:memos|z-memo)/.test(w.location.hash)?'#z-search':w.location.hash||'#z-search';prevScroll=w.scrollY||0;prevFocus=d.activeElement;layouts=['classic','app','study'].map(function(n){var el=$('layout-'+n);return {el:el,hidden:el?el.hidden:true};});}
- if(api.enter)api.enter();else layouts.forEach(function(x){if(x.el)x.el.hidden=true;});
+ if(api.enter&&api.enter()===false)return;if(!api.enter)layouts.forEach(function(x){if(x.el)x.el.hidden=true;});
  if(!selected&&filtered().length)selected=filtered()[0].id;isOpen=true;$('memoHub').hidden=false;d.body.classList.add('memo-open');if(push!==false)setHash(true);renderList();if(!draft)await renderDetail();w.scrollTo(0,0);$('memoHeading').focus({preventScroll:true});
 }
 function close(push){if(!isOpen)return true;if(!leaveDraft())return false;isOpen=false;draft=null;dirty=false;$('memoHub').hidden=true;d.body.classList.remove('memo-open');if(api.leave)api.leave();else layouts.forEach(function(x){if(x.el)x.el.hidden=x.hidden;});if(push!==false)w.history.pushState(null,'',prevHash);w.scrollTo(0,prevScroll);if(prevFocus&&prevFocus.isConnected)prevFocus.focus({preventScroll:true});return true;}

@@ -1,0 +1,1 @@
+PDF.js 6.4.299, Mozilla and contributors. Source: https://registry.npmjs.org/pdfjs-dist/6.4.299 (legacy browser build). Apache-2.0; retain LICENSE and decoder/font licenses. Documentation: https://mozilla.github.io/pdf.js/examples/ . JavaScript evaluation is disabled when opening PDFs. Assets load on demand.

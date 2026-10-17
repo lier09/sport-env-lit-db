@@ -9,3 +9,5 @@
 - The regression workflow reports failures; it does not itself block GitHub Pages deployment. Do not describe it as a deployment gate unless repository deployment settings actually enforce it.
 
 - The memo and following assets use versioned URLs to avoid mixing a new page with older cached modules. When changing these assets, keep their URL revisions in `index.html` and `sw.js` consistent, and update the full-page test inlining references.
+
+- Figure study lives in `figure-hub.js` / `.css` and `figure-extract.js`. Preserve whole figures; never split A/B/C panels. Keep the vendored PDF.js worker, decoders and licenses together and lazy-load them; never add the 7 MB PDF runtime to the initial shell cache list.

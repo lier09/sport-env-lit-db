@@ -8,7 +8,7 @@ let IDBFactory;try{({IDBFactory}=require('fake-indexeddb'));}catch(e){({IDBFacto
 const root = path.join(__dirname, '..');
 const baseline=process.argv.includes('--baseline');
 const sourceHtml = baseline ? require('node:child_process').execFileSync('git',['show','HEAD:index.html'],{cwd:root,encoding:'utf8',maxBuffer:8*1024*1024}) : fs.readFileSync(path.join(root,'index.html'),'utf8');
-const html=sourceHtml.replace('<script src="./memo.js?v=78"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'memo.js'),'utf8')+'</script>').replace('<script src="./follow-hub.js?v=78"></script>','<script>'+fs.readFileSync(path.join(root,'follow-hub.js'),'utf8')+'</script>').replace('<script src="./library-jcr.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-jcr.js'),'utf8')+'</script>').replace('<script src="./library-storage.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-storage.js'),'utf8')+'</script>').replace('<script src="./library-cache.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-cache.js'),'utf8')+'</script>');
+const html=sourceHtml.replace('<script src="./figure-extract.js?v=79"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'figure-extract.js'),'utf8')+'</script>').replace('<script src="./figure-hub.js?v=79"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'figure-hub.js'),'utf8')+'</script>').replace('<script src="./memo.js?v=79"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'memo.js'),'utf8')+'</script>').replace('<script src="./follow-hub.js?v=79"></script>','<script>'+fs.readFileSync(path.join(root,'follow-hub.js'),'utf8')+'</script>').replace('<script src="./library-jcr.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-jcr.js'),'utf8')+'</script>').replace('<script src="./library-storage.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-storage.js'),'utf8')+'</script>').replace('<script src="./library-cache.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-cache.js'),'utf8')+'</script>');
 const storageKey = html.match(/var LS_SESS\s*=\s*"([^"]+)"/)[1];
 const warnings=[];
 const records=[{id:'fixture1',title:'Cold-water immersion after exercise',abstract:'Exercise recovery in cold water.',authors:['Ben Lee'],env:['低温'],tags:['冷水浸泡'],type:'原创研究',year:2026,cited:1,journal:'Fixture Journal',population:'human'},
@@ -21,7 +21,7 @@ virtualConsole.on('jsdomError',e=>warnings.push(e.message));
 virtualConsole.on('error',(...args)=>warnings.push(args.map(x=>x && x.stack ? x.stack : String(x)).join(' ')));
 const dom=new JSDOM(html,{url:'https://fixture.invalid/',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole,
 beforeParse(w){
-  w.indexedDB=new IDBFactory();
+  w.indexedDB=new IDBFactory();w.URL.createObjectURL=()=> 'blob:fixture';w.URL.revokeObjectURL=()=>{};
   w.localStorage.setItem(storageKey,JSON.stringify({access_token:'fixture',refresh_token:'fixture',user:{id:'fixture-user'}}));
   w.Response=Response; w.AbortController=AbortController;w.TextDecoder=TextDecoder;
   w.fetch=async url=>{
@@ -84,6 +84,11 @@ setTimeout(async()=>{
     assert.equal(d.getElementById('layout-classic').hidden,false);
     assert.equal(d.getElementById('memoHub').hidden,true);
     console.log('PASS: independent memo saves and returns to the original library layout.');
+    await w.LitdbFigures.ready;click('#results .figurelink');for(let i=0;i<100&&d.getElementById('figureHub').hidden;i++)await delay(10);
+    assert.equal(d.getElementById('figureHub').hidden,false);assert.equal(d.getElementById('layout-classic').hidden,true);
+    assert.match(d.getElementById('figStudy').textContent,/Cold-water immersion/);
+    click('#figureHub [data-fa="back"]');assert.equal(d.getElementById('layout-classic').hidden,false);
+    console.log('PASS: search results add actual library metadata to the independent figure workspace.');
     d.getElementById('aiEndpoint').value='https://ai.fixture.invalid/v1';d.getElementById('aiKey').value='fixture-key';d.getElementById('btnAiSave').click();
     w.fetch=async url=>response({choices:[{message:{content:JSON.stringify({env:['低温'],author:'Ben Lee',concepts:[['cold','低温'],['recovery','恢复']]})}}]});
     change('f_cited','999');
@@ -182,6 +187,6 @@ setTimeout(async()=>{
 
     console.log('PASS: full page initializes with synthetic data; search and analytics are mounted; loader is dismissed.');
     if(warnings.length) console.log('Optional fixture diagnostics:',warnings.slice(0,5));
-  }catch(e){console.error(e.message); console.error(warnings.slice(0,6));process.exitCode=1;}
+  }catch(e){console.error(e.stack); console.error(warnings.slice(0,6));process.exitCode=1;}
   finally{dom.window.close();}
 },1200);

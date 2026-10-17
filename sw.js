@@ -1,6 +1,6 @@
 /* 文献库 PWA Service Worker — 缓存外壳，数据与鉴权永远走网络 */
-var CACHE = 'litdb-shell-78';
-var SHELL = ['./', './index.html', './manifest.json', './jcr-data.js', './library-jcr.js', './follow-hub.js?v=78', './follow-hub.css', './memo.js?v=78', './memo.css?v=78', './library-storage.js', './library-cache.js'];
+var CACHE = 'litdb-shell-79';
+var SHELL = ['./', './index.html', './manifest.json', './jcr-data.js', './library-jcr.js', './follow-hub.js?v=79', './follow-hub.css', './memo.js?v=79', './memo.css?v=79', './figure-extract.js?v=79', './figure-hub.js?v=79', './figure-hub.css?v=79', './library-storage.js', './library-cache.js'];
 
 self.addEventListener('install', function(e){
   e.waitUntil(
@@ -24,6 +24,10 @@ self.addEventListener('fetch', function(e){
   // Supabase API / 认证 / 数据：一律走网络，不缓存
   if(url.indexOf('supabase.co') >= 0 || url.indexOf('/auth/v1/') >= 0 || url.indexOf('/rest/v1/') >= 0 || url.indexOf('/storage/v1/') >= 0){
     return;
+  }
+  // PDF decoder assets are large: cache only when first requested by the PDF workspace.
+  if(url.indexOf('/vendor/pdfjs-6.4.299/')>=0){
+    e.respondWith(caches.open(CACHE).then(async function(c){var hit=await c.match(e.request);if(hit)return hit;var res=await fetch(e.request);if(res.ok)await c.put(e.request,res.clone());return res;}));return;
   }
   // 页面导航：网络优先，失败回退缓存
   if(e.request.mode === 'navigate'){
