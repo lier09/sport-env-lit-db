@@ -3,6 +3,7 @@
   'use strict';
   var w = window, d = document, paper, work, controller, generation = 0, pdfTask, pdfDoc, renderTask;
   var modulePromise, blobURL, focusBefore, pageNumber = 1, zoom = 1, textMode = false, rendering = 0;
+  var wholeText = false, textPages = Object.create(null);
   var sessionKey = '', KEY = 'litdb-openalex-content-key', MAX = 80 * 1024 * 1024;
   var ROOT = './vendor/pdfjs-6.4.299/', api = {};
   function $(id) { return d.getElementById(id); }
@@ -15,13 +16,15 @@
   function shell() {
     if ($('fulltextDialog')) return;
     var el = d.createElement('dialog'); el.id = 'fulltextDialog'; el.setAttribute('aria-labelledby', 'ftTitle');
-    el.innerHTML = '<header class="ft-header"><div><small>全文阅读</small><h2 id="ftTitle"></h2></div><button type="button" class="ft-btn" id="ftClose" aria-label="关闭全文阅读">关闭 ×</button></header>' +
+    el.innerHTML = '<header class="ft-header"><div><button type="button" class="ft-back" id="ftBack">← 返回摘要与笔记</button><h2 id="ftTitle"></h2></div><button type="button" class="ft-btn" id="ftClose" aria-label="关闭全文阅读">关闭 ×</button></header>' +
       '<div class="ft-actions"><button type="button" class="ft-btn primary" id="ftRetry">获取全文</button><label class="ft-btn">上传本地 PDF<input type="file" id="ftUpload" accept="application/pdf,.pdf" hidden></label><a id="ftDownload" class="ft-btn" hidden download="paper.pdf">下载 PDF</a><a id="ftSource" class="ft-btn" target="_blank" rel="noopener noreferrer" hidden>来源网页 ↗</a><button type="button" class="ft-btn" id="ftSettings" aria-expanded="false" aria-controls="ftConfig">OpenAlex 设置</button></div>' +
       '<form id="ftConfig" hidden><div><label for="ftKey">OpenAlex API Key</label><input id="ftKey" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴你自己的 OpenAlex 密钥"><button class="ft-btn primary" type="submit">应用并获取全文</button><button class="ft-btn" id="ftForget" type="button">清除密钥</button></div><label class="ft-remember"><input id="ftRemember" type="checkbox">记住在此浏览器</label><p>OpenAlex 存档 PDF 下载需要密钥，使用账户的每日额度。默认仅本次页面使用，密钥只发往 OpenAlex。<a href="https://openalex.org/settings/api" target="_blank" rel="noopener noreferrer">获取免费密钥 ↗</a></p></form>' +
-      '<p id="ftStatus" role="status" aria-live="polite"></p><div id="ftTools" class="ft-tools" hidden><button type="button" class="ft-btn" id="ftPrev" aria-label="上一页">← 上一页</button><label>页码 <input id="ftPage" type="number" min="1" value="1"></label><span id="ftTotal"></span><button type="button" class="ft-btn" id="ftNext" aria-label="下一页">下一页 →</button><button type="button" class="ft-btn" id="ftMinus" aria-label="缩小">−</button><span id="ftZoom">100%</span><button type="button" class="ft-btn" id="ftPlus" aria-label="放大">＋</button><button type="button" class="ft-btn" id="ftText" aria-pressed="false">文字阅读</button></div>' +
-      '<div id="ftViewport" tabindex="0" aria-label="论文全文"><div id="ftEmpty"><strong>按需获取，留在当前页面阅读</strong><p>支持 OpenAlex 存档 PDF、可直接读取的公开 PDF，以及本地上传。</p></div><canvas id="ftCanvas" role="img" aria-label="论文 PDF 当前页" hidden></canvas><pre id="ftTextPage" hidden></pre></div>';
+      '<p id="ftStatus" role="status" aria-live="polite"></p><div id="ftTools" class="ft-tools" hidden><button type="button" class="ft-btn" id="ftPrev" aria-label="上一页">← 上一页</button><label>页码 <input id="ftPage" type="number" min="1" value="1"></label><span id="ftTotal"></span><button type="button" class="ft-btn" id="ftNext" aria-label="下一页">下一页 →</button><button type="button" class="ft-btn" id="ftMinus" aria-label="缩小">−</button><span id="ftZoom">100%</span><button type="button" class="ft-btn" id="ftPlus" aria-label="放大">＋</button><button type="button" class="ft-btn" id="ftText" aria-pressed="false">网页文字（可翻译）</button><button type="button" class="ft-btn" id="ftWholeText" aria-pressed="false" hidden>展开整篇文字</button></div>' +
+      '<div id="ftTranslateHelp" class="ft-translate-help" hidden><strong>翻译方法</strong>：正文已转为可复制的网页文字。请在文字显示后再次使用浏览器翻译；若检测成中文，手动选择“英文 → 中文”。<span>文字从 PDF 提取，双栏、公式和表格的顺序可能有偏差；图片请切回原版 PDF 查看。扫描页需要 OCR。</span><p id="ftTextProgress" role="status" aria-live="polite"></p></div>' +
+      '<div id="ftViewport" tabindex="0" aria-label="论文全文"><div id="ftEmpty"><strong>按需获取，留在当前页面阅读</strong><p>支持 OpenAlex 存档 PDF、可直接读取的公开 PDF，以及本地上传。</p></div><canvas id="ftCanvas" role="img" aria-label="论文 PDF 当前页" hidden></canvas><article id="ftTextPage" translate="yes" aria-label="论文网页文字" hidden></article></div>';
     d.body.appendChild(el);
     $('ftClose').onclick = close;
+    $('ftBack').onclick = close;
     el.addEventListener('cancel', function (e) { e.preventDefault(); close(); });
     el.addEventListener('keydown', function (e) { if (e.key === 'Escape') e.stopPropagation(); });
     el.addEventListener('close', cleanup);
@@ -36,9 +39,11 @@
     $('ftMinus').onclick = function () { zoom = Math.max(.5, zoom - .25); draw().catch(showError); };
     $('ftPlus').onclick = function () { zoom = Math.min(2, zoom + .25); draw().catch(showError); };
     $('ftText').onclick = function () { textMode = !textMode; draw().catch(showError); };
+    $('ftWholeText').onclick = function () { wholeText = !wholeText; draw().catch(showError); };
   }
   function config(show) { $('ftConfig').hidden = !show; $('ftSettings').setAttribute('aria-expanded', String(show)); if (show) $('ftKey').focus(); }
   function disposePDF() {
+    textPages = Object.create(null); wholeText = false;
     rendering++; if (renderTask) { renderTask.cancel(); renderTask = null; }
     var task = pdfTask; pdfTask = null; pdfDoc = null; if (task) Promise.resolve(task.destroy()).catch(function () {});
     if (blobURL) { URL.revokeObjectURL(blobURL); blobURL = null; }
@@ -46,6 +51,8 @@
     if ($('ftDownload')) { $('ftDownload').hidden = true; $('ftDownload').removeAttribute('href'); }
     if ($('ftTextPage')) { $('ftTextPage').hidden = true; $('ftTextPage').textContent = ''; }
     if ($('ftTools')) $('ftTools').hidden = true;
+    if ($('ftTranslateHelp')) $('ftTranslateHelp').hidden = true;
+    if ($('ftTextProgress')) $('ftTextProgress').textContent = '';
   }
   function start() { generation++; if (controller) controller.abort(); controller = new AbortController(); disposePDF(); $('ftEmpty').hidden = false; $('ftRetry').disabled = true; return generation; }
   function cleanup() { generation++; if (controller) controller.abort(); disposePDF(); if (focusBefore && focusBefore.isConnected) focusBefore.focus({preventScroll:true}); }
@@ -112,26 +119,66 @@
       var task = lib.getDocument({data:new Uint8Array(buffer), cMapUrl:new URL(ROOT + 'cmaps/', d.baseURI).href, cMapPacked:true, standardFontDataUrl:new URL(ROOT + 'standard_fonts/', d.baseURI).href, wasmUrl:new URL(ROOT + 'wasm/', d.baseURI).href, iccUrl:new URL(ROOT + 'iccs/', d.baseURI).href, isEvalSupported:false});
       pdfTask = task; task.onPassword = function () { notice('这是加密 PDF，请上传可直接打开的副本。', true); task.destroy(); };
       var doc = await task.promise; if (gen !== generation) { await task.destroy(); return; } pdfDoc = doc;
-      pageNumber = 1; zoom = 1; textMode = false;
+      pageNumber = 1; zoom = 1; textMode = false; wholeText = false;
       blobURL = URL.createObjectURL(blob); $('ftDownload').href = blobURL; $('ftDownload').download = (paper.title || 'paper').replace(/[\\/:*?"<>|]/g, '_').slice(0, 160) + '.pdf'; $('ftDownload').hidden = false;
       $('ftTools').hidden = false; $('ftEmpty').hidden = true; config(false); notice(origin + ' · ' + doc.numPages + ' 页 · 本次阅读按需加载，关闭后释放。');
       await draw();
     } catch (e) { if (gen === generation) disposePDF(); throw e; }
     finally { if (gen === generation) $('ftRetry').disabled = false; }
   }
+  // Keep extracted content as text nodes, never interpret PDF strings as HTML.
+  function paragraphs(content) {
+    var lines = [], line = '';
+    (content.items || []).forEach(function (item) {
+      if (typeof item.str !== 'string') return;
+      if (line && !/\s$/.test(line) && item.str && !/^\s/.test(item.str)) line += ' ';
+      line += item.str;
+      if (item.hasEOL) { lines.push(line.trim()); line = ''; }
+    });
+    if (line.trim()) lines.push(line.trim());
+    var result = [], paragraph = '';
+    lines.forEach(function (value) {
+      if (!value) { if (paragraph) result.push(paragraph); paragraph = ''; return; }
+      if (paragraph && /[a-z]-$/i.test(paragraph) && /^[a-z]/.test(value)) paragraph = paragraph.slice(0, -1) + value;
+      else paragraph += (paragraph ? ' ' : '') + value;
+      if (/[.!?。！？:]\s*$/.test(value) || paragraph.length > 1200) { result.push(paragraph); paragraph = ''; }
+    });
+    if (paragraph) result.push(paragraph);
+    return result;
+  }
+  async function textFor(doc, number) {
+    if (textPages[number]) return textPages[number];
+    var page = await doc.getPage(number), content = await page.getTextContent(), parts = paragraphs(content);
+    var joined = parts.join(' '), han = (joined.match(/[\u3400-\u9fff]/g) || []).length, latin = (joined.match(/[a-z]/gi) || []).length;
+    var lang = /^[a-z]{2,3}(?:-[a-zA-Z]{2,8})*$/.test(content.lang || '') ? content.lang : han > latin * .2 ? 'zh' : latin > 20 ? 'en' : 'und';
+    var result = {parts:parts,lang:lang}; if (doc === pdfDoc) textPages[number] = result; return result;
+  }
+  function appendText(number, text) {
+    var section = d.createElement('section'); section.className = 'ft-text-section'; section.lang = text.lang; section.setAttribute('translate', 'yes'); section.dataset.page = number;
+    var heading = d.createElement('h3'); heading.textContent = '第 ' + number + ' 页'; heading.lang = 'zh-CN'; heading.setAttribute('translate', 'no'); section.appendChild(heading);
+    (text.parts.length ? text.parts : ['本页没有可提取文字，可能为扫描页，请切回原版 PDF。']).forEach(function (value) { var p = d.createElement('p'); p.textContent = value; if (!text.parts.length) p.lang = 'zh-CN'; section.appendChild(p); });
+    $('ftTextPage').appendChild(section);
+  }
   async function draw() {
     if (!pdfDoc) return;
     var token = ++rendering, doc = pdfDoc, number = pageNumber;
     if (renderTask) { var previous = renderTask; renderTask = null; previous.cancel(); try { await previous.promise; } catch (_) {} }
-    var page = await doc.getPage(number); if (token !== rendering || doc !== pdfDoc) return;
+    if (token !== rendering || doc !== pdfDoc) return;
     $('ftPage').value = number; $('ftPage').max = doc.numPages; $('ftTotal').textContent = '/ ' + doc.numPages + ' 页'; $('ftZoom').textContent = Math.round(zoom * 100) + '%';
-    $('ftPrev').disabled = number <= 1; $('ftNext').disabled = number >= doc.numPages; $('ftMinus').disabled = zoom <= .5; $('ftPlus').disabled = zoom >= 2;
-    $('ftText').setAttribute('aria-pressed', String(textMode)); $('ftText').textContent = textMode ? '原版 PDF' : '文字阅读';
+    $('ftPrev').disabled = textMode && wholeText || number <= 1; $('ftNext').disabled = textMode && wholeText || number >= doc.numPages; $('ftPage').disabled = textMode && wholeText; $('ftMinus').disabled = textMode || zoom <= .5; $('ftPlus').disabled = textMode || zoom >= 2;
+    $('ftText').setAttribute('aria-pressed', String(textMode)); $('ftText').textContent = textMode ? '原版 PDF' : '网页文字（可翻译）';
+    $('ftWholeText').hidden = !textMode; $('ftWholeText').setAttribute('aria-pressed', String(wholeText)); $('ftWholeText').textContent = wholeText ? '返回按页文字' : '展开整篇文字'; $('ftTranslateHelp').hidden = !textMode;
     $('ftCanvas').hidden = textMode; $('ftTextPage').hidden = !textMode;
     if (textMode) {
-      var text = await page.getTextContent(); if (token !== rendering) return;
-      $('ftTextPage').textContent = text.items.map(function (t) { return t.str + (t.hasEOL ? '\n' : ' '); }).join('') || '本页没有可提取文字，可能为扫描页，请切回原版 PDF。';
+      $('ftTextPage').replaceChildren(); $('ftTextProgress').textContent = '正在提取网页文字…';
+      var first = wholeText ? 1 : number, last = wholeText ? doc.numPages : number;
+      for (var n = first; n <= last; n++) {
+        var text = await textFor(doc, n); if (token !== rendering || doc !== pdfDoc) return;
+        appendText(n, text); $('ftTextProgress').textContent = wholeText ? '已提取 ' + n + ' / ' + last + ' 页。全部显示后可使用浏览器翻译。' : '当前为第 ' + number + ' 页文字，可展开整篇后统一翻译。';
+        if (wholeText && n < last) await new Promise(function (resolve) { setTimeout(resolve, 0); });
+      }
     } else {
+      var page = await doc.getPage(number); if (token !== rendering || doc !== pdfDoc) return;
       var base = page.getViewport({scale:1}), width = Math.max(280, Math.min(1100, $('ftViewport').clientWidth - 40));
       var view = page.getViewport({scale:width / base.width * zoom}), ratio = Math.min(2, w.devicePixelRatio || 1), canvas = $('ftCanvas');
       canvas.width = Math.ceil(view.width * ratio); canvas.height = Math.ceil(view.height * ratio); canvas.style.width = view.width + 'px'; canvas.style.height = view.height + 'px';

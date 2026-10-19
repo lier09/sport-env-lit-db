@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="./follow-hub.css">
 <link rel="stylesheet" href="./memo.css?v=83">
-<link rel="stylesheet" href="./fulltext-reader.css?v=84">
+<link rel="stylesheet" href="./fulltext-reader.css?v=85">
 <link rel="stylesheet" href="./figure-hub.css?v=80">
 <link rel="stylesheet" href="./paradigm-rings.css?v=82">
 <meta name="theme-color" content="#0e9f6e">
@@ -2540,8 +2540,7 @@ function render(){
       links+='<a class="graphlink" data-id="'+esc(p.id)+'" title="以此篇为中心的关系图谱">🕸️ 图谱</a>';
       links+='<a class="taglink" data-id="'+esc(p.id)+'" title="打自定义标签">🏷️ 标签</a>';
       links+='<button type="button" class="figurelink" data-id="'+esc(p.id)+'" title="添加到文献看图识记">▧ 看图识记</button>';
-      links+='<button type="button" class="fulltextlink" data-id="'+esc(p.id)+'" title="按需获取并在本页阅读全文">全文</button>';
-      links+='<a class="readlink" data-id="'+esc(p.id)+'" title="在右侧阅读窗格打开">📖 阅读</a></div>';
+      links+='<a class="readlink" data-id="'+esc(p.id)+'" title="查看摘要、笔记及全文阅读">📖 阅读</a></div>';
       var mytagHtml=paperMyTags(p.id).map(function(t){
         return '<span class="mytag">'+esc(t)+'</span>';}).join("");
       var folderHtml=paperFolders(p.id).map(function(f){
@@ -2624,7 +2623,6 @@ function render(){
     };
   });
   box.querySelectorAll(".figurelink").forEach(function(el){el.onclick=function(){var p=PAPERS.find(function(p){return p.id===el.getAttribute("data-id");});if(p&&window.LitdbFigures)window.LitdbFigures.addPaper(p).catch(function(e){alert(e.message);});};});
-  box.querySelectorAll(".fulltextlink").forEach(function(el){el.onclick=function(ev){ev.stopPropagation();var p=id2paper[el.getAttribute("data-id")];if(p&&window.LitdbFulltext)window.LitdbFulltext.open(p);};});
   box.querySelectorAll(".readlink").forEach(function(el){
     el.onclick=function(){ openReader(el.getAttribute("data-id")); };
   });
@@ -4872,6 +4870,7 @@ function openReader(id,forceModal){
     esc(p.journal||"—")+' · '+p.year+' · 被引 '+p.cited+
     (p.oa?' · <span class="badge oa">开放获取</span>':"")+
     (isRead?' · <span class="badge read">已读</span>':"")+'</div>'+
+    '<div class="reader-mode-nav" aria-label="阅读内容"><span aria-current="page">摘要与笔记</span><button type="button" id="r_btnFulltext">阅读全文 · PDF / 网页文字</button></div>'+
     '<div class="ptags">'+(p.tags||[]).map(function(t){
       return '<span class="ptag">'+esc(t)+'</span>';}).join("")+'</div>'+
     (p.abstract?'<div class="rabs">'+esc(p.abstract)+'</div>'
@@ -4883,7 +4882,6 @@ function openReader(id,forceModal){
     '<div class="rbtns">'+
     '<button class="btn ghost'+(isFav?" on":"")+'" id="r_btnFav">'+(isFav?"★ 已收藏":"☆ 收藏")+'</button>'+
     '<button class="btn ghost'+(isRead?" on":"")+'" id="r_btnRead">'+(isRead?"✓ 已读":"○ 标为已读")+'</button>'+
-    '<button class="btn" id="r_btnFulltext">本页阅读全文</button>'+
     '<button class="btn ghost" id="r_btnFigures">看图识记 ↗</button>'+
     '<button class="btn ghost" id="r_btnMemo">科研笔记 ↗</button>'+
     '<button class="btn ghost" id="r_btnCite">📋 引用</button>'+
@@ -6276,7 +6274,7 @@ if(document.readyState==="loading")
 else bootApp();
 })().catch(startupFailure);
 </script>
-<script src="./fulltext-reader.js?v=84"></script>
+<script src="./fulltext-reader.js?v=85"></script>
 <script src="./memo.js?v=83"></script>
 <script src="./figure-extract.js?v=80"></script>
 <script src="./figure-hub.js?v=80"></script>

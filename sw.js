@@ -1,6 +1,6 @@
 /* 文献库 PWA Service Worker — 缓存外壳，数据与鉴权永远走网络 */
-var CACHE = 'litdb-shell-84';
-var SHELL = ['./', './index.html', './fulltext-reader.js?v=84', './fulltext-reader.css?v=84', './manifest.json', './jcr-data.js', './library-jcr.js', './follow-hub.js?v=79', './follow-hub.css', './memo.js?v=83', './memo.css?v=83', './figure-extract.js?v=80', './figure-hub.js?v=80', './figure-hub.css?v=80', './paradigm-guide.js?v=82', './assets/research-thinker.webp', './paradigm-rings.js?v=82', './paradigm-rings.css?v=82', './library-storage.js', './library-cache.js'];
+var CACHE = 'litdb-shell-85';
+var SHELL = ['./', './index.html', './fulltext-reader.js?v=85', './fulltext-reader.css?v=85', './manifest.json', './jcr-data.js', './library-jcr.js', './follow-hub.js?v=79', './follow-hub.css', './memo.js?v=83', './memo.css?v=83', './figure-extract.js?v=80', './figure-hub.js?v=80', './figure-hub.css?v=80', './paradigm-guide.js?v=82', './assets/research-thinker.webp', './paradigm-rings.js?v=82', './paradigm-rings.css?v=82', './library-storage.js', './library-cache.js'];
 
 self.addEventListener('install', function(e){
   e.waitUntil(

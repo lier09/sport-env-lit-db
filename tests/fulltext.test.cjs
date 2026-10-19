@@ -5,13 +5,13 @@ const work={id:'https://openalex.org/W2168063968',title:'Cerebral perturbations 
 const pdf='%PDF-1.7\nfixture body';
 const json=(value,status=200)=>new Response(JSON.stringify(value),{status,headers:{'content-type':'application/json'}});
 async function until(fn){for(let i=0;i<100;i++){if(fn())return;await new Promise(r=>setTimeout(r,10));}assert.fail('Full text UI did not update');}
-function setup(fetch){
- const dom=new JSDOM('<button id="origin">Read</button>',{url:'https://fixture.invalid/',runScripts:'dangerously',pretendToBeVisual:true}),w=dom.window,d=w.document,requests=[],stats={loads:0,renders:[],destroyed:0,revoked:0};
+function setup(fetch,content){
+ const dom=new JSDOM('<button id="origin">Read</button>',{url:'https://fixture.invalid/',runScripts:'dangerously',pretendToBeVisual:true}),w=dom.window,d=w.document,requests=[],stats={loads:0,renders:[],texts:[],destroyed:0,revoked:0};
  w.Blob=Blob;w.TextDecoder=TextDecoder;w.AbortController=AbortController;
  w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');this.dispatchEvent(new w.Event('close'));};
  w.HTMLElement.prototype.scrollTo=function(){};w.HTMLCanvasElement.prototype.getContext=()=>({});w.URL.createObjectURL=()=> 'blob:fixture';w.URL.revokeObjectURL=()=>stats.revoked++;
  w.fetch=async(u,o)=>{requests.push({url:u,options:o});return fetch(u,o);};
- w.eval(source);w.LitdbFulltext.configure({loadLibrary:async()=>{stats.loads++;return {GlobalWorkerOptions:{},getDocument:()=>({destroy:async()=>{stats.destroyed++;},promise:Promise.resolve({numPages:3,getPage:async(number)=>({getViewport:({scale})=>({width:600*scale,height:800*scale}),getTextContent:async()=>({items:[{str:'Full page '+number,hasEOL:true},{str:'Complete conclusion.',hasEOL:true}]}),render:()=>{stats.renders.push(number);return {promise:Promise.resolve(),cancel(){}};}})})})};}});
+ w.eval(source);w.LitdbFulltext.configure({loadLibrary:async()=>{stats.loads++;return {GlobalWorkerOptions:{},getDocument:()=>({destroy:async()=>{stats.destroyed++;},promise:Promise.resolve({numPages:3,getPage:async(number)=>({getViewport:({scale})=>({width:600*scale,height:800*scale}),getTextContent:async()=>{stats.texts.push(number);return content?content(number):{items:[{str:'Full page '+number,hasEOL:true},{str:'Complete conclusion.',hasEOL:true}]};},render:()=>{stats.renders.push(number);return {promise:Promise.resolve(),cancel(){}};}})})})};}});
  return {dom,w,d,requests,stats};
 }
 function submitKey(a,value){a.d.getElementById('ftKey').value=value;a.d.getElementById('ftConfig').dispatchEvent(new a.w.Event('submit',{cancelable:true}));}
@@ -54,5 +54,23 @@ test('local PDF upload renders without a key and an invalid file preserves a vis
  const a=setup(async()=>json({...work,has_content:{pdf:false}}));try{
   a.w.LitdbFulltext.open(work);await until(()=>!a.d.getElementById('ftRetry').disabled);var input=a.d.getElementById('ftUpload');Object.defineProperty(input,'files',{configurable:true,value:[new Blob([pdf],{type:'application/pdf'})]});input.dispatchEvent(new a.w.Event('change'));await until(()=>a.stats.renders.length);assert.match(a.d.getElementById('ftStatus').textContent,/本地上传/);
   Object.defineProperty(input,'files',{configurable:true,value:[new Blob(['not pdf'])]});input.dispatchEvent(new a.w.Event('change'));await until(()=>a.d.getElementById('ftStatus').textContent.includes('有效 PDF'));assert.equal(a.d.getElementById('ftTools').hidden,true);
+ }finally{a.w.close();}
+});
+
+test('browser-readable HTML exposes all requested pages without more network traffic and reuses extracted text',async()=>{
+ const a=setup(async u=>u.includes('api.openalex.org')?json(work):new Response(pdf));try{
+  a.w.localStorage.setItem('litdb-openalex-content-key','test-key');a.w.LitdbFulltext.open(work);await until(()=>a.stats.renders.length);
+  assert.equal(a.stats.texts.length,0,'no text extraction before user requests it');const requests=a.requests.length;
+  a.d.getElementById('ftText').click();await until(()=>a.d.querySelector('#ftTextPage p'));assert.equal(a.d.getElementById('ftTextPage').tagName,'ARTICLE');assert.equal(a.d.getElementById('ftTextPage').getAttribute('translate'),'yes');assert.equal(a.d.querySelector('.ft-text-section').lang,'en');
+  a.d.getElementById('ftWholeText').click();await until(()=>a.d.querySelectorAll('.ft-text-section').length===3);
+  assert.equal(a.requests.length,requests);assert.deepEqual(a.stats.texts,[1,2,3]);assert.match(a.d.getElementById('ftTextPage').textContent,/Full page 3/);assert.equal(a.d.getElementById('ftPage').disabled,true);
+  a.d.getElementById('ftWholeText').click();await until(()=>a.d.querySelectorAll('.ft-text-section').length===1);assert.deepEqual(a.stats.texts,[1,2,3]);
+  a.d.getElementById('ftBack').click();assert.equal(a.d.getElementById('ftTextPage').textContent,'');assert.equal(a.w.LitdbFulltext.isOpen(),false);
+ }finally{a.w.close();}
+});
+test('PDF text remains inert HTML and empty scanned pages explain the OCR requirement',async()=>{
+ const a=setup(async u=>u.includes('api.openalex.org')?json(work):new Response(pdf),number=>({items:number===2?[]:[{str:'<script>not executable</script> This is extracted English text.',hasEOL:true}]}));try{
+  a.w.localStorage.setItem('litdb-openalex-content-key','test-key');a.w.LitdbFulltext.open(work);await until(()=>a.stats.renders.length);a.d.getElementById('ftText').click();await until(()=>a.d.querySelector('#ftTextPage p'));
+  assert.equal(a.d.querySelector('#ftTextPage script'),null);assert.match(a.d.getElementById('ftTextPage').textContent,/<script>/);a.d.getElementById('ftNext').click();await until(()=>a.d.getElementById('ftTextPage').textContent.includes('扫描页'));
  }finally{a.w.close();}
 });

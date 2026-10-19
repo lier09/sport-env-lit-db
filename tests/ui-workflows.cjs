@@ -8,7 +8,7 @@ let IDBFactory;try{({IDBFactory}=require('fake-indexeddb'));}catch(e){({IDBFacto
 const root = path.join(__dirname, '..');
 const baseline=process.argv.includes('--baseline');
 const sourceHtml = baseline ? require('node:child_process').execFileSync('git',['show','HEAD:index.html'],{cwd:root,encoding:'utf8',maxBuffer:8*1024*1024}) : fs.readFileSync(path.join(root,'index.html'),'utf8');
-const html=sourceHtml.replace('<script src="./fulltext-reader.js?v=84"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'fulltext-reader.js'),'utf8')+'</script>').replace('<script src="./paradigm-guide.js?v=82"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'paradigm-guide.js'),'utf8')+'</script>').replace('<script src="./paradigm-rings.js?v=82"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'paradigm-rings.js'),'utf8')+'</script>').replace('<script src="./figure-extract.js?v=80"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'figure-extract.js'),'utf8')+'</script>').replace('<script src="./figure-hub.js?v=80"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'figure-hub.js'),'utf8')+'</script>').replace('<script src="./memo.js?v=83"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'memo.js'),'utf8')+'</script>').replace('<script src="./follow-hub.js?v=79"></script>','<script>'+fs.readFileSync(path.join(root,'follow-hub.js'),'utf8')+'</script>').replace('<script src="./library-jcr.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-jcr.js'),'utf8')+'</script>').replace('<script src="./library-storage.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-storage.js'),'utf8')+'</script>').replace('<script src="./library-cache.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-cache.js'),'utf8')+'</script>');
+const html=sourceHtml.replace('<script src="./fulltext-reader.js?v=85"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'fulltext-reader.js'),'utf8')+'</script>').replace('<script src="./paradigm-guide.js?v=82"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'paradigm-guide.js'),'utf8')+'</script>').replace('<script src="./paradigm-rings.js?v=82"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'paradigm-rings.js'),'utf8')+'</script>').replace('<script src="./figure-extract.js?v=80"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'figure-extract.js'),'utf8')+'</script>').replace('<script src="./figure-hub.js?v=80"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'figure-hub.js'),'utf8')+'</script>').replace('<script src="./memo.js?v=83"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'memo.js'),'utf8')+'</script>').replace('<script src="./follow-hub.js?v=79"></script>','<script>'+fs.readFileSync(path.join(root,'follow-hub.js'),'utf8')+'</script>').replace('<script src="./library-jcr.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-jcr.js'),'utf8')+'</script>').replace('<script src="./library-storage.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-storage.js'),'utf8')+'</script>').replace('<script src="./library-cache.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-cache.js'),'utf8')+'</script>');
 const storageKey = html.match(/var LS_SESS\s*=\s*"([^"]+)"/)[1];
 const warnings=[];
 const records=[{id:'fixture1',title:'Cold-water immersion after exercise',abstract:'Exercise recovery in cold water.',authors:['Ben Lee'],env:['低温'],tags:['冷水浸泡'],type:'原创研究',year:2026,cited:1,journal:'Fixture Journal',population:'human'},
@@ -77,13 +77,12 @@ setTimeout(async()=>{
     click('#btnReset');
     assert.equal(d.querySelectorAll('.multi-options input:checked:not([value="all"])').length,0,'reset clears all multiple choices');
     console.log('PASS: real page multi-select filters combine within and across fields and reset correctly.');
-    const fulltextButton=d.querySelector('#results .fulltextlink');assert.ok(fulltextButton);
-    const target=records.find(p=>p.id===fulltextButton.getAttribute('data-id'));
-    click('#results .fulltextlink');await delay(10);assert.equal(w.LitdbFulltext.isOpen(),true);assert.equal(d.getElementById('ftTitle').textContent,target.title);
-    w.LitdbFulltext.close();d.getElementById('fulltextDialog').dispatchEvent(new w.Event('close'));
-    click('#results .readlink');click('#r_btnFulltext');await delay(10);assert.equal(w.LitdbFulltext.isOpen(),true);assert.equal(d.getElementById('ftTitle').textContent,target.title);
-    w.LitdbFulltext.close();d.getElementById('fulltextDialog').dispatchEvent(new w.Event('close'));click('#readerModalClose');
-    console.log('PASS: search and existing reader open the matching paper in the on-demand full-text dialog.');
+    assert.equal(d.querySelectorAll('#results .fulltextlink').length,0,'full text is consolidated into Reading');
+    const readButton=d.querySelector('#results .readlink'),target=records.find(p=>p.id===readButton.getAttribute('data-id'));
+    assert.ok(d.querySelector('#results .links a[href*="scholar.google"]'),'Scholar is retained');
+    click('#results .readlink');assert.ok(d.querySelector('.reader-mode-nav'));click('#r_btnFulltext');await delay(10);assert.equal(w.LitdbFulltext.isOpen(),true);assert.equal(d.getElementById('ftTitle').textContent,target.title);
+    click('#ftBack');d.getElementById('fulltextDialog').dispatchEvent(new w.Event('close'));assert.equal(d.getElementById('readerModal').hidden,false);click('#readerModalClose');
+    console.log('PASS: Reading contains full text and returns to summary/notes; external sources are retained.');
     await w.LitdbMemo.ready;
     click('[data-memo-open]');await delay(50);
     assert.equal(d.getElementById('memoHub').hidden,false,'memo opens independently');
