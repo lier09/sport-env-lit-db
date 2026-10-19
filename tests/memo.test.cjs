@@ -8,7 +8,7 @@ async function seed(factory,count=1){await new Promise((resolve,reject)=>{
  r.onerror=()=>reject(r.error);r.onsuccess=()=>{const db=r.result,tx=db.transaction(['memos','files'],'readwrite');tx.objectStore('files').add({id:1,name:'evidence.pdf',type:'application/pdf',data:new Uint8Array([1,2,3]).buffer,size:3,created:1});for(let i=0;i<count;i++)tx.objectStore('memos').add({title:'Existing memo '+i,body:'Original user content',kind:'text',created:i+1,updated:i+1,fileIds:i===0?[1]:[]});tx.oncomplete=()=>{db.close();resolve();};};
 });}
 async function page(factory,url='https://fixture.invalid/#z-search'){
- const dom=new JSDOM('<div id="layout-classic"></div><div id="layout-app" hidden></div><div id="layout-study" hidden></div><button data-memo-open>Notes</button>',{url,runScripts:'dangerously',pretendToBeVisual:true});const w=dom.window;w.indexedDB=factory;w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};w.confirm=()=>true;w.eval(source);await w.LitdbMemo.ready;return dom;
+ const dom=new JSDOM('<div id="layout-classic"></div><div id="layout-app" hidden></div><div id="layout-study" hidden></div><button data-memo-open>Notes</button>',{url,runScripts:'dangerously',pretendToBeVisual:true});const w=dom.window;w.indexedDB=factory;w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};w.confirm=()=>true;w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};w.eval(source);await w.LitdbMemo.ready;return dom;
 }
 function click(d,selector){const b=d.querySelector(selector);assert.ok(b,selector);b.click();}
 function input(d,id,value){const el=d.getElementById(id);el.value=value;el.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));}
@@ -112,4 +112,35 @@ test('rich text paste inserts plain text without importing remote HTML or execut
   transfer(w,rich,'paste',[],'Evidence <script>alert(1)</script>\nNext line');assert.equal(rich.querySelector('script'),null);assert.equal(rich.querySelector('img'),null);assert.match(d.getElementById('memoFBody').value,/Evidence <script>/);
   click(d,'#memoForm [type="submit"]');await until(()=>d.querySelector('.memo-prose'));assert.equal(d.querySelector('.memo-prose script'),null);assert.match(d.querySelector('.memo-prose').textContent,/Next line/);
  }finally{a.window.close();}
+});
+
+async function createGroup(dom,name,rename=false){const d=dom.window.document;click(d,rename?'[data-ma="rename-group"]':'[data-ma="new-group"]');input(d,'memoGroupName',name);d.getElementById('memoGroupForm').dispatchEvent(new dom.window.Event('submit',{cancelable:true}));await until(()=>!d.getElementById('memoGroupDialog').open);return (await dom.window.LitdbMemo.snapshot()).groups.find(g=>g.name===name);}
+test('groups persist empty folders, move legacy notes, rename without changing membership, and delete without removing notes or files',async()=>{
+ const factory=new IDBFactory();await seed(factory);const a=await page(factory),w=a.window,d=w.document;try{
+  await w.LitdbMemo.open();const original=await w.LitdbMemo.snapshot(),g=await createGroup(a,'热适应');assert.equal(d.querySelectorAll('.memo-row').length,0);
+  click(d,'[data-mgroup="unfiled"]');await until(()=>d.getElementById('memoMoveGroup'));const select=d.getElementById('memoMoveGroup');select.value=g.uid;select.dispatchEvent(new w.Event('change',{bubbles:true}));await until(()=>d.querySelector('[data-mgroup="'+g.uid+'"]').getAttribute('aria-pressed')==='true');
+  click(d,'[data-ma="new"]');assert.equal(d.getElementById('memoFGroup').value,g.uid);input(d,'memoFTitle','Grouped new note');input(d,'memoFBody','New body');click(d,'#memoForm [type="submit"]');await until(()=>d.querySelectorAll('.memo-row').length===2);
+  const renamed=await createGroup(a,'热适应与低氧',true);assert.equal(renamed.uid,g.uid);let backup=await w.LitdbMemo.snapshot();assert.equal(backup.memos.filter(m=>m.groupId===g.uid).length,2);assert.equal(backup.files.length,1);
+  await createGroup(a,'空分组');const reload=await page(factory);try{assert.equal((await reload.window.LitdbMemo.snapshot()).groups.length,2);}finally{reload.window.close();}
+  click(d,'[data-mgroup="'+g.uid+'"]');click(d,'[data-ma="remove-group"]');await until(()=>!d.querySelector('[data-mgroup="'+g.uid+'"]'));
+  backup=await w.LitdbMemo.snapshot();assert.equal(backup.memos.length,2);assert.equal(backup.memos.find(m=>m.id===1).body,original.memos[0].body);assert.equal(backup.memos.find(m=>m.id===1).fileIds[0],1);assert.equal(backup.files[0].data,'AQID');assert.ok(backup.memos.every(m=>!m.groupId));assert.equal(backup.groups.length,1);
+ }finally{w.close();}
+});
+test('group backups merge by name, preserve empty groups and attachments, accept old backups and reject bad catalogs atomically',async()=>{
+ const f=new IDBFactory();await seed(f);const a=await page(f),b=await page(new IDBFactory());try{
+  await a.window.LitdbMemo.open();const group=await createGroup(a,'共同主题');click(a.window.document,'[data-mgroup="unfiled"]');await until(()=>a.window.document.getElementById('memoMoveGroup'));const move=a.window.document.getElementById('memoMoveGroup');move.value=group.uid;move.dispatchEvent(new a.window.Event('change',{bubbles:true}));await until(()=>a.window.document.querySelector('[data-mgroup="'+group.uid+'"]').getAttribute('aria-pressed')==='true');await createGroup(a,'空分组');const backup=await a.window.LitdbMemo.snapshot();
+  await b.window.LitdbMemo.open();const local=await createGroup(b,'共同主题');assert.notEqual(local.uid,group.uid);assert.equal(await b.window.LitdbMemo.restore(backup),1);let restored=await b.window.LitdbMemo.snapshot();assert.equal(restored.groups.length,2);assert.equal(restored.memos[0].groupId,local.uid);assert.equal(restored.files[0].data,'AQID');assert.equal(await b.window.LitdbMemo.restore(backup),0);
+  const bad=JSON.parse(JSON.stringify(backup));bad.groups[0].name='';await assert.rejects(b.window.LitdbMemo.restore(bad));assert.equal((await b.window.LitdbMemo.snapshot()).groups.length,2);
+  const old=JSON.parse(JSON.stringify(backup));delete old.groups;old.memos[0].uid='legacy-compatible-note';delete old.memos[0].groupId;assert.equal(await b.window.LitdbMemo.restore(old),1);assert.equal((await b.window.LitdbMemo.snapshot()).memos.length,2);
+ }finally{a.window.close();b.window.close();}
+});
+test('inline images have direct removal, keyboard deletion and undo that preserves later typing and saved bytes',async()=>{
+ const a=await page(new IDBFactory()),w=a.window,d=w.document;try{
+  await w.LitdbMemo.open();click(d,'[data-ma="new"]');input(d,'memoFTitle','Removable figure');const rich=d.getElementById('memoRichBody');rich.textContent='Original evidence';rich.dispatchEvent(new w.Event('input',{bubbles:true}));
+  transfer(w,rich,'paste',[new w.File([new Uint8Array([1,2,3])],'figure.png',{type:'image/png'})]);await until(()=>d.querySelector('[data-mimage-remove]'));const bodyBeforeGroup=d.getElementById('memoFBody').value;const duringEdit=await createGroup(a,'图片证据');assert.equal(d.getElementById('memoFGroup').value,duringEdit.uid);assert.equal(d.getElementById('memoFBody').value,bodyBeforeGroup);click(d,'[data-mimage-remove]');await until(()=>!d.querySelector('#memoRichBody [data-mimage]'));assert.equal(d.getElementById('memoImageUndo').hidden,false);click(d,'[data-ma="undo-image"]');await until(()=>d.querySelector('#memoRichBody [data-mimage]'));
+  click(d,'#memoForm [type="submit"]');await until(()=>d.querySelector('.memo-prose [data-mimage]'));assert.equal((await w.LitdbMemo.snapshot()).files[0].data,'AQID');
+  click(d,'[data-ma="edit"]');await until(()=>d.querySelector('#memoRichBody [data-mimage]'));click(d,'#memoRichBody [data-mimage]');d.getElementById('memoRichBody').dispatchEvent(new w.KeyboardEvent('keydown',{key:'Delete',bubbles:true,cancelable:true}));await until(()=>!d.querySelector('#memoRichBody [data-mimage]'));
+  d.getElementById('memoRichBody').appendChild(d.createTextNode(' Later typed text.'));d.getElementById('memoRichBody').dispatchEvent(new w.Event('input',{bubbles:true}));click(d,'[data-ma="undo-image"]');await until(()=>d.querySelector('#memoRichBody [data-mimage]'));assert.match(d.getElementById('memoFBody').value,/Later typed text/);
+  click(d,'[data-mimage-remove]');await until(()=>!d.querySelector('#memoRichBody [data-mimage]'));click(d,'#memoForm [type="submit"]');await until(()=>d.querySelector('.memo-prose'));const saved=await w.LitdbMemo.snapshot();assert.equal(saved.memos[0].fileIds.length,0);assert.equal(saved.files.length,0);assert.match(saved.memos[0].body,/Original evidence/);assert.match(saved.memos[0].body,/Later typed text/);
+ }finally{w.close();}
 });
