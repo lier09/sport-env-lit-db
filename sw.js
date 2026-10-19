@@ -1,6 +1,6 @@
 /* 文献库 PWA Service Worker — 缓存外壳，数据与鉴权永远走网络 */
-var CACHE = 'litdb-shell-83';
-var SHELL = ['./', './index.html', './manifest.json', './jcr-data.js', './library-jcr.js', './follow-hub.js?v=79', './follow-hub.css', './memo.js?v=83', './memo.css?v=83', './figure-extract.js?v=80', './figure-hub.js?v=80', './figure-hub.css?v=80', './paradigm-guide.js?v=82', './assets/research-thinker.webp', './paradigm-rings.js?v=82', './paradigm-rings.css?v=82', './library-storage.js', './library-cache.js'];
+var CACHE = 'litdb-shell-84';
+var SHELL = ['./', './index.html', './fulltext-reader.js?v=84', './fulltext-reader.css?v=84', './manifest.json', './jcr-data.js', './library-jcr.js', './follow-hub.js?v=79', './follow-hub.css', './memo.js?v=83', './memo.css?v=83', './figure-extract.js?v=80', './figure-hub.js?v=80', './figure-hub.css?v=80', './paradigm-guide.js?v=82', './assets/research-thinker.webp', './paradigm-rings.js?v=82', './paradigm-rings.css?v=82', './library-storage.js', './library-cache.js'];
 
 self.addEventListener('install', function(e){
   e.waitUntil(
@@ -22,6 +22,7 @@ self.addEventListener('activate', function(e){
 self.addEventListener('fetch', function(e){
   var url = e.request.url;
   // Supabase API / 认证 / 数据：一律走网络，不缓存
+  if(url.indexOf('https://api.openalex.org/')===0 || url.indexOf('https://content.openalex.org/')===0)return;
   if(url.indexOf('supabase.co') >= 0 || url.indexOf('/auth/v1/') >= 0 || url.indexOf('/rest/v1/') >= 0 || url.indexOf('/storage/v1/') >= 0){
     return;
   }

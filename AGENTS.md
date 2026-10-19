@@ -17,3 +17,5 @@
 - Homepage research rings live independently in `paradigm-rings.js` / `.css`. Preserve the supplied 12 / 9 / 14 / 6 concepts plus 4 time scales, independent selections, slide-up dismissal and a reopen control. Auto-open only on homepage routes, never interrupt deep links to personal workspaces; do not couple the sheet to corpus loading or add a network/API dependency.
 
 - Research prompts and primary method sources are in `paradigm-guide.js`; keep their editorial attribution (not a validated taxonomy or efficacy claim). The rings theme follows the main `data-theme` setting. Preserve the local Thinker asset, contextual links and independent selections when restyling.
+
+- On-demand full text lives in `fulltext-reader.js` / `.css`. Query OpenAlex and load the shared PDF.js runtime only after an explicit read action. Keep per-user API keys out of Git, corpus records, backups, publisher URLs and service worker caches. OpenAlex content downloads need the user's key; preserve public-PDF/local-upload fallbacks, explicit failure states, current-page reading, cancellation, and PDF/canvas cleanup on close. Never bulk-download PDFs during startup.
