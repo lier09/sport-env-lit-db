@@ -8,9 +8,9 @@ let IDBFactory;try{({IDBFactory}=require('fake-indexeddb'));}catch(e){({IDBFacto
 const root = path.join(__dirname, '..');
 const baseline=process.argv.includes('--baseline');
 const sourceHtml = baseline ? require('node:child_process').execFileSync('git',['show','HEAD:index.html'],{cwd:root,encoding:'utf8',maxBuffer:8*1024*1024}) : fs.readFileSync(path.join(root,'index.html'),'utf8');
-const html=sourceHtml.replace('<script src="./fulltext-reader.js?v=85"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'fulltext-reader.js'),'utf8')+'</script>').replace('<script src="./paradigm-guide.js?v=82"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'paradigm-guide.js'),'utf8')+'</script>').replace('<script src="./paradigm-rings.js?v=82"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'paradigm-rings.js'),'utf8')+'</script>').replace('<script src="./figure-extract.js?v=80"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'figure-extract.js'),'utf8')+'</script>').replace('<script src="./figure-hub.js?v=80"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'figure-hub.js'),'utf8')+'</script>').replace('<script src="./memo.js?v=86"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'memo.js'),'utf8')+'</script>').replace('<script src="./follow-hub.js?v=79"></script>','<script>'+fs.readFileSync(path.join(root,'follow-hub.js'),'utf8')+'</script>').replace('<script src="./library-jcr.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-jcr.js'),'utf8')+'</script>').replace('<script src="./library-storage.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-storage.js'),'utf8')+'</script>').replace('<script src="./library-cache.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-cache.js'),'utf8')+'</script>');
+const html=sourceHtml.replace('<script src="./meta-core.js?v=87"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'meta-core.js'),'utf8')+'</script>').replace('<script src="./meta-hub.js?v=87"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'meta-hub.js'),'utf8')+'</script>').replace('<script src="./fulltext-reader.js?v=85"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'fulltext-reader.js'),'utf8')+'</script>').replace('<script src="./paradigm-guide.js?v=82"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'paradigm-guide.js'),'utf8')+'</script>').replace('<script src="./paradigm-rings.js?v=82"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'paradigm-rings.js'),'utf8')+'</script>').replace('<script src="./figure-extract.js?v=80"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'figure-extract.js'),'utf8')+'</script>').replace('<script src="./figure-hub.js?v=80"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'figure-hub.js'),'utf8')+'</script>').replace('<script src="./memo.js?v=86"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'memo.js'),'utf8')+'</script>').replace('<script src="./follow-hub.js?v=79"></script>','<script>'+fs.readFileSync(path.join(root,'follow-hub.js'),'utf8')+'</script>').replace('<script src="./library-jcr.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-jcr.js'),'utf8')+'</script>').replace('<script src="./library-storage.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-storage.js'),'utf8')+'</script>').replace('<script src="./library-cache.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-cache.js'),'utf8')+'</script>');
 const storageKey = html.match(/var LS_SESS\s*=\s*"([^"]+)"/)[1];
-const warnings=[];
+const warnings=[],metaRequests=[];
 const records=[{id:'fixture1',title:'Cold-water immersion after exercise',abstract:'Exercise recovery in cold water.',authors:['Ben Lee'],env:['低温'],tags:['冷水浸泡'],type:'原创研究',year:2026,cited:1,journal:'Fixture Journal',population:'human'},
 {id:'fixture2',title:'Exercise heat acclimation',abstract:'Exercise in heat.',authors:'Fixture Author',env:'高温',tags:'热习服',type:'原创研究',year:'2025',cited:0,journal:'Fixture Journal'}];
 for(let i=3;i<=105;i++)records.push({...records[0],id:"fixture"+i,title:"Cold-water immersion recovery study "+i});
@@ -26,6 +26,7 @@ beforeParse(w){
   w.localStorage.setItem(storageKey,JSON.stringify({access_token:'fixture',refresh_token:'fixture',user:{id:'fixture-user'}}));
   w.Response=Response; w.AbortController=AbortController;w.TextDecoder=TextDecoder;
   w.fetch=async url=>{
+    if(String(url).includes('meta-topics.json')){metaRequests.push(url);return response({format:'litdb-meta-candidates',version:1,ruleVersion:1,corpus:{version:'fixture',generated_at:'2026-10-20',total:105},topics:[{...require('../meta-rules.json').topics[0],records:require('../meta-core.js').collect(records,require('../meta-rules.json').topics[0])}]});}
     if(url.endsWith("/manifest.json"))return response({},404);
     if(url.includes('/auth/v1/user'))return response({id:'fixture-user'});
     if(url.includes('/rest/v1/profiles'))return response([{id:'fixture-user',banned:false}]);
@@ -101,11 +102,13 @@ setTimeout(async()=>{
     click('#figureHub [data-fa="back"]');assert.equal(d.getElementById('layout-classic').hidden,false);
     console.log('PASS: search results add actual library metadata to the independent figure workspace.');
     d.getElementById('aiEndpoint').value='https://ai.fixture.invalid/v1';d.getElementById('aiKey').value='fixture-key';d.getElementById('btnAiSave').click();
+    const originalFetch=w.fetch;
     w.fetch=async url=>response({choices:[{message:{content:JSON.stringify({env:['低温'],author:'Ben Lee',concepts:[['cold','低温'],['recovery','恢复']]})}}]});
     change('f_cited','999');
     d.getElementById('f_oa').checked=true;d.getElementById('f_oa').dispatchEvent(new w.Event('change'));
     d.getElementById('aiQ').value='Ben Lee 的低温恢复研究';
     await d.getElementById('btnAiSearch').onclick();
+    w.fetch=originalFetch;
     assert.equal(d.getElementById('f_cited').value,'0');
     assert.equal(d.getElementById('f_oa').checked,false);
     assert.ok(d.getElementById('l4Pills').textContent.includes('作者：Ben Lee'));
@@ -195,6 +198,15 @@ setTimeout(async()=>{
     click('#readerModalClose');click('#folBack');assert.equal(d.getElementById('layout-app').hidden,false);
     console.log('PASS: independent following page, complete author papers, pagination, and reader from classic/workbench.');
     console.log('PASS: folders, safe names, deletion/restoration, related papers, 100-page pagination, shared top filters, and keyboard resizing.');
+    assert.equal(metaRequests.length,0,'Meta snapshot is not fetched during library startup');
+    click('#layout-app [data-meta-open]');await delay(70);
+    assert.equal(w.LitdbMeta.isOpen(),true);assert.equal(d.getElementById('layout-app').hidden,true);
+    assert.equal(metaRequests.length,1);click('[data-tab="evidence"]');assert.equal(d.querySelectorAll('.meta-paper').length,20);
+    click('.meta-paper [data-read]');assert.equal(d.getElementById('readerModal').hidden,false);click('#readerModalClose');
+    click('#metaBack');assert.equal(d.getElementById('layout-app').hidden,false);
+    click('#layout-app [data-meta-open]');await delay(20);click('#metaBack');assert.equal(metaRequests.length,1);
+    console.log('PASS: Meta workspace loads only on entry, reads via existing reader, and returns to workbench.');
+
 
     console.log('PASS: full page initializes with synthetic data; search and analytics are mounted; loader is dismissed.');
     if(warnings.length) console.log('Optional fixture diagnostics:',warnings.slice(0,5));

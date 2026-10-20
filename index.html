@@ -7,6 +7,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="./follow-hub.css">
 <link rel="stylesheet" href="./memo.css?v=86">
+<link rel="stylesheet" href="./meta-hub.css?v=87">
 <link rel="stylesheet" href="./fulltext-reader.css?v=85">
 <link rel="stylesheet" href="./figure-hub.css?v=80">
 <link rel="stylesheet" href="./paradigm-rings.css?v=82">
@@ -935,6 +936,7 @@ canvas.net{cursor:grab}
         <a href="#z-lab" data-z="z-lab">工具箱</a>
         <a href="#following" data-follow-open>我的关注 ↗</a>
         <a href="#memos" data-memo-open>科研备忘录 ↗</a>
+        <a href="#meta" data-meta-open>Meta 选题追踪 ↗</a>
         <a href="#figures" data-figures-open>看图识记 ↗</a>
       </div>
       <button class="hbtn cmdkBtn" title="命令面板 (⌘K)">⌘K</button>
@@ -1030,6 +1032,7 @@ canvas.net{cursor:grab}
     <button class="ritem" data-view="lab" title="工具箱"><span class="ri">🧪</span><span class="rl">工具</span></button>
     <button class="ritem" data-view="follow" title="我的关注"><span class="ri">⭐</span><span class="rl">关注</span></button>
     <button class="ritem" data-memo-open title="备忘录"><span class="ri">📝</span><span class="rl">备忘录</span></button>
+    <button type="button" class="ritem" data-meta-open title="Meta 选题追踪"><span class="ri">M</span><span class="rl">Meta</span></button>
     <button type="button" class="ritem" data-figures-open title="文献看图识记"><span class="ri">▧</span><span class="rl">看图</span></button>
     <div class="rail-sp"></div>
     <button class="ritem themeToggle" title="切换深色 / 浅色"><span class="ri">🌙</span><span class="rl">主题</span></button>
@@ -1100,7 +1103,7 @@ canvas.net{cursor:grab}
 <div id="layout-study" hidden>
   <header class="study-top">
     <span class="study-brand">🌡 环境运动科学文献总库 <span class="study-tag">纯净学习</span></span>
-    <span class="study-tools"><button type="button" class="hbtn" data-follow-open>我的关注</button><button type="button" class="hbtn" data-memo-open>科研备忘录</button><button type="button" class="hbtn" data-figures-open>看图识记</button>
+    <span class="study-tools"><button type="button" class="hbtn" data-follow-open>我的关注</button><button type="button" class="hbtn" data-memo-open>科研备忘录</button><button type="button" class="hbtn" data-meta-open>Meta 选题追踪</button><button type="button" class="hbtn" data-figures-open>看图识记</button>
       <span class="layout-sw" data-sw>
         <button data-layout="classic">经典</button><button data-layout="app">工作台</button><button data-layout="study" class="on">学习</button>
       </span>
@@ -3596,8 +3599,8 @@ var followHub=LitdbFollow.create({document:document,window:window,escape:esc,
   toggle:function(tab,name){if(tab==='au')toggleFollowAuthor(name);else toggleFollowJournal(name);},
   read:function(id){openReader(id,true);},favorited:function(id){return !!favs[id];},
   favorite:function(id){if(favs[id])delete favs[id];else favs[id]=1;saveFavs();},
-  enter:function(){if(window.LitdbFigures&&!window.LitdbFigures.close(false))return false;if(window.LitdbMemo&&!window.LitdbMemo.close(false))return false;if($('readerModal'))$('readerModal').hidden=true;['classic','app','study'].forEach(function(n){$('layout-'+n).hidden=true;});},
-  leave:function(){if((!window.LitdbMemo||!window.LitdbMemo.isOpen())&&(!window.LitdbFigures||!window.LitdbFigures.isOpen()))applyLayout(curLayout,false);}
+  enter:function(){if(window.LitdbMeta&&!window.LitdbMeta.close(false))return false;if(window.LitdbFigures&&!window.LitdbFigures.close(false))return false;if(window.LitdbMemo&&!window.LitdbMemo.close(false))return false;if($('readerModal'))$('readerModal').hidden=true;['classic','app','study'].forEach(function(n){$('layout-'+n).hidden=true;});},
+  leave:function(){if(window.LitdbMeta&&window.LitdbMeta.isOpen())return;if((!window.LitdbMemo||!window.LitdbMemo.isOpen())&&(!window.LitdbFigures||!window.LitdbFigures.isOpen()))applyLayout(curLayout,false);}
 });
 function renderFollowZone(){followHub.render();}
 function bindFollowZone(){followHub.bind();}
@@ -4048,6 +4051,7 @@ function renderGaps(){
   });
 }
 function gotoResults(){
+  if(window.LitdbMeta&&window.LitdbMeta.isOpen()&&!window.LitdbMeta.close())return;
   if(window.LitdbFigures&&window.LitdbFigures.isOpen()&&!window.LitdbFigures.close())return;
   if(window.LitdbMemo&&window.LitdbMemo.isOpen()&&!window.LitdbMemo.close())return;
   if(followHub.isOpen())followHub.close();
@@ -5760,16 +5764,22 @@ function init(){
   });
   safe("科研备忘录",function(){if(window.LitdbMemo)window.LitdbMemo.configure({
     papers:function(){return PAPERS;},read:function(id){openReader(id,true);},
-    enter:function(){if(window.LitdbFigures&&!window.LitdbFigures.close(false))return false;if(followHub.isOpen())followHub.close(false);if($("readerModal"))$("readerModal").hidden=true;["classic","app","study"].forEach(function(n){$("layout-"+n).hidden=true;});},
-    leave:function(){if(!followHub.isOpen()&&(!window.LitdbFigures||!window.LitdbFigures.isOpen()))applyLayout(curLayout,false);}
+    enter:function(){if(window.LitdbMeta&&!window.LitdbMeta.close(false))return false;if(window.LitdbFigures&&!window.LitdbFigures.close(false))return false;if(followHub.isOpen())followHub.close(false);if($("readerModal"))$("readerModal").hidden=true;["classic","app","study"].forEach(function(n){$("layout-"+n).hidden=true;});},
+    leave:function(){if(window.LitdbMeta&&window.LitdbMeta.isOpen())return;if(!followHub.isOpen()&&(!window.LitdbFigures||!window.LitdbFigures.isOpen()))applyLayout(curLayout,false);}
   });});
   safe("关注页面路由",function(){followHub.route();});
   safe("备忘录页面路由",function(){if(window.LitdbMemo)window.LitdbMemo.route();});
   safe("文献看图识记",function(){if(window.LitdbFigures)window.LitdbFigures.configure({papers:function(){return PAPERS;},
-    enter:function(){if(window.LitdbMemo&&!window.LitdbMemo.close(false))return false;if(followHub.isOpen())followHub.close(false);if($("readerModal"))$("readerModal").hidden=true;["classic","app","study"].forEach(function(n){$("layout-"+n).hidden=true;});},
-    leave:function(){if(!followHub.isOpen()&&(!window.LitdbMemo||!window.LitdbMemo.isOpen()))applyLayout(curLayout,false);}
+    enter:function(){if(window.LitdbMeta&&!window.LitdbMeta.close(false))return false;if(window.LitdbMemo&&!window.LitdbMemo.close(false))return false;if(followHub.isOpen())followHub.close(false);if($("readerModal"))$("readerModal").hidden=true;["classic","app","study"].forEach(function(n){$("layout-"+n).hidden=true;});},
+    leave:function(){if(window.LitdbMeta&&window.LitdbMeta.isOpen())return;if(!followHub.isOpen()&&(!window.LitdbMemo||!window.LitdbMemo.isOpen()))applyLayout(curLayout,false);}
   });});
   safe("看图页面路由",function(){if(window.LitdbFigures)window.LitdbFigures.route();});
+  safe("Meta 选题追踪",function(){if(window.LitdbMeta){window.LitdbMeta.configure({
+    storage:personalStore,papers:function(){return PAPERS;},paper:function(id){return id2paper[id];},deleted:isDeleted,read:function(id){openReader(id,true);},
+    enter:function(){if(window.LitdbMemo&&!window.LitdbMemo.close(false))return false;if(window.LitdbFigures&&!window.LitdbFigures.close(false))return false;if(followHub.isOpen())followHub.close(false);if($("readerModal"))$("readerModal").hidden=true;["classic","app","study"].forEach(function(n){$("layout-"+n).hidden=true;});},
+    leave:function(){if(!followHub.isOpen()&&(!window.LitdbMemo||!window.LitdbMemo.isOpen())&&(!window.LitdbFigures||!window.LitdbFigures.isOpen()))applyLayout(curLayout,false);}
+  });window.LitdbMeta.route();}});
+
   safe("resize", function(){
     var resizeTimer,lastWidth=window.innerWidth;
     window.addEventListener("resize",function(){
@@ -6280,5 +6290,7 @@ else bootApp();
 <script src="./figure-hub.js?v=80"></script>
 <script src="./paradigm-guide.js?v=82"></script>
 <script src="./paradigm-rings.js?v=82"></script>
+<script src="./meta-core.js?v=87"></script>
+<script src="./meta-hub.js?v=87"></script>
 </body>
 </html>

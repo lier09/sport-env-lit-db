@@ -1,7 +1,7 @@
 /* Account-isolated local workspace. No authentication/API secrets in backups. */
 (function(root,factory){var api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.LitdbPersonal=api;}(typeof globalThis!=='undefined'?globalThis:this,function(){
 'use strict';
-var keys=['envLitPageSize','litdb-ris-imports','envLitFolders','envLitFolderList','envLitMyTags','envLitTagList','envLitFollow','envLitHist','envLitSavedQ','envLitDeleted','envLitFavs','litdb-follows','envLitNotes','envLitRead','litdb-ai-endpoint','litdb-ai-key','litdb-ai-model'];
+var keys=['litdb-meta-tracker','envLitPageSize','litdb-ris-imports','envLitFolders','envLitFolderList','envLitMyTags','envLitTagList','envLitFollow','envLitHist','envLitSavedQ','envLitDeleted','envLitFavs','litdb-follows','envLitNotes','envLitRead','litdb-ai-endpoint','litdb-ai-key','litdb-ai-model'];
 var backupKeys=keys.filter(function(k){return k.indexOf('litdb-ai-')!==0;});
 function create(userId,storage,onError){
  if(!userId)throw new Error('User ID required');
