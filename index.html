@@ -8,7 +8,8 @@
 <link rel="stylesheet" href="./follow-hub.css">
 <link rel="stylesheet" href="./memo.css?v=86">
 <link rel="stylesheet" href="./meta-hub.css?v=87">
-<link rel="stylesheet" href="./fulltext-reader.css?v=85">
+<link rel="stylesheet" href="./fulltext-reader.css?v=88">
+<link rel="stylesheet" href="./article-reader.css?v=88">
 <link rel="stylesheet" href="./figure-hub.css?v=80">
 <link rel="stylesheet" href="./paradigm-rings.css?v=82">
 <meta name="theme-color" content="#0e9f6e">
@@ -4874,9 +4875,10 @@ function openReader(id,forceModal){
     esc(p.journal||"—")+' · '+p.year+' · 被引 '+p.cited+
     (p.oa?' · <span class="badge oa">开放获取</span>':"")+
     (isRead?' · <span class="badge read">已读</span>':"")+'</div>'+
-    '<div class="reader-mode-nav" aria-label="阅读内容"><span aria-current="page">摘要与笔记</span><button type="button" id="r_btnFulltext">阅读全文 · PDF / 网页文字</button></div>'+
+    '<div class="reader-mode-nav" aria-label="阅读内容"><span aria-current="page">摘要与笔记</span><button type="button" id="r_btnFulltext">加载全文 <kbd>W</kbd></button><small>按需读取 · 优先网页文字</small></div>'+
     '<div class="ptags">'+(p.tags||[]).map(function(t){
       return '<span class="ptag">'+esc(t)+'</span>';}).join("")+'</div>'+
+    '<div class="reader-section-label" lang="en">Abstract</div>'+
     (p.abstract?'<div class="rabs">'+esc(p.abstract)+'</div>'
                :'<div class="rabs" style="color:var(--muted)">暂无摘要</div>')+
     '<div class="links">'+
@@ -4899,6 +4901,7 @@ function openReader(id,forceModal){
     esc(notes[id]||"")+'</textarea>'+
     '<div class="rnav"><button class="btn ghost" id="r_prev">← 上一篇</button>'+
     '<button class="btn ghost" id="r_next">下一篇 →</button></div>';
+  if(window.LitdbArticle){var abstractBox=$("r_read").querySelector('.rabs');if(abstractBox)abstractBox.replaceChildren(window.LitdbArticle.abstract(p.abstract));}
   $("r_btnFulltext").onclick=function(){if(window.LitdbFulltext)window.LitdbFulltext.open(p);};
   $("r_btnFigures").onclick=function(){if(window.LitdbFigures)window.LitdbFigures.addPaper(p).catch(function(e){alert(e.message);});};
   $("r_btnMemo").onclick=function(){if(window.MemoQuickAdd)window.MemoQuickAdd(p.id,p.title);};
@@ -6284,7 +6287,8 @@ if(document.readyState==="loading")
 else bootApp();
 })().catch(startupFailure);
 </script>
-<script src="./fulltext-reader.js?v=85"></script>
+<script src="./article-reader.js?v=88"></script>
+<script src="./fulltext-reader.js?v=88"></script>
 <script src="./memo.js?v=86"></script>
 <script src="./figure-extract.js?v=80"></script>
 <script src="./figure-hub.js?v=80"></script>

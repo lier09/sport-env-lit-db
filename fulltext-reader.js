@@ -3,7 +3,7 @@
   'use strict';
   var w = window, d = document, paper, work, controller, generation = 0, pdfTask, pdfDoc, renderTask;
   var modulePromise, blobURL, focusBefore, pageNumber = 1, zoom = 1, textMode = false, rendering = 0;
-  var wholeText = false, textPages = Object.create(null);
+  var wholeText = false, textPages = Object.create(null), structuredArticle = null, readingView = 'full';
   var sessionKey = '', KEY = 'litdb-openalex-content-key', MAX = 80 * 1024 * 1024;
   var ROOT = './vendor/pdfjs-6.4.299/', api = {};
   function $(id) { return d.getElementById(id); }
@@ -17,11 +17,11 @@
     if ($('fulltextDialog')) return;
     var el = d.createElement('dialog'); el.id = 'fulltextDialog'; el.setAttribute('aria-labelledby', 'ftTitle');
     el.innerHTML = '<header class="ft-header"><div><button type="button" class="ft-back" id="ftBack">← 返回摘要与笔记</button><h2 id="ftTitle"></h2></div><button type="button" class="ft-btn" id="ftClose" aria-label="关闭全文阅读">关闭 ×</button></header>' +
-      '<div class="ft-actions"><button type="button" class="ft-btn primary" id="ftRetry">获取全文</button><label class="ft-btn">上传本地 PDF<input type="file" id="ftUpload" accept="application/pdf,.pdf" hidden></label><a id="ftDownload" class="ft-btn" hidden download="paper.pdf">下载 PDF</a><a id="ftSource" class="ft-btn" target="_blank" rel="noopener noreferrer" hidden>来源网页 ↗</a><button type="button" class="ft-btn" id="ftSettings" aria-expanded="false" aria-controls="ftConfig">OpenAlex 设置</button></div>' +
+      '<div class="ft-actions"><button type="button" class="ft-btn primary" id="ftRetry">获取网页全文</button><button type="button" class="ft-btn" id="ftPDF">原版 PDF</button><label class="ft-btn">上传本地 PDF<input type="file" id="ftUpload" accept="application/pdf,.pdf" hidden></label><a id="ftDownload" class="ft-btn" hidden download="paper.pdf">下载 PDF</a><a id="ftSource" class="ft-btn" target="_blank" rel="noopener noreferrer" hidden>来源网页 ↗</a><button type="button" class="ft-btn" id="ftSettings" aria-expanded="false" aria-controls="ftConfig">OpenAlex 设置</button></div>' +
       '<form id="ftConfig" hidden><div><label for="ftKey">OpenAlex API Key</label><input id="ftKey" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴你自己的 OpenAlex 密钥"><button class="ft-btn primary" type="submit">应用并获取全文</button><button class="ft-btn" id="ftForget" type="button">清除密钥</button></div><label class="ft-remember"><input id="ftRemember" type="checkbox">记住在此浏览器</label><p>OpenAlex 存档 PDF 下载需要密钥，使用账户的每日额度。默认仅本次页面使用，密钥只发往 OpenAlex。<a href="https://openalex.org/settings/api" target="_blank" rel="noopener noreferrer">获取免费密钥 ↗</a></p></form>' +
-      '<p id="ftStatus" role="status" aria-live="polite"></p><div id="ftTools" class="ft-tools" hidden><button type="button" class="ft-btn" id="ftPrev" aria-label="上一页">← 上一页</button><label>页码 <input id="ftPage" type="number" min="1" value="1"></label><span id="ftTotal"></span><button type="button" class="ft-btn" id="ftNext" aria-label="下一页">下一页 →</button><button type="button" class="ft-btn" id="ftMinus" aria-label="缩小">−</button><span id="ftZoom">100%</span><button type="button" class="ft-btn" id="ftPlus" aria-label="放大">＋</button><button type="button" class="ft-btn" id="ftText" aria-pressed="false">网页文字（可翻译）</button><button type="button" class="ft-btn" id="ftWholeText" aria-pressed="false" hidden>展开整篇文字</button></div>' +
+      '<nav class="ft-reading-tabs" aria-label="阅读内容"><button type="button" id="ftSummary">摘要</button><button type="button" id="ftFull" aria-current="page">全文 <kbd>W</kbd></button><span>网页文字可使用浏览器翻译</span></nav><p id="ftStatus" role="status" aria-live="polite"></p><div id="ftTools" class="ft-tools" hidden><button type="button" class="ft-btn" id="ftPrev" aria-label="上一页">← 上一页</button><label>页码 <input id="ftPage" type="number" min="1" value="1"></label><span id="ftTotal"></span><button type="button" class="ft-btn" id="ftNext" aria-label="下一页">下一页 →</button><button type="button" class="ft-btn" id="ftMinus" aria-label="缩小">−</button><span id="ftZoom">100%</span><button type="button" class="ft-btn" id="ftPlus" aria-label="放大">＋</button><button type="button" class="ft-btn" id="ftText" aria-pressed="false">网页文字（可翻译）</button><button type="button" class="ft-btn" id="ftWholeText" aria-pressed="false" hidden>展开整篇文字</button></div>' +
       '<div id="ftTranslateHelp" class="ft-translate-help" hidden><strong>翻译方法</strong>：正文已转为可复制的网页文字。请在文字显示后再次使用浏览器翻译；若检测成中文，手动选择“英文 → 中文”。<span>文字从 PDF 提取，双栏、公式和表格的顺序可能有偏差；图片请切回原版 PDF 查看。扫描页需要 OCR。</span><p id="ftTextProgress" role="status" aria-live="polite"></p></div>' +
-      '<div id="ftViewport" tabindex="0" aria-label="论文全文"><div id="ftEmpty"><strong>按需获取，留在当前页面阅读</strong><p>支持 OpenAlex 存档 PDF、可直接读取的公开 PDF，以及本地上传。</p></div><canvas id="ftCanvas" role="img" aria-label="论文 PDF 当前页" hidden></canvas><article id="ftTextPage" translate="yes" aria-label="论文网页文字" hidden></article></div>';
+      '<div id="ftViewport" tabindex="0" aria-label="论文全文"><div id="ftAbstract" hidden></div><div id="ftStructured" hidden></div><div id="ftEmpty"><strong>按需获取，留在当前页面阅读</strong><p>优先读取开放网页全文；也支持 OpenAlex 存档 PDF、公开 PDF 和本地上传。</p></div><canvas id="ftCanvas" role="img" aria-label="论文 PDF 当前页" hidden></canvas><article id="ftTextPage" translate="yes" aria-label="论文网页文字" hidden></article></div>';
     d.body.appendChild(el);
     $('ftClose').onclick = close;
     $('ftBack').onclick = close;
@@ -30,6 +30,9 @@
     el.addEventListener('close', cleanup);
     $('ftSettings').onclick = function () { config($('ftConfig').hidden); };
     $('ftRetry').onclick = fetchFull;
+    $('ftPDF').onclick = function () { fetchFull(true); };
+    $('ftSummary').onclick = function () { showView('summary'); };
+    $('ftFull').onclick = function () { if (structuredArticle || pdfDoc || $('ftRetry').disabled) showView('full'); else fetchFull(); };
     $('ftForget').onclick = function () { sessionKey = ''; $('ftKey').value = ''; $('ftRemember').checked = false; try { w.localStorage.removeItem(KEY); } catch (_) {} notice('已清除 OpenAlex 密钥。'); };
     $('ftConfig').onsubmit = function (e) { e.preventDefault(); sessionKey = $('ftKey').value.trim(); try { if ($('ftRemember').checked && sessionKey) w.localStorage.setItem(KEY, sessionKey); else w.localStorage.removeItem(KEY); } catch (_) { notice('浏览器无法记住密钥，本次仍可使用。'); } config(false); fetchFull(); };
     $('ftUpload').onchange = function () { var f = this.files[0]; this.value = ''; if (!f) return; var gen = start(); notice('正在打开本地 PDF…'); load(f, gen, '本地上传 · ' + (f.name || 'PDF')).catch(function (e) { if (gen === generation) showError(e); }); };
@@ -43,6 +46,7 @@
   }
   function config(show) { $('ftConfig').hidden = !show; $('ftSettings').setAttribute('aria-expanded', String(show)); if (show) $('ftKey').focus(); }
   function disposePDF() {
+    structuredArticle = null; if ($('ftStructured')) { $('ftStructured').replaceChildren(); $('ftStructured').hidden = true; }
     textPages = Object.create(null); wholeText = false;
     rendering++; if (renderTask) { renderTask.cancel(); renderTask = null; }
     var task = pdfTask; pdfTask = null; pdfDoc = null; if (task) Promise.resolve(task.destroy()).catch(function () {});
@@ -54,13 +58,13 @@
     if ($('ftTranslateHelp')) $('ftTranslateHelp').hidden = true;
     if ($('ftTextProgress')) $('ftTextProgress').textContent = '';
   }
-  function start() { generation++; if (controller) controller.abort(); controller = new AbortController(); disposePDF(); $('ftEmpty').hidden = false; $('ftRetry').disabled = true; return generation; }
-  function cleanup() { generation++; if (controller) controller.abort(); disposePDF(); if (focusBefore && focusBefore.isConnected) focusBefore.focus({preventScroll:true}); }
+  function start() { generation++; if (controller) controller.abort(); controller = new AbortController(); disposePDF(); showView('full'); $('ftEmpty').hidden = false; $('ftRetry').disabled = true; return generation; }
+  function cleanup() { generation++; if (controller) controller.abort(); disposePDF(); if ($('ftAbstract')) $('ftAbstract').replaceChildren(); if (focusBefore && focusBefore.isConnected) focusBefore.focus({preventScroll:true}); }
   function close() { if ($('fulltextDialog') && $('fulltextDialog').open) $('fulltextDialog').close(); }
   function showError(e) { if (e && e.name === 'AbortError') return; notice(e && e.message || '全文加载失败，请重试或上传 PDF。', true); $('ftRetry').disabled = false; }
-  function fetchFull() { var result = resolve(), gen = generation; result.catch(function (e) { if (gen === generation) showError(e); }); }
+  function fetchFull(preferPDF) { var result = resolve(preferPDF === true), gen = generation; result.catch(function (e) { if (gen === generation) showError(e); }); }
   async function request(url, kind, signal, gen) {
-    var abort = new AbortController(), timer, chunks = [], bytes = 0, limit = kind === 'pdf' ? MAX : 2 * 1024 * 1024;
+    var abort = new AbortController(), timer, chunks = [], bytes = 0, limit = kind === 'pdf' ? MAX : kind === 'xml' ? 8 * 1024 * 1024 : 2 * 1024 * 1024;
     function reset() { clearTimeout(timer); timer = setTimeout(function () { abort.abort(); }, kind === 'pdf' ? 45000 : 20000); }
     function cancel() { abort.abort(); }
     signal.addEventListener('abort', cancel, {once:true}); if (signal.aborted) abort.abort(); reset();
@@ -72,19 +76,54 @@
         var reader = r.body.getReader();
         while (true) { var next = await reader.read(); if (next.done) break; reset(); bytes += next.value.byteLength; if (bytes > limit) { await reader.cancel(); throw new Error('文件超过允许大小（PDF 最大 80 MB）。'); } chunks.push(next.value); if (kind === 'pdf' && gen === generation) notice('正在获取全文 · ' + (bytes / 1024 / 1024).toFixed(1) + ' MB'); }
       } else { var buffer = await r.arrayBuffer(); bytes = buffer.byteLength; if (bytes > limit) throw new Error('文件过大。'); chunks.push(new Uint8Array(buffer)); }
-      var blob = new Blob(chunks, {type:kind === 'pdf' ? 'application/pdf' : 'application/json'});
-      return kind === 'pdf' ? blob : JSON.parse(await blob.text());
+      var blob = new Blob(chunks, {type:kind === 'pdf' ? 'application/pdf' : kind === 'xml' ? 'application/xml' : 'application/json'});
+      return kind === 'pdf' ? blob : kind === 'xml' ? blob.text() : JSON.parse(await blob.text());
     } catch (e) { if (abort.signal.aborted && !signal.aborted) throw new Error('连接或下载超时，请重试。'); if (signal.aborted) throw new DOMException('Cancelled', 'AbortError'); throw e; }
     finally { clearTimeout(timer); signal.removeEventListener('abort', cancel); }
   }
   function setSource(url) { var safe = https(url); $('ftSource').hidden = !safe; if (safe) $('ftSource').href = safe; else $('ftSource').removeAttribute('href'); }
-  async function resolve() {
+  function showView(mode) {
+    readingView = mode; var full = mode === 'full';
+    $('ftSummary').setAttribute('aria-current', full ? 'false' : 'page'); $('ftFull').setAttribute('aria-current', full ? 'page' : 'false');
+    $('ftAbstract').hidden = full; $('ftStructured').hidden = !full || !structuredArticle;
+    $('ftEmpty').hidden = !full || !!(structuredArticle || pdfDoc); $('ftTools').hidden = !full || !pdfDoc;
+    $('ftCanvas').hidden = !full || !pdfDoc || textMode; $('ftTextPage').hidden = !full || !pdfDoc || !textMode;
+    $('ftTranslateHelp').hidden = !full || !pdfDoc || !textMode;
+    $('ftViewport').scrollTo(0,0);
+  }
+  async function structured(p, signal, gen) {
+    if (!w.LitdbArticle) return false;
+    var id = /^PMC\d+$/i.test(p.pmcid || '') ? p.pmcid.toUpperCase() : '', identifier = doi(p), pmid = /^\d+$/.test(p.pmid || '') ? p.pmid : '';
+    if (!id && !/^10\.\d{4,9}\/[^\s"<>]{1,280}$/i.test(identifier) && !pmid) return false;
+    var base = 'https://www.ebi.ac.uk/europepmc/webservices/rest/';
+    notice('正在获取可翻译的开放网页全文…');
+    if (!id) {
+      var url = new URL(base+'search');url.searchParams.set('query',identifier ? 'DOI:"'+identifier+'"' : 'EXT_ID:'+pmid+' AND SRC:MED');url.searchParams.set('format','json');url.searchParams.set('resultType','core');url.searchParams.set('pageSize','1');
+      var result = await request(url.href,'json',signal,gen);if (gen !== generation) return false;
+      var record = result.resultList && result.resultList.result && result.resultList.result[0];
+      if (!record || !/^PMC\d+$/.test(record.pmcid || '') || record.isOpenAccess !== 'Y') return false;
+      if (identifier && String(record.doi || '').toLowerCase() !== identifier.toLowerCase()) return false;
+      if (!identifier && String(record.id) !== String(pmid)) return false; id = record.pmcid;
+    }
+    var xml = await request(base+id+'/fullTextXML','xml',signal,gen);if (gen !== generation) return false;
+    var parsed = w.LitdbArticle.parse(xml,id);
+    if (identifier && parsed.doi.toLowerCase() !== identifier.toLowerCase()) throw Error('全文标识与当前论文不一致。');
+    structuredArticle = parsed.article; $('ftStructured').replaceChildren(structuredArticle);setSource(parsed.source);
+    $('ftRetry').disabled = false;showView(readingView);
+    notice('开放网页全文 · Europe PMC / '+id+' · 可复制、搜索和使用浏览器翻译。公式与版式请对照原文。');return true;
+  }
+  async function resolve(preferPDF) {
     var gen = start(), signal = controller.signal, p = paper, id = workId(p), identifier = id || (doi(p) ? 'doi:' + encodeURIComponent(doi(p)) : ''), metaError;
     notice('正在查询本篇论文的全文来源…'); work = null;
+    var triedStructured = !!(doi(p) || p.pmcid || p.pmid);
+    if (!preferPDF && w.LitdbArticle && triedStructured) { try { if (await structured(p,signal,gen)) return; } catch (e) { if (e.name === 'AbortError') throw e; } }
+    if (gen !== generation) return;
     if (identifier) {
       try { var u = new URL('https://api.openalex.org/works/' + identifier); u.searchParams.set('select', 'id,doi,title,has_content,content_urls,best_oa_location'); if (key()) u.searchParams.set('api_key', key()); work = await request(u.href, 'json', signal, gen); }
       catch (e) { if (e.name === 'AbortError') throw e; metaError = e; }
     }
+    if (gen !== generation) return;
+    if (!preferPDF && !triedStructured && work && work.doi) { try { if (await structured({doi:work.doi},signal,gen)) return; } catch (e) { if (e.name === 'AbortError') throw e; } }
     if (gen !== generation) return;
     var archived = work && work.has_content && work.has_content.pdf && workId(work), location = work && work.best_oa_location;
     var publicPDF = https(location && location.pdf_url || p.pdf_url), source = https(location && location.landing_page_url) || (doi(p) ? 'https://doi.org/' + doi(p) : publicPDF);
@@ -122,7 +161,7 @@
       pageNumber = 1; zoom = 1; textMode = false; wholeText = false;
       blobURL = URL.createObjectURL(blob); $('ftDownload').href = blobURL; $('ftDownload').download = (paper.title || 'paper').replace(/[\\/:*?"<>|]/g, '_').slice(0, 160) + '.pdf'; $('ftDownload').hidden = false;
       $('ftTools').hidden = false; $('ftEmpty').hidden = true; config(false); notice(origin + ' · ' + doc.numPages + ' 页 · 本次阅读按需加载，关闭后释放。');
-      await draw();
+      await draw(); showView(readingView);
     } catch (e) { if (gen === generation) disposePDF(); throw e; }
     finally { if (gen === generation) $('ftRetry').disabled = false; }
   }
@@ -187,13 +226,21 @@
       try { await renderTask.promise; } catch (e) { if (e.name !== 'RenderingCancelledException') throw e; }
       if (token === rendering) renderTask = null;
     }
-    if (token === rendering) $('ftViewport').scrollTo(0, 0);
+    if (token === rendering) showView(readingView);
   }
   function open(p) {
     shell(); paper = p; work = null; if (!$('fulltextDialog').open) focusBefore = d.activeElement;
     try { sessionKey = sessionKey || w.localStorage.getItem(KEY) || ''; $('ftRemember').checked = !!w.localStorage.getItem(KEY); } catch (_) {}
     $('ftKey').value = sessionKey; $('ftTitle').textContent = p.title || '论文全文'; setSource(doi(p) ? 'https://doi.org/' + doi(p) : https(p.pdf_url));
+    $('ftAbstract').replaceChildren(w.LitdbArticle ? w.LitdbArticle.abstract(p.abstract) : d.createTextNode(p.abstract || '原始来源暂无摘要。'));
     if (!$('fulltextDialog').open) $('fulltextDialog').showModal(); config(false); fetchFull();
   }
   w.LitdbFulltext = {open:open, close:close, isOpen:function () { return !!($('fulltextDialog') && $('fulltextDialog').open); }, configure:function (config) { api = config || {}; }};
+  d.addEventListener('keydown',function(e){
+    if(e.key.toLowerCase()!=='w'||e.ctrlKey||e.metaKey||e.altKey||e.repeat||e.isComposing||e.defaultPrevented)return;
+    var target=e.target;if(target&&target.closest&&target.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"])'))return;
+    if($('fulltextDialog')&&$('fulltextDialog').open){e.preventDefault();$('ftFull').click();return;}
+    if(d.querySelector('dialog[open]'))return;
+    var button=$('r_btnFulltext');if(button&&!button.closest('[hidden]')){e.preventDefault();button.click();}
+  });
 })();

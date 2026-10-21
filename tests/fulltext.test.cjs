@@ -11,7 +11,7 @@ function setup(fetch,content){
  w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');this.dispatchEvent(new w.Event('close'));};
  w.HTMLElement.prototype.scrollTo=function(){};w.HTMLCanvasElement.prototype.getContext=()=>({});w.URL.createObjectURL=()=> 'blob:fixture';w.URL.revokeObjectURL=()=>stats.revoked++;
  w.fetch=async(u,o)=>{requests.push({url:u,options:o});return fetch(u,o);};
- w.eval(source);w.LitdbFulltext.configure({loadLibrary:async()=>{stats.loads++;return {GlobalWorkerOptions:{},getDocument:()=>({destroy:async()=>{stats.destroyed++;},promise:Promise.resolve({numPages:3,getPage:async(number)=>({getViewport:({scale})=>({width:600*scale,height:800*scale}),getTextContent:async()=>{stats.texts.push(number);return content?content(number):{items:[{str:'Full page '+number,hasEOL:true},{str:'Complete conclusion.',hasEOL:true}]};},render:()=>{stats.renders.push(number);return {promise:Promise.resolve(),cancel(){}};}})})})};}});
+ w.eval(fs.readFileSync(path.join(__dirname,'../article-reader.js'),'utf8'));w.eval(source);w.LitdbFulltext.configure({loadLibrary:async()=>{stats.loads++;return {GlobalWorkerOptions:{},getDocument:()=>({destroy:async()=>{stats.destroyed++;},promise:Promise.resolve({numPages:3,getPage:async(number)=>({getViewport:({scale})=>({width:600*scale,height:800*scale}),getTextContent:async()=>{stats.texts.push(number);return content?content(number):{items:[{str:'Full page '+number,hasEOL:true},{str:'Complete conclusion.',hasEOL:true}]};},render:()=>{stats.renders.push(number);return {promise:Promise.resolve(),cancel(){}};}})})})};}});
  return {dom,w,d,requests,stats};
 }
 function submitKey(a,value){a.d.getElementById('ftKey').value=value;a.d.getElementById('ftConfig').dispatchEvent(new a.w.Event('submit',{cancelable:true}));}
@@ -26,6 +26,40 @@ test('full text does no startup work; key-gated OpenAlex download renders in-pag
   d.getElementById('ftNext').click();await until(()=>d.getElementById('ftPage').value==='2');d.getElementById('ftText').click();await until(()=>d.getElementById('ftTextPage').textContent.includes('Complete conclusion.'));assert.match(d.getElementById('ftTextPage').textContent,/Full page 2/);
   w.LitdbFulltext.close();assert.equal(stats.destroyed,1);assert.equal(stats.revoked,1);assert.equal(d.getElementById('ftCanvas').width,0);assert.equal(d.activeElement.id,'origin');
  }finally{w.close();}
+});
+
+const readableXML=`<article xml:lang="en"><front><article-meta><article-id pub-id-type="doi">10.1234/test</article-id><title-group><article-title>Readable research</article-title></title-group><abstract><p>Complete source abstract.</p></abstract><permissions><license><license-p>CC BY test license.</license-p></license></permissions></article-meta></front><body><sec id="methods"><title>Methods</title><p>${'Detailed study methods and complete results. '.repeat(8)}<bold>Important result</bold><xref rid="fig1">Figure 1</xref></p><fig id="fig1"><label>Figure 1</label><caption><p>Original figure caption.</p></caption><graphic><?image-cloudpmc-urn urn:cdn:blobs/abcd/123/ef012/image.jpg?></graphic></fig><table-wrap id="tab1"><label>Table 1</label><caption><p>Results</p></caption><table><tbody><tr><td>Outcome</td><td>12.3</td></tr></tbody></table></table-wrap><p><ext-link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="javascript:alert(1)">Unsafe URL</ext-link><script>alert(1)</script><img src="bad" onerror="alert(1)"/></p></sec><sec id="conclusion"><title>Conclusion</title><p>FINAL_WEB_CONCLUSION</p></sec></body><back><ref-list><ref id="ref1"><mixed-citation>Study citation.</mixed-citation></ref></ref-list></back></article>`;
+test('structured open full text is preferred without a key or PDF runtime, retains semantic content, and switches summary/full text without refetching',async()=>{
+ const a=setup(async u=>u.includes('/search?')?json({resultList:{result:[{pmcid:'PMC123',doi:'10.1234/test',isOpenAccess:'Y'}]}}):new Response(readableXML));try{
+  a.w.localStorage.setItem('litdb-openalex-content-key','private-fixture-key');assert.equal(a.requests.length,0);
+  a.w.LitdbFulltext.open({...work,doi:'10.1234/test',abstract:'Original library abstract.'});await until(()=>a.d.querySelector('#ftStructured .article-full'));
+  assert.equal(a.stats.loads,0);assert.equal(a.requests.length,2);assert.ok(a.requests.every(r=>r.url.startsWith('https://www.ebi.ac.uk/')&&!r.url.includes('private-fixture-key')));
+  const article=a.d.querySelector('#ftStructured article');assert.equal(article.lang,'en');assert.equal(article.getAttribute('translate'),'yes');assert.match(article.textContent,/FINAL_WEB_CONCLUSION/);assert.match(article.textContent,/CC BY/);
+  assert.equal(article.querySelector('table td').textContent,'Outcome');assert.equal(article.querySelector('img').src,'https://cdn.ncbi.nlm.nih.gov/pmc/blobs/abcd/123/ef012/image.jpg');assert.equal(article.querySelectorAll('script,[onerror],a[href^="javascript"]').length,0);
+  assert.equal(a.d.getElementById('ftTools').hidden,true);a.d.getElementById('ftSummary').click();assert.equal(a.d.getElementById('ftStructured').hidden,true);assert.match(a.d.getElementById('ftAbstract').textContent,/Original library abstract/);
+  a.d.getElementById('ftFull').click();assert.equal(a.d.getElementById('ftStructured').hidden,false);assert.equal(a.requests.length,2);
+  a.w.LitdbFulltext.close();assert.equal(a.d.getElementById('ftStructured').textContent,'');
+ }finally{a.w.close();}
+});
+test('unavailable or mismatched structured text falls back to the original PDF path instead of showing another paper',async()=>{
+ for(const variant of ['none','wrong-doi']){const a=setup(async u=>u.includes('/search?')?json({resultList:{result:variant==='none'?[]:[{pmcid:'PMC123',doi:'10.1234/test',isOpenAccess:'Y'}]}}):u.includes('/fullTextXML')?new Response(readableXML.replace('10.1234/test','10.1234/other')):u.includes('api.openalex.org')?json({...work,best_oa_location:{pdf_url:'https://repository.invalid/paper.pdf'}}):new Response(pdf));try{
+  a.w.LitdbFulltext.open({...work,doi:'10.1234/test'});await until(()=>a.stats.renders.length);assert.equal(a.d.getElementById('ftStructured').textContent,'');assert.equal(a.stats.loads,1);
+ }finally{a.w.close();}}
+});
+test('W loads only the visible reader, ignores typing and modifiers, and reuses loaded full content',async()=>{
+ const a=setup(async u=>u.includes('/search?')?json({resultList:{result:[{pmcid:'PMC123',doi:'10.1234/test',isOpenAccess:'Y'}]}}):new Response(readableXML));try{
+  const b=a.d.createElement('button');b.id='r_btnFulltext';b.onclick=()=>a.w.LitdbFulltext.open({...work,doi:'10.1234/test'});a.d.body.appendChild(b);
+  const input=a.d.createElement('textarea');a.d.body.appendChild(input);input.dispatchEvent(new a.w.KeyboardEvent('keydown',{key:'w',bubbles:true}));assert.equal(a.requests.length,0);
+  a.d.body.dispatchEvent(new a.w.KeyboardEvent('keydown',{key:'w',ctrlKey:true,bubbles:true}));assert.equal(a.requests.length,0);
+  b.hidden=true;a.d.body.dispatchEvent(new a.w.KeyboardEvent('keydown',{key:'w',bubbles:true}));assert.equal(a.requests.length,0);b.hidden=false;
+  a.d.body.dispatchEvent(new a.w.KeyboardEvent('keydown',{key:'w',bubbles:true}));await until(()=>a.d.querySelector('#ftStructured article'));
+  a.d.getElementById('ftSummary').click();a.d.getElementById('fulltextDialog').dispatchEvent(new a.w.KeyboardEvent('keydown',{key:'w',bubbles:true}));assert.equal(a.d.getElementById('ftStructured').hidden,false);assert.equal(a.requests.length,2);
+ }finally{a.w.close();}
+});
+test('original PDF remains an explicit choice after structured full text succeeds',async()=>{
+ const a=setup(async u=>u.includes('/search?')?json({resultList:{result:[{pmcid:'PMC123',doi:'10.1234/test',isOpenAccess:'Y'}]}}):u.includes('/fullTextXML')?new Response(readableXML):u.includes('api.openalex.org')?json({...work,best_oa_location:{pdf_url:'https://repository.invalid/paper.pdf'}}):new Response(pdf));try{
+  a.w.LitdbFulltext.open({...work,doi:'10.1234/test'});await until(()=>a.d.querySelector('#ftStructured article'));a.d.getElementById('ftPDF').click();await until(()=>a.stats.renders.length);assert.equal(a.d.getElementById('ftStructured').hidden,true);assert.equal(a.d.getElementById('ftDownload').hidden,false);assert.equal(a.requests.filter(r=>r.url.includes('/search?')).length,1);
+ }finally{a.w.close();}
 });
 test('no-content and network failure remain explicit; HTML and oversized responses never reach PDF.js',async()=>{
  for(const variant of ['none','html','large','network']){
