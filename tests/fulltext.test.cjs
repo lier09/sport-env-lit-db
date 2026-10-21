@@ -19,7 +19,7 @@ test('full text does no startup work; key-gated OpenAlex download renders in-pag
  const a=setup(async u=>u.includes('api.openalex.org')?json(work):new Response(pdf)),{w,d,stats,requests}=a;
  try{
   assert.equal(requests.length,0);assert.equal(stats.loads,0);d.getElementById('origin').focus();w.LitdbFulltext.open(work);
-  await until(()=>!d.getElementById('ftConfig').hidden);assert.equal(requests.length,1);assert.equal(stats.loads,0);assert.match(d.getElementById('ftStatus').textContent,/API Key/);
+  await until(()=>!d.getElementById('ftRetry').disabled);assert.equal(d.getElementById('ftConfig').hidden,true);assert.equal(requests.length,1);assert.equal(stats.loads,0);assert.match(d.getElementById('ftStatus').textContent,/密钥/);d.getElementById('ftSettings').click();
   submitKey(a,'test-key');await until(()=>!d.getElementById('ftTools').hidden);await until(()=>stats.renders.length);
   const content=requests.find(r=>r.url.includes('content.openalex.org'));assert.equal(new URL(content.url).searchParams.get('api_key'),'test-key');assert.equal(content.options.credentials,'omit');assert.equal(content.options.cache,'no-store');
   assert.equal(w.localStorage.getItem('litdb-openalex-content-key'),null);assert.equal(d.getElementById('ftDownload').href,'blob:fixture');
@@ -61,6 +61,21 @@ test('original PDF remains an explicit choice after structured full text succeed
   a.w.LitdbFulltext.open({...work,doi:'10.1234/test'});await until(()=>a.d.querySelector('#ftStructured article'));a.d.getElementById('ftPDF').click();await until(()=>a.stats.renders.length);assert.equal(a.d.getElementById('ftStructured').hidden,true);assert.equal(a.d.getElementById('ftDownload').hidden,false);assert.equal(a.requests.filter(r=>r.url.includes('/search?')).length,1);
  }finally{a.w.close();}
 });
+test('applying an optional archive key preserves PDF selection; webpage cache is only restored on explicit webpage action',async()=>{
+ const a=setup(async u=>u.includes('/search?')?json({resultList:{result:[{pmcid:'PMC123',doi:'10.1234/test',isOpenAccess:'Y'}]}}):u.includes('/fullTextXML')?new Response(readableXML):u.includes('api.openalex.org')?json(work):new Response(pdf));try{
+  a.w.LitdbFulltext.open({...work,doi:'10.1234/test'});await until(()=>a.d.querySelector('#ftStructured article'));a.d.getElementById('ftPDF').click();await until(()=>!a.d.getElementById('ftRetry').disabled);
+  assert.equal(a.d.getElementById('ftConfig').hidden,true);assert.equal(a.d.getElementById('ftPDF').getAttribute('aria-pressed'),'true');assert.equal(a.d.getElementById('ftStructured').hidden,true);
+  a.d.getElementById('ftSettings').click();submitKey(a,'test-key');await until(()=>a.stats.renders.length);
+  assert.equal(a.requests.filter(r=>r.url.includes('/search?')).length,1);assert.ok(a.requests.find(r=>r.url.includes('content.openalex.org')));assert.equal(a.d.getElementById('ftPDF').classList.contains('primary'),true);
+  const count=a.requests.length;a.d.getElementById('ftRetry').click();assert.equal(a.d.getElementById('ftStructured').hidden,false);assert.equal(a.requests.length,count);assert.equal(a.d.getElementById('ftPDF').getAttribute('aria-pressed'),'false');
+ }finally{a.w.close();}
+});
+test('blocked public PDF exposes a direct link and does not force or repeatedly open key entry',async()=>{
+ const a=setup(async u=>u.includes('api.openalex.org')?json({...work,best_oa_location:{pdf_url:'https://repository.invalid/paper.pdf'}}):Promise.reject(new TypeError('CORS blocked')));try{
+  a.w.LitdbFulltext.open(work);await until(()=>!a.d.getElementById('ftRetry').disabled);a.d.getElementById('ftPDF').click();await until(()=>!a.d.getElementById('ftRetry').disabled);
+  assert.equal(a.d.getElementById('ftConfig').hidden,true);assert.equal(a.d.getElementById('ftExternalPDF').href,'https://repository.invalid/paper.pdf');assert.equal(a.d.getElementById('ftExternalPDF').hidden,false);assert.equal(a.d.getElementById('ftExternalPDF').target,'_blank');assert.match(a.d.getElementById('ftStatus').textContent,/新窗口/);
+ }finally{a.w.close();}
+});
 test('no-content and network failure remain explicit; HTML and oversized responses never reach PDF.js',async()=>{
  for(const variant of ['none','html','large','network']){
   const a=setup(async u=>{if(variant==='network')throw new TypeError('Network error');if(u.includes('api.openalex.org'))return json({...work,has_content:{pdf:false},best_oa_location:variant==='none'?null:{pdf_url:'https://repository.invalid/paper.pdf'}});return new Response(variant==='html'?'<html>Sign in</html>':pdf,{headers:variant==='large'?{'content-length':String(81*1024*1024)}:{}});});
@@ -68,11 +83,11 @@ test('no-content and network failure remain explicit; HTML and oversized respons
   finally{a.w.close();}
  }
 });
-test('publisher fallback never receives an OpenAlex key, and rate-limit errors do not trigger repeated downloads',async()=>{
+test('public PDF is preferred without forwarding a key or spending an OpenAlex archive download',async()=>{
  const a=setup(async u=>u.includes('api.openalex.org')?json({...work,best_oa_location:{pdf_url:'https://repository.invalid/paper.pdf'}}):u.includes('content.openalex.org')?json({},429):new Response(pdf));
  try{
   a.w.localStorage.setItem('litdb-openalex-content-key','test-key');a.w.LitdbFulltext.open(work);await until(()=>a.stats.renders.length);
-  const publisher=a.requests.find(r=>r.url.startsWith('https://repository.invalid'));assert.equal(publisher.url,'https://repository.invalid/paper.pdf');assert.equal(a.requests.filter(r=>r.url.includes('content.openalex.org')).length,1);
+  const publisher=a.requests.find(r=>r.url.startsWith('https://repository.invalid'));assert.equal(publisher.url,'https://repository.invalid/paper.pdf');assert.equal(a.requests.filter(r=>r.url.includes('content.openalex.org')).length,0);
   a.d.getElementById('ftForget').click();assert.equal(a.w.localStorage.getItem('litdb-openalex-content-key'),null);
  }finally{a.w.close();}
 });
