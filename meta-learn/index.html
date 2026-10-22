@@ -1,1 +1,2197 @@
-<!-- placeholder: will be replaced by the real upload -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meta 分析从零开始 · 体育科学复现实战平台</title>
+<style>
+:root{
+  --pri:#0f766e; --pri-d:#0b5a55; --pri-l:#f0fdfa;
+  --acc:#b45309; --acc-l:#fffbeb;
+  --bg:#faf9f7; --card:#ffffff; --ink:#1c1917; --mut:#78716c;
+  --line:#e7e5e4; --ok:#15803d; --ok-l:#f0fdf4; --bad:#b91c1c; --bad-l:#fef2f2;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  line-height:1.75;font-size:16px}
+a{color:var(--pri)}
+.topnav{position:sticky;top:0;z-index:50;background:var(--pri);color:#fff;
+  box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.topnav .inner{max-width:1020px;margin:0 auto;padding:0 16px;display:flex;align-items:center;gap:4px;overflow-x:auto}
+.topnav .brand{font-weight:700;font-size:17px;padding:12px 10px;white-space:nowrap;margin-right:8px}
+.topnav a.nav{color:#e7f5f3;text-decoration:none;padding:12px 12px;white-space:nowrap;font-size:15px;border-bottom:3px solid transparent}
+.topnav a.nav:hover{background:rgba(255,255,255,.08)}
+.topnav a.nav.on{border-bottom-color:#fbbf24;color:#fff;font-weight:600}
+.wrap{max-width:960px;margin:0 auto;padding:24px 16px 80px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:22px;margin:18px 0;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.hero{background:linear-gradient(135deg,#0f766e 0%,#115e59 60%,#134e4a 100%);color:#fff;
+  border-radius:16px;padding:40px 32px;margin:8px 0 20px}
+.hero h1{margin:0 0 10px;font-size:30px;line-height:1.4}
+.hero p{margin:6px 0;color:#d7efec;font-size:16px}
+.hero .cta{margin-top:18px;display:flex;gap:12px;flex-wrap:wrap}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:720px){.grid3{grid-template-columns:1fr}}
+.entry{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;
+  text-decoration:none;color:var(--ink);display:block;transition:transform .12s, box-shadow .12s}
+.entry:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.08)}
+.entry .em{font-size:30px}
+.entry h3{margin:8px 0 6px;font-size:18px;color:var(--pri-d)}
+.entry p{margin:0;color:var(--mut);font-size:14px}
+h2.sec{font-size:22px;margin:30px 0 6px;color:var(--pri-d)}
+.chrow{display:flex;align-items:center;gap:14px;padding:14px 6px;border-bottom:1px solid var(--line);text-decoration:none;color:var(--ink)}
+.chrow:hover{background:#fff}
+.chrow .n{flex:0 0 64px;font-weight:700;color:var(--pri)}
+.chrow .t{flex:1}
+.chrow .t b{display:block;font-size:16px}
+.chrow .t span{color:var(--mut);font-size:13px}
+.badge{font-size:12px;padding:2px 10px;border-radius:20px;background:#f5f5f4;color:var(--mut);white-space:nowrap}
+.badge.done{background:var(--ok-l);color:var(--ok)}
+.formula{background:var(--pri-l);border-left:4px solid var(--pri);
+  padding:12px 16px;margin:14px 0;font-size:17px;overflow-x:auto;border-radius:0 8px 8px 0}
+.worked{background:var(--acc-l);border:1px solid #fcd34d;border-radius:10px;padding:14px 18px;margin:14px 0}
+.worked b.wt{color:var(--acc)}
+.tip{background:var(--ok-l);border-left:4px solid var(--ok);padding:10px 16px;margin:14px 0;border-radius:0 8px 8px 0}
+.warn{background:var(--bad-l);border-left:4px solid var(--bad);padding:10px 16px;margin:14px 0;border-radius:0 8px 8px 0}
+table.tbl{border-collapse:collapse;width:100%;margin:14px 0;font-size:15px}
+table.tbl th,table.tbl td{border:1px solid var(--line);padding:8px 10px;text-align:left}
+table.tbl th{background:#f5f5f4;font-weight:600}
+table.res td.num,table.tbl td.num{text-align:right;font-variant-numeric:tabular-nums}
+.btn{display:inline-block;background:var(--pri);color:#fff;border:0;border-radius:8px;
+  padding:10px 20px;font-size:15px;cursor:pointer;text-decoration:none}
+.btn:hover{background:var(--pri-d)}
+.btn.ghost{background:#fff;color:var(--pri);border:1px solid var(--pri)}
+.btn.warn2{background:#fff;color:var(--bad);border:1px solid var(--bad)}
+.btnrow{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+input[type=text],input[type=number],textarea,select{font:inherit;padding:9px 12px;border:1px solid #d6d3d1;
+  border-radius:8px;width:100%;background:#fff}
+textarea{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px}
+.fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:12px 0}
+@media(max-width:720px){.fgrid{grid-template-columns:1fr 1fr}}
+.fgrid label{font-size:14px;color:var(--mut);display:block}
+.fgrid label input,.fgrid label select{margin-top:4px}
+.tabs{display:flex;gap:8px;margin:6px 0 0;flex-wrap:wrap}
+.tabs button{border:1px solid var(--line);background:#fff;border-radius:20px;padding:8px 18px;
+  font-size:15px;cursor:pointer}
+.tabs button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+.quiz{border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:14px 0;background:#fff}
+.quiz .qq{font-weight:600;margin-bottom:10px}
+.quiz .opt{display:block;width:100%;text-align:left;margin:6px 0;padding:10px 14px;border:1px solid var(--line);
+  border-radius:8px;background:#fff;cursor:pointer;font-size:15px}
+.quiz .opt:hover:not(:disabled){border-color:var(--pri)}
+.quiz .opt.correct{background:var(--ok-l);border-color:var(--ok);color:var(--ok);font-weight:600}
+.quiz .opt.wrong{background:var(--bad-l);border-color:var(--bad);color:var(--bad)}
+.quiz .opt:disabled{cursor:default;opacity:.95}
+.quiz .exp{margin-top:10px;font-size:14px;color:var(--mut);background:#fafaf9;border-radius:8px;padding:10px 14px;display:none}
+.quiz .exp.show{display:block}
+.score{font-weight:700;color:var(--pri-d)}
+svg.plot{width:100%;height:auto;background:#fff;border:1px solid var(--line);border-radius:10px}
+svg text{font-family:inherit}
+.gterm{border-bottom:1px solid var(--line);padding:12px 4px}
+.gterm b{color:var(--pri-d)}
+.gterm .en{color:var(--mut);font-size:13px;margin-left:8px}
+.step{border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:14px 0;background:#fff}
+.step h4{margin:0 0 8px;color:var(--pri-d)}
+.check{background:#f5f5f4;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:14px}
+.check b{color:var(--acc)}
+.pager{display:flex;justify-content:space-between;margin:26px 0}
+.footer{color:var(--mut);font-size:13px;text-align:center;padding:30px 16px;border-top:1px solid var(--line);margin-top:40px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:10px 0;font-size:15px}
+.kv dt{color:var(--mut)} .kv dd{margin:0;font-variant-numeric:tabular-nums}
+.note{font-size:13px;color:var(--mut)}
+pre.code{background:#1c1917;color:#e7e5e4;border-radius:10px;padding:14px 16px;overflow-x:auto;font-size:13.5px}
+
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* 核心：命名空间与通用工具（构建时第一个拼入） */
+var ML = ML || {};
+ML.chapters = [];
+ML.labs = [];
+ML.glossary = [];
+
+ML.esc = function (s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+};
+ML.fmt = function (x, d) {
+  if (x === null || x === undefined || isNaN(x) || !isFinite(x)) return "—";
+  d = (d === undefined) ? 2 : d;
+  return Number(x).toFixed(d);
+};
+ML.$ = function (sel, root) { return (root || document).querySelector(sel); };
+ML.$$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
+
+
+/* ---- ch01.js ---- */
+/* 第一章：Meta 分析是什么 */
+
+ML.chapters.push({
+  id: "ch01",
+  num: "第一章",
+  title: "Meta 分析是什么",
+  minutes: 20,
+  goals: [
+    "能一句话说出 Meta 分析的定义",
+    "能说出它与传统叙述性综述的本质区别",
+    "能用 PICO 把一个体育科学问题拆成四个部分",
+    "能说出哪两种情况下不该做 Meta 分析"
+  ],
+  sections: [
+    {
+      h: "一句话定义：把多个研究合成一个结论",
+      body: `
+        <p>Meta 分析（meta-analysis）的定义可以压缩成一句话：<b>用统计方法，把多个独立研究的结果定量地合并起来，得到一个更可靠的综合结论。</b></p>
+        <p>关键词是"定量合并"。传统综述（narrative review，叙述性综述）是作者把文献通读一遍，用文字描述"有的研究说有效、有的说没效"；而 Meta 分析是把每个研究的结果变成数字，按明确的规则加权平均，最后算出一个"总体效应"和它的可信区间。</p>
+        <table class="tbl">
+          <tr><th></th><th>叙述性综述</th><th>Meta 分析</th></tr>
+          <tr><td>合成方式</td><td>文字描述</td><td>统计合并</td></tr>
+          <tr><td>结论长什么样</td><td>"结果不太一致，大致有效"</td><td>"总体效应 0.65，95% 可信区间 [0.42, 0.88]"</td></tr>
+          <tr><td>主观性</td><td>较高，取决于作者怎么讲</td><td>较低，每一步都有事先定好的规则</td></tr>
+        </table>
+        <p>举个体育的例子：关于"冷水浸泡能不能缓解运动后肌肉酸痛"，你搜到 15 个试验，有的说有效、有的说没用。叙述性综述会写"结果不一致"；Meta 分析会把 15 个研究的数据合并，告诉你总体上能降低酸痛约 0.6 个标准差——以及这个结论的把握有多大。</p>
+        <p>再澄清一对常混淆的概念：系统评价（systematic review）和 Meta 分析。系统评价是"系统地找、系统地筛、系统地评价"的全套方法，Meta 分析只是其中最后一步的统计合并。一项研究可以只做系统评价而不做 Meta 分析（本章后面会说哪两种情况），但任何 Meta 分析都应该建立在系统评价的基础上。</p>
+        <div class="tip">💡 记住这个感觉：Meta 分析 = 用数学给文献"投票"，但不是一人一票，而是按每个研究的样本量和精确度"加权投票"。</div>
+      `
+    },
+    {
+      h: "为什么需要它：单个研究不够用",
+      body: `
+        <p>先看单个研究的两大致命伤。</p>
+        <p>第一，<b>样本太小</b>。很多运动科学试验只有十几二十人参加——比如每组 10 人的力量训练试验。这么小的样本，偶然性很大：这批人测出来"有效"，换一批人可能就"没效"了。小样本研究还特别容易只发表阳性结果，这个坑叫发表偏倚（publication bias），第八章专讲。</p>
+        <p>第二，<b>结论互相打架</b>。A 研究说咖啡因提高耐力表现，B 研究说没区别，C 研究说只对新手有效。你该信谁？"数人头"（3 个说有效、2 个说没效）是最粗糙的办法——它完全忽略了每个研究的样本量和精确度。Meta 分析的做法是：样本量大、估计精确的研究，在合并时占更大的权重。</p>
+        <p>所以 Meta 分析回答的是这样一类问题："把全世界关于这个问题的合格研究放在一起看，总体答案是什么？这个答案的可信度有多高？"</p>
+        <p>体会一下"数人头"有多不靠谱：假设 3 个关于咖啡因的研究，A（每组 12 人）说有效，B（每组 15 人）说没效，C（每组 200 人）说有效。数人头是 2 比 1，"好像有效"；但 C 一项研究的人数就超过 A、B 之和，它的估计精确得多。Meta 分析会让 C 占大头——这才是尊重证据的做法。</p>
+        <div class="warn">⚠️ 易错点：Meta 分析不能"无中生有"。如果纳入的原始研究质量都很差，合并出来的也只是"精确的错误"——这叫"垃圾进、垃圾出"（garbage in, garbage out）。</div>
+      `
+    },
+    {
+      h: "PICO：把研究问题拆成四个零件",
+      body: `
+        <p>做 Meta 分析的第一步，是把你的问题拆成四个明确的部分，这就是 PICO：</p>
+        <table class="tbl">
+          <tr><th>字母</th><th>含义</th><th>问的是</th></tr>
+          <tr><td>P</td><td>参与者（participants / population）</td><td>研究对象是谁？</td></tr>
+          <tr><td>I</td><td>干预（intervention）</td><td>用了什么手段？</td></tr>
+          <tr><td>C</td><td>对照（comparison）</td><td>跟什么比？</td></tr>
+          <tr><td>O</td><td>结局（outcome）</td><td>看什么指标？</td></tr>
+        </table>
+        <p>拿"冷水浸泡对运动后肌肉酸痛恢复的影响"来拆：P = 运动后出现肌肉酸痛的运动员或锻炼者；I = 冷水浸泡（还要说清水温、泡多久，比如 10–15℃、10–15 分钟）；C = 被动休息或常温水浸泡；O = 肌肉酸痛评分（比如视觉模拟评分 VAS，0–10 分）。</p>
+        <p>PICO 拆得越清楚，后面三件事就越顺利：检索时知道搜什么词，筛选时知道什么研究该纳入，合并时知道哪些研究"长得像、可以放在一起算"。PICO 含糊，是新手做 Meta 分析翻车的头号原因。</p>
+        <div class="tip">💡 练一练：试着把"咖啡因对短跑成绩的影响"拆成 PICO。答案不唯一，但四个部分都必须能说出来。</div>
+      `
+    },
+    {
+      h: "四步走完一次 Meta 分析：以及什么时候不该做",
+      body: `
+        <p>一次完整的 Meta 分析（连同前面的系统评价）大致走四步：<b>检索（search）→ 筛选（screening）→ 纳入（inclusion）→ 合并（pooling）</b>。先系统地把相关研究找全，再按事先定好的标准一轮轮筛掉不合格的，剩下合格的提取数据，最后统计合并。这套流程的报告规范叫 PRISMA，第十章会带你逐条过一遍。</p>
+        <p>展开说一句每步在干什么：检索是在多个数据库里用地毯式检索词把可能相关的文献找全，宁可多找不可漏找；筛选是先看标题摘要快速排除明显不相关的，再看全文精筛；纳入是对每篇通过筛选的研究提取数据、评价质量；合并才是本课程后半段的统计主场。记住顺序：前三步是"找证据、挑证据"，最后一步才是"算证据"。</p>
+        <p>同样重要的是：<b>什么时候不该做 Meta 分析。</b>两种情况请收手：</p>
+        <p>第一，<b>合格的研究太少</b>。比如最后只纳入 2–3 个研究，合并出来的数字极不稳定，一个研究的进出就能翻转结论。这时不如老老实实做系统评价（systematic review）：系统地找、系统地评、用文字总结，不硬算数字。</p>
+        <p>第二，<b>研究之间差异大到无法解释</b>。比如有的研究对象是青少年短跑运动员，有的是老年健身者；有的干预每天做，有的每周做一次。把"苹果和橘子"硬平均，得到的数字没有意义。正确做法是先检查这种差异——它叫异质性（heterogeneity），第五章专讲；能分组解释就分组，不能解释就只做系统评价。</p>
+        <p>记住这个原则：<b>系统评价是地基，Meta 分析是盖在上面的楼——地基不稳，宁可不盖楼。</b></p>
+        <div class="tip">💡 预告：从下一章起，你会反复见到一张图——森林图（forest plot）。一根横线代表一个研究，最后的菱形就是合并结果。学会看它，你就拿到了 Meta 分析的"阅读器"。</div>
+      `
+    }
+  ],
+  workbench: null,
+  workbenchNote: "",
+  quiz: [
+    {
+      q: "Meta 分析与传统叙述性综述的本质区别是什么？",
+      options: [
+        "Meta 分析纳入的文献数量更多",
+        "Meta 分析用统计方法把各研究结果定量合并，叙述性综述只用文字描述",
+        "Meta 分析的图表更好看",
+        "Meta 分析的结论一定更可信"
+      ],
+      answer: 1,
+      explain: "本质区别在于合成方式：定量统计合并 vs 定性文字描述。文献多少、图表好不好看都是表面差异；至于可信度，如果纳入的原始研究质量差，Meta 分析也会'垃圾进、垃圾出'，所以 D 错。"
+    },
+    {
+      q: "PICO 中的 C 指的是什么？",
+      options: [
+        "结论（conclusion）",
+        "对照（comparison）",
+        "可信区间（confidence interval）",
+        "相关系数（correlation）"
+      ],
+      answer: 1,
+      explain: "C = comparison，即'跟什么比'，比如冷水浸泡 vs 被动休息。A 的 conclusion 不是 PICO 的组成部分；C 和 D 是统计术语，和 PICO 无关。"
+    },
+    {
+      q: "以下哪种情况不该做 Meta 分析？",
+      options: [
+        "纳入了 20 个高质量且问题相似的研究",
+        "各研究在对象、干预、结局上差异巨大，且无法用分组解释",
+        "所有研究都报告了均值和标准差",
+        "研究问题可以用 PICO 清楚拆解"
+      ],
+      answer: 1,
+      explain: "研究间差异大到无法解释时，硬合并就是'把苹果和橘子平均'，数字没有意义，应该只做系统评价。A、C、D 恰恰是适合做 Meta 分析的条件。"
+    },
+    {
+      q: "为什么 Meta 分析合并时要给不同研究不同的权重，而不是'一人一票'？",
+      options: [
+        "为了让图表看起来更复杂",
+        "因为各研究的样本量和估计精确度不同，精确的研究应占更大权重",
+        "因为阳性结果的研究更值得信任",
+        "权重只是个形式，对结果没影响"
+      ],
+      answer: 1,
+      explain: "小样本研究的估计偶然性大，大样本、精确度高的研究更可靠，所以合并时按精确度加权。'数人头'式的一人一票完全忽略了这种差别，是最粗糙的做法。"
+    },
+    {
+      q: "'垃圾进、垃圾出'（garbage in, garbage out）想说明什么？",
+      options: [
+        "数据提取时要把垃圾文献扔掉",
+        "如果纳入的原始研究质量都很差，合并结果也不可靠",
+        "Meta 分析不适合环境科学以外的领域",
+        "统计软件会自动剔除质量差的研究"
+      ],
+      answer: 1,
+      explain: "Meta 分析不能无中生有：输入的是低质量研究，输出的就是'精确的错误'。所以检索和质量评价（第九、十章）跟统计合并同等重要。统计软件不会替你判断研究质量，D 错。"
+    }
+  ]
+});
+
+
+/* ---- ch02.js ---- */
+/* 第二章：效应量：到底在算什么 */
+
+ML.chapters.push({
+  id: "ch02",
+  num: "第二章",
+  title: "效应量：到底在算什么",
+  minutes: 30,
+  goals: [
+    "能用直觉解释效应量（effect size）是什么",
+    "能区分 MD 和 SMD 的使用场景",
+    "会手算 Cohen's d 和 Hedges's g",
+    "能说出 OR 与 RR 的区别，并知道相关系数 r 也能做 Meta 分析"
+  ],
+  sections: [
+    {
+      h: "效应量：把'有没有用'变成一个数",
+      body: `
+        <p>效应量（effect size）是 Meta 分析里最重要的概念，但它的直觉很简单：<b>它把"干预有没有用、用处多大"变成一个数字。</b></p>
+        <p>为什么需要它？只看 p 值会吃亏。p 值只回答"有没有统计学差异"，不回答"差异有多大"。想象两个力量训练研究：A 研究 p &lt; 0.05，深蹲 1RM 平均提高了 15 公斤；B 研究 p &lt; 0.05，深蹲 1RM 平均提高了 0.5 公斤。p 值都"显著"，但实际意义天差地别。效应量补上的正是这一块：差异的大小。</p>
+        <p>效应量还有第二个关键作用：<b>让不同研究站到同一把尺子上</b>。A 研究用"公斤"报告力量增长，B 研究用"牛顿"，直接把公斤和牛顿平均没有意义——效应量把它们换算成统一的尺度，后面才能合并。</p>
+        <p>再补一个新手常问的："显著"不就够了吗？不够。p &lt; 0.05 只说明"差值不太可能完全是运气"，但运气之外的差值可以很小很小——比如大样本研究里，深蹲提高 0.3 公斤也能"显著"。教练和运动员关心的是"值不值得练"，这必须看效应量。统计显著性回答"是不是"，效应量回答"值不值"，两个都要看。</p>
+        <div class="tip">💡 一句话记忆：p 值回答"是不是真的"，效应量回答"有多大用"。做 Meta 分析，我们合并的是效应量，不是 p 值。</div>
+      `
+    },
+    {
+      h: "MD 与 SMD：看量纲统不统一",
+      body: `
+        <p>连续型结局（比如纵跳高度、酸痛评分）最常用的两个效应量：</p>
+        <p><b>MD，均值差（mean difference）</b>：就是两组均值相减，MD = M<sub>1</sub> − M<sub>2</sub>。要求所有研究用<b>同一个量纲</b>测量。比如纳入的研究都用"纵跳高度（厘米）"报告，那 MD = 3.2 厘米，一眼能看懂。</p>
+        <p><b>SMD，标准化均值差（standardized mean difference）</b>：各研究量纲不统一时用。做法是把均值差除以合并标准差，变成"差了几个标准差"：SMD = (M<sub>1</sub> − M<sub>2</sub>) / SD<sub>pooled</sub>。比如 A 研究用 VAS 0–10 分测酸痛，B 研究用 0–100 分测，量纲不同，只能用 SMD 合并。SMD 没有单位，0.6 就表示"差 0.6 个标准差"。</p>
+        <p>为什么除以标准差就能"标准化"？直觉是：标准差代表了这群人的"自然波动"。两组差 5 分，如果大家的分数本来就上下浮动 20 分，这 5 分不算什么；如果大家只浮动 2 分，这 5 分就是巨大的差异。除以 SD，就是把"差值"放到"自然波动"的背景下去衡量——这正是 SMD 能跨量纲比较的原因。</p>
+        <div class="tip">💡 选择口诀：量纲统一用 MD（好解读），量纲不统一用 SMD（才能合并）。能用 MD 就别用 SMD，因为"3.2 厘米"比"0.6 个标准差"直观得多。</div>
+      `
+    },
+    {
+      h: "Cohen's d 与 Hedges's g：小样本要校正",
+      body: `
+        <p>SMD 最常用的两个版本是 Cohen's d 和 Hedges's g，它们只差一步校正。</p>
+        <div class="formula"><i>d</i> = (M<sub>1</sub> − M<sub>2</sub>) / SD<sub>pooled</sub>，其中 SD<sub>pooled</sub> = √[((<i>n</i><sub>1</sub>−1)SD<sub>1</sub><sup>2</sup> + (<i>n</i><sub>2</sub>−1)SD<sub>2</sub><sup>2</sup>) / (<i>n</i><sub>1</sub> + <i>n</i><sub>2</sub> − 2)]</div>
+        <p>Cohen's d 在小样本时会系统性地<b>高估</b>真实效应，所以 Hedges 加了一个校正因子 J：</p>
+        <div class="formula"><i>g</i> = <i>J</i> × <i>d</i>，其中 <i>J</i> = 1 − 3 / (4<i>df</i> − 1)，<i>df</i> = <i>n</i><sub>1</sub> + <i>n</i><sub>2</sub> − 2</div>
+        <p>样本越大，J 越接近 1，g 和 d 就越接近。运动科学试验经常每组只有十几二十人，所以<b>做 Meta 分析时默认用 Hedges's g</b>，这是个好习惯。</p>
+        <p>效应量多大算"大"？Cohen 给过一个经验法则：0.2 左右算小效应，0.5 左右中等，0.8 以上算大。但这只是拐杖——在运动表现领域，0.2 个标准差可能就是金牌和银牌的差距，一定要结合专业背景解读。</p>
+        <div class="worked"><b>手算一步：求 Hedges's g</b>
+          <p>实验组 <i>n</i><sub>1</sub> = 20，M<sub>1</sub> = 12.5，SD<sub>1</sub> = 3.0；对照组 <i>n</i><sub>2</sub> = 20，M<sub>2</sub> = 9.8，SD<sub>2</sub> = 2.8。</p>
+          <p>第 1 步，合并标准差：SD<sub>pooled</sub> = √[((19 × 9) + (19 × 7.84)) / 38] = √(319.96 / 38) = √8.42 = 2.90。</p>
+          <p>第 2 步，Cohen's <i>d</i> = (12.5 − 9.8) / 2.90 = 2.7 / 2.90 = 0.93。</p>
+          <p>第 3 步，校正因子：<i>df</i> = 38，<i>J</i> = 1 − 3 / (4 × 38 − 1) = 1 − 3/151 = 0.980。</p>
+          <p>第 4 步，Hedges's <i>g</i> = 0.980 × 0.93 = 0.91。</p>
+          <p><b>结论：</b>干预组比对照组高约 0.91 个标准差，是个比较大的效应。</p>
+        </div>
+      `
+    },
+    {
+      h: "OR 与 RR：二分类结局的效应量",
+      body: `
+        <p>结局是"发生 / 没发生"这种二分类数据（比如受伤 / 没受伤、达标 / 没达标）时，用比值型的效应量。先摆一个 2×2 表：</p>
+        <table class="tbl">
+          <tr><th></th><th>受伤</th><th>没受伤</th></tr>
+          <tr><td>补剂组</td><td>a</td><td>b</td></tr>
+          <tr><td>对照组</td><td>c</td><td>d</td></tr>
+        </table>
+        <p><b>RR，相对危险度（relative risk / risk ratio）</b>：两组"风险"之比，RR = [a/(a+b)] / [c/(c+d)]。RR = 0.6 就是"补剂组的受伤风险是对照组的 0.6 倍"，直观好懂。</p>
+        <p><b>OR，比值比（odds ratio）</b>：两组"比值（odds）"之比，OR = (a/b) / (c/d) = ad/bc。注意 odds 不是风险：风险是"受伤人数 / 总人数"，比值是"受伤人数 / 没受伤人数"。</p>
+        <p>一句话区别：<b>RR 回答"风险变成几倍"，OR 回答"比值变成几倍"；当结局比较罕见时，两者数值接近，可以互通解读。</b>另外一个小知识：做 Meta 分析时，OR 和 RR 都是在取对数之后合并的（对数尺度下才对称），知道即可。</p>
+        <p>举个具体数：补剂组 100 人里 10 人受伤，对照组 100 人里 20 人受伤。RR = (10/100) / (20/100) = 0.5；OR = (10/90) / (20/80) = 0.44。受伤不算罕见（10%–20%），两者已经有点差别了。</p>
+        <p>新手怎么选？能算 RR 就优先 RR，因为它就是"风险变成几倍"，最好懂。OR 更多出现在病例对照研究里（那种设计算不出风险，只能算比值）。读文献时注意：有些作者会把 OR 写成"风险降低了百分之几十"来解读，当结局不罕见时这是在夸大效果，读的时候要留个心眼。</p>
+      `
+    },
+    {
+      h: "方向性：正负号是谁定的？以及 r 也能做",
+      body: `
+        <p>SMD、MD 的正负号没有天然含义，<b>含义由你定义组别顺序决定</b>。通常我们定义"正值 = 干预组表现更好"。但要小心"越低越好"的指标：肌肉酸痛评分、疲劳指数，分数越低越好。如果算出来 SMD = −0.6，负号在这里恰恰表示"干预组酸痛更轻"，是好事。解读前永远先看清：正值代表哪边好？</p>
+        <p>最后提一句：<b>相关系数 r 也能做 Meta 分析</b>。比如"每周训练量与最大摄氧量的相关"，每个研究报告一个 r。但 r 的分布不对称，不能直接合并，要先做 Fisher z 转换：z = 0.5 × ln[(1+r)/(1−r)]，在 z 尺度上合并完再转回 r。知道有这回事就行，计算器会帮你做。</p>
+        <p>实战建议：读任何一篇 Meta 分析论文，先翻到它的方法部分找一句话——"正的效应量表示……"。作者必须交代方向定义，没交代的就是报告不规范。这也是 PRISMA 检查表里的一项（第十章）。</p>
+        <div class="warn">⚠️ 易错点：看到 SMD = 0.5 就喊"中等效应"之前，先确认两件事——① 正值代表哪组更好；② 这个 0.5 在你的领域里到底意味着什么（0.5 个标准差的酸痛下降，和 0.5 个标准差的百米成绩提升，意义完全不同）。</div>
+      `
+    }
+  ],
+  workbench: "smd",
+  workbenchNote: "去效应量计算器里亲手算一遍：把本章手算例的数字（实验组 n=20、均值 12.5、SD 3.0；对照组 n=20、均值 9.8、SD 2.8）输进去，看看算出的 Hedges's g 是不是 0.91。",
+  quiz: [
+    {
+      q: "效应量（effect size）最核心的作用是什么？",
+      options: [
+        "判断结果有没有统计学显著性",
+        "把'干预效果的大小'变成一个可比较、可合并的数字",
+        "让论文的图表更好看",
+        "替代 p 值做假设检验"
+      ],
+      answer: 1,
+      explain: "p 值回答'是不是真的'，效应量回答'有多大用'，而且它让不同量纲的研究能站到同一把尺子上合并。A 是 p 值的工作；C 无关；D 错，效应量不做假设检验，它和 p 值是互补关系。"
+    },
+    {
+      q: "A 研究用 VAS 0–10 分、B 研究用 0–100 分测量肌肉酸痛，要合并这两项研究应该选哪种效应量？",
+      options: [
+        "MD（均值差），因为最直观",
+        "SMD（标准化均值差），因为两研究量纲不统一",
+        "OR（比值比）",
+        "直接把原始分数平均"
+      ],
+      answer: 1,
+      explain: "量纲不统一时必须用 SMD，把均值差除以标准差变成'几个标准差'。MD 要求所有研究用同一量纲；OR 用于二分类结局；D 把不同量纲的分数直接平均没有意义。"
+    },
+    {
+      q: "Hedges's g 相比 Cohen's d 多了什么？",
+      options: [
+        "多了对发表偏倚的校正",
+        "多了一个小样本校正因子 J，g = J × d",
+        "多了对异质性的估计",
+        "只是换了个名字，算出来完全一样"
+      ],
+      answer: 1,
+      explain: "d 在小样本时会高估真实效应，Hedges's g 乘上校正因子 J = 1 − 3/(4df−1) 来修正。样本越大 J 越接近 1，两者越接近，但小样本下并不一样，所以 D 错。"
+    },
+    {
+      q: "关于 RR（相对危险度）和 OR（比值比），哪句是对的？",
+      options: [
+        "RR 是风险之比，OR 是比值之比；结局罕见时两者数值接近",
+        "RR 和 OR 是同一个东西的不同叫法",
+        "OR 一定比 RR 更准确",
+        "二分类结局只能用 OR，不能用 RR"
+      ],
+      answer: 0,
+      explain: "RR 回答'风险变成几倍'，OR 回答'比值变成几倍'，是两个不同的量；只有当结局比较罕见时两者才接近。B 混淆了概念；C 没有'一定更准确'这回事；D 错，RR 同样常用且更直观。"
+    },
+    {
+      q: "某干预旨在降低肌肉酸痛（分数越低越好），算得 SMD = −0.6，该怎么解读？",
+      options: [
+        "干预有害，让酸痛加重了",
+        "干预有效，干预组酸痛比对照组低约 0.6 个标准差",
+        "负号说明计算出错了",
+        "效应量是中等，但方向无法判断"
+      ],
+      answer: 1,
+      explain: "正负号的含义由组别顺序定义决定。对'越低越好'的指标，负的 SMD 恰恰表示干预组得分更低，即干预有效。A 把负号误读为有害；C 错，负号完全正常；D 错，方向恰恰是可以判断的——先看清'正值代表哪边好'。"
+    }
+  ]
+});
+
+
+/* ---- ch03.js ---- */
+/* 第三章：数据提取与转换 */
+
+ML.chapters.push({
+  id: "ch03",
+  num: "第三章",
+  title: "数据提取与转换",
+  minutes: 30,
+  goals: [
+    "能说出数据提取表包含哪两类信息",
+    "能解释终点值与变化值为什么不能混着合并",
+    "会做 SE→SD、95%CI→SD、p 值→SD 三种转换",
+    "知道中位数/IQR 和图中取数的处理原则"
+  ],
+  sections: [
+    {
+      h: "提取表：先搭好装数据的'货架'",
+      body: `
+        <p>数据提取（data extraction）是把每篇纳入研究的"原材料"抄进一张统一的表里。这张表分两大块：</p>
+        <p><b>第一块：研究特征</b>——这项研究是谁、在哪、怎么做。包括：作者和年份、研究对象（年龄、运动水平、人数）、干预方案（练什么、强度、频率、周期）、对照组干什么。这部分决定了后面"哪些研究长得像、可以放在一起算"。</p>
+        <p><b>第二块：结果数据</b>——算效应量要的数字。对连续型结局，每个组要三个数：<b>均值（mean）、标准差（SD）、例数（n）</b>；对二分类结局，要 2×2 表的四个格子数（上一章那个 a、b、c、d）。</p>
+        <table class="tbl">
+          <tr><th>研究</th><th>对象</th><th>干预</th><th>n1/n2</th><th>干预组 M±SD</th><th>对照组 M±SD</th></tr>
+          <tr><td>示例研究 A</td><td>大学生运动员</td><td>冷水浸泡 12℃×15 分钟</td><td>20/20</td><td>3.2±1.5</td><td>4.8±1.6</td></tr>
+          <tr><td>示例研究 B</td><td>业余跑者</td><td>冷水浸泡 10℃×10 分钟</td><td>15/15</td><td>28±9</td><td>35±10</td></tr>
+        </table>
+        <p>注意示例里 A 用 0–10 分、B 用 0–100 分报告酸痛——量纲不统一，所以后面只能用 SMD 合并（第二章的口诀还记得吧）。</p>
+        <p>好习惯是<b>双人独立提取</b>：两个人各填一遍表，对不上的地方讨论解决。新手常觉得这是形式主义，但抄错一个 SD，后面整张森林图都会歪，值得花这个功夫。</p>
+        <p>提取时还有一条铁律：<b>只抄原文白纸黑字写的东西</b>。论文没报告 SD，你就空着它，下一节的转换公式是"允许的推算"；论文根本没提这个结局，你就记"未报告"。把"没写"脑补成"写了"，是数据提取阶段最危险的错误。</p>
+      `
+    },
+    {
+      h: "终点值 vs 变化值：不要混着合并",
+      body: `
+        <p>连续型结局有两种报告方式：<b>终点值（post 值）</b>——干预结束时测的分数；<b>变化值（change 值）</b>——终点值减去基线值。提取时必须分清，<b>优先全部用同一种，不要混着合并</b>。</p>
+        <p>为什么？变化值里扣掉了基线差异，终点值没有。如果 A 研究在基线时两组酸痛本来就不一样，直接用终点值合并，会把基线的不平衡也算成"干预效果"。两种都报告的研究，优先提取变化值；如果大多数研究只报告终点值，那就统一用终点值，并在方法部分写清楚选择。</p>
+        <p>举个具体的坑：某研究基线时干预组酸痛 7 分、对照组 5 分，干预后两组都是 4 分。用终点值看，两组没差别（4 vs 4）；用变化值看，干预组降了 3 分、对照组只降了 1 分，干预明显有效。同一个研究，选不同口径结论完全相反——这就是为什么必须统一。</p>
+        <p>实在只有变化值、却缺变化值的 SD 怎么办？有个补救公式，需要用到基线–终点相关系数。新手阶段记住原则就行：<b>统一口径，混用是红线</b>。</p>
+        <div class="warn">⚠️ 易错点：看到论文里同时给了 post 值和 change 值就随手抓一个。先定规则（比如"优先 change 值"），所有研究执行同一规则，并在提取表里注明每个数字是 post 还是 change。</div>
+      `
+    },
+    {
+      h: "三种救命转换：SE、95%CI、p 值 → SD",
+      body: `
+        <p>很多论文不直接报告 SD，只给标准误（SE）、95% 可信区间（CI）或 p 值。但算 SMD 必须有 SD，怎么办？三个标准转换公式背下来——它们是每个做 Meta 分析的人的案头工具：</p>
+        <p><b>① SE → SD</b>：SD = SE × √n。标准误就是"均值的标准差"，乘回 √n 就还原了。</p>
+        <div class="worked"><b>手算一步</b>
+          <p>某研究 n = 25，均值差的 SE = 1.2。SD = 1.2 × √25 = 1.2 × 5 = 6.0。</p>
+        </div>
+        <p><b>② 95%CI → SD</b>：对大样本，95%CI 的宽度约等于 3.92 × SE（因为 2 × 1.96 = 3.92），所以 SD = √n × (上限 − 下限) / 3.92。n 比较小时，把 3.92 换成对应自由度的 t 值（查 t 分布表），更精确。</p>
+        <div class="worked"><b>手算一步</b>
+          <p>某研究 n = 36，均值差的 95%CI 为 [2.0, 8.0]。SD = √36 × (8.0 − 2.0) / 3.92 = 6 × 6 / 3.92 = 36 / 3.92 = 9.18。</p>
+        </div>
+        <p><b>③ p 值 → SD</b>：思路分三步——先由 p 值和自由度反推出 t 值（查表或用计算器），再用 SE = |均值差| / t 求出标准误，最后 SD = SE × √n。反推 t 值这步手算很麻烦，知道思路即可，交给转换器。</p>
+        <p>多说一句 3.92 的来历：95%CI 的半宽约等于 1.96 × SE，整个宽度就是 2 × 1.96 × SE = 3.92 × SE。但 1.96 是大样本（正态近似）下的数，n 很小（比如每组不到 10 人）时应该查 t 分布表，用对应的 t 值代替 3.92，否则算出的 SD 会偏小。</p>
+        <div class="worked"><b>手算一步</b>
+          <p>已知 t = 2.10（已由 p 值反推得到）、均值差 = 4.2、n = 30。SE = 4.2 / 2.10 = 2.0；SD = 2.0 × √30 = 2.0 × 5.477 = 10.95。</p>
+        </div>
+        <div class="tip">💡 这三个公式是新手期的"救命三件套"，十有八九会碰到只给 SE / CI / p 值的论文。去数据转换器里把上面的例子亲手算一遍，手感就有了。</div>
+      `
+    },
+    {
+      h: "难啃的骨头：中位数、四分位数和从图中取数",
+      body: `
+        <p>还有两种情况更棘手。</p>
+        <p><b>中位数 / 四分位数（IQR）</b>：有些论文只报告中位数和四分位距。确实存在近似换算公式（比如用 IQR 除以 1.35 估计 SD），但这些公式假设数据近似正态——偏态数据下会失真。原则是：<b>能用则用，但要在论文的方法部分说明这是近似估计；最稳妥的是发邮件找原文作者要数据</b>，回复率比你想象的高。</p>
+        <p><b>数据只画在图里</b>：均值画成柱子、误差线画在图上，表格里没有数字。这时可以用"从图中读取数据"的工具（digitize 工具）把数值量出来。提取表里一定要注明"该数据从图中读取"，因为读数有误差，读者和审稿人有权知道。</p>
+        <p>读图时还要看清误差线画的是什么：SD、SE 还是 95%CI？图注（legend）里一般会写。把 SE 的误差线误当成 SD，会让这个研究在合并里获得虚高的权重——差之毫厘，谬以千里。</p>
+        <p>如果以上都拿不到呢？记为"数据缺失"，不要编、不要猜。一个研究因为缺数据进不了合并，总好过用编造的数据污染整张森林图。</p>
+        <p>另外，建议在提取表里单开一列记"数据来源备注"：直接报告 / SE 换算 / CI 换算 / 图中读取 / 作者提供。这一列在写论文方法部分、以及应对审稿人质疑时，会帮你大忙。</p>
+        <div class="warn">⚠️ 红线：永远不要为了"凑齐数据"而编造或过度近似。拿不准的数据先放进"待定"，去问作者；实在不行，在分析中做敏感性分析看看它影不影响结论（第九章）。</div>
+      `
+    }
+  ],
+  workbench: "convert",
+  workbenchNote: "去数据转换器里亲手验证本章的手算例：SE=1.2、n=25 能不能得到 SD=6.0；95%CI [2.0, 8.0]、n=36 能不能得到 SD≈9.18。",
+  quiz: [
+    {
+      q: "数据提取表的两大块信息是什么？",
+      options: [
+        "论文标题和期刊影响因子",
+        "研究特征（对象、干预、对照）+ 结果数据（均值/SD/例数）",
+        "作者简介和基金来源",
+        "参考文献列表和附录"
+      ],
+      answer: 1,
+      explain: "提取表 = '这项研究怎么做'（研究特征，决定哪些研究能放在一起）+ '算效应量要的数字'（结果数据）。标题、影响因子、作者简介都不是合并计算需要的原材料。"
+    },
+    {
+      q: "为什么终点值（post）和变化值（change）不能混着合并？",
+      options: [
+        "因为两种值的单位不同",
+        "因为变化值扣掉了基线差异而终点值没有，混用会把基线不平衡算成干预效果",
+        "因为变化值一定比终点值大",
+        "没有为什么，只是惯例"
+      ],
+      answer: 1,
+      explain: "核心在于基线差异：change 值 = post − 基线，已经扣掉了起点不同；post 值没有。混用等于把两种不同口径的数字平均。正确做法是事先定规则（优先 change 值），所有研究统一口径。"
+    },
+    {
+      q: "某研究 n = 25，均值差的 SE = 1.2，换算成 SD 是多少？",
+      options: [
+        "1.2",
+        "6.0",
+        "0.24",
+        "30"
+      ],
+      answer: 1,
+      explain: "SD = SE × √n = 1.2 × √25 = 1.2 × 5 = 6.0。A 是忘了乘 √n；C 是错用了除法（1.2/5）；D 把 n 当成了乘数。"
+    },
+    {
+      q: "某研究 n = 36，均值差的 95%CI 为 [2.0, 8.0]，换算成 SD 约为多少？",
+      options: [
+        "6.0",
+        "3.0",
+        "9.18",
+        "15.36"
+      ],
+      answer: 2,
+      explain: "SD = √n × (上限−下限) / 3.92 = 6 × 6 / 3.92 = 36 / 3.92 ≈ 9.18。A 漏了除以 3.92；B 只算了区间半宽，漏了 √n 和 3.92；D 是公式记混后的误算。"
+    },
+    {
+      q: "论文只报告了中位数和四分位距（IQR），最稳妥的做法是什么？",
+      options: [
+        "直接把中位数当均值、IQR 当 SD 用",
+        "用近似公式换算，不用告诉任何人",
+        "先尝试联系原文作者要数据；若用近似公式，必须在方法中说明这是近似估计",
+        "编一个看起来合理的 SD 凑齐数据"
+      ],
+      answer: 2,
+      explain: "近似公式假设数据近似正态，偏态下会失真，所以最稳妥是找作者要原始数据；不得不用近似时必须透明报告。A 把中位数/IQR 直接当均值/SD 用是错的；B 隐瞒近似违反透明原则；D 编造数据是红线，绝对不行。"
+    }
+  ]
+});
+
+
+/* ---- ch04.js ---- */
+ML.chapters.push({
+  id: "ch04",
+  num: "第四章",
+  title: "合并模型：很多研究怎么合成一个数",
+  minutes: 25,
+  goals: [
+    "能解释为什么权重等于 1/方差",
+    "能手算固定效应模型的合并效应与 95%CI",
+    "能说出固定效应与随机效应在假设上的根本区别",
+    "能根据研究特点初步判断该用哪种模型"
+  ],
+  sections: [
+    {
+      h: "话语权：精度越高，权重越大",
+      body: `
+        <p>想象你要综合 3 个关于"咖啡因能否提高 5 公里跑成绩"的研究。研究甲测了 200 名跑者，研究乙只测了 20 名。你的直觉一定是：甲的估计更靠谱，应该更有话语权。Meta 分析把这种直觉变成了数学：每个研究的权重（weight）等于 1 除以它的方差（variance）。</p>
+        <div class="formula"><i>w<sub>i</sub></i> = 1 / <i>v<sub>i</sub></i></div>
+        <p>方差越小，说明这个研究的效应量估计得越精确，权重就越大。这不是"一人一票"，而是"越准的人票越重"。举个具体的数感例子：两个研究都得出 SMD = 0.50，一个只测了 20 人（方差约 0.10），一个测了 200 人（方差约 0.01）。权重分别是 1/0.10 = 10 和 1/0.01 = 100——精确的那个话语权是另一个的 10 倍，合并时前者几乎可以忽略，后者一锤定音。这就是为什么常说"大样本、高精度的研究主导了 Meta 分析的结果"。</p>
+        <p>那为什么不直接拿样本量当权重？因为样本量只讲了一半的故事：两个 n = 50 的研究，一个测的是实验室金标准指标（数据集中、方差小），一个用的是主观问卷（数据离散、方差大），它们的精度并不一样。方差同时考虑了样本量和离散程度，是比样本量更诚实的"精度货币"。</p>
+        <div class="tip">💡 方差 <i>v</i> 从哪来？对 SMD 来说，只要知道每组的人数、均值和标准差就能算出来——第二章的效应量计算器干的就是这件事。</div>
+      `
+    },
+    {
+      h: "手算一步：逆方差法合并三个研究",
+      body: `
+        <p>最经典的合并方法叫逆方差法（inverse-variance method），"逆"就是取倒数的意思。步骤很直白：先给每个研究算权重，再做加权平均；合并值的标准误（standard error, SE）等于 1 除以总权重的平方根。</p>
+        <div class="formula">合并效应 <i>ȳ</i> = Σ(<i>w<sub>i</sub></i> × <i>y<sub>i</sub></i>) / Σ<i>w<sub>i</sub></i>，　SE = √(1 / Σ<i>w<sub>i</sub></i>)</div>
+        <div class="worked"><b>手算一步</b>
+          <p>三个研究的 SMD（<i>y</i>）与方差（<i>v</i>）：研究 A：<i>y</i>=0.80，<i>v</i>=0.09；研究 B：<i>y</i>=0.40，<i>v</i>=0.04；研究 C：<i>y</i>=0.60，<i>v</i>=0.16。</p>
+          <p>第 1 步，算权重（<i>w</i> = 1/<i>v</i>）：A：1/0.09 = 11.11；B：1/0.04 = 25.00；C：1/0.16 = 6.25。权重总和 Σ<i>w</i> = 11.11 + 25.00 + 6.25 = 42.36。</p>
+          <p>第 2 步，算分子：11.11×0.80 + 25.00×0.40 + 6.25×0.60 = 8.89 + 10.00 + 3.75 = 22.64。</p>
+          <p>第 3 步，合并效应 <i>ȳ</i> = 22.64 / 42.36 = 0.534。</p>
+          <p>第 4 步，标准误 SE = √(1/42.36) = √0.0236 = 0.154；95%CI = 0.534 ± 1.96×0.154 = 0.534 ± 0.302 = [0.23, 0.84]。</p>
+          <p>留意研究 B：它的效应量最小（0.40），权重却最大（25.00），因为它最精确——它把合并结果往下拉了一大截。这就是"话语权"的含义。</p>
+        </div>
+        <p>上面算出来的，就是固定效应（fixed effect）模型的合并结果。</p>
+      `
+    },
+    {
+      h: "固定效应 vs 随机效应：差别在假设，不在算法",
+      body: `
+        <p>固定效应模型假设：所有研究都在估计<b>同一个</b>真实效应。比如"咖啡因对 5 公里成绩的真实提升就是 0.5 个标准差"，各研究结果之间的差异纯粹是抽样误差（sampling error）造成的——就像用同一杆秤反复称，多称几次结果有波动，但真值只有一个。</p>
+        <p>随机效应（random effects）模型假设：每个研究有<b>自己的</b>真实效应。研究 A 用的咖啡因剂量是 3 mg/kg，研究 B 是 6 mg/kg，受试者一个是大学生、一个是专业运动员——真实效应本来就不一样。这些"真实效应"本身服从一个分布，这个分布的方差记作 τ²（tau-squared，读作"tau 平方"），它度量的就是研究间的真实差异有多大。</p>
+        <div class="warn">⚠️ 选模型不是选"算法"，而是选"你相信世界是什么样"。固定效应的世界里只有一个真值；随机效应的世界里有一堆真值，再加一个描述它们离散程度的 τ²。</div>
+        <p>举个体育科学的例子：如果纳入的 8 个研究全是"6 mg/kg 咖啡因、大学生受试者、5 公里跑"，方案高度一致，用固定效应是说得通的；但如果剂量从 3 到 9 mg/kg、受试者从新手到国家级运动员都有，硬说它们估计的是"同一个真值"就不诚实了——这时随机效应更合适。</p>
+      `
+    },
+    {
+      h: "随机效应怎么算：DerSimonian-Laird 法",
+      body: `
+        <p>随机效应的计算思路分两步：先估计研究间方差 τ²，再把 τ² 加进每个研究的方差里，重新算权重。最常用的 τ² 估计方法叫 DerSimonian-Laird 法（1986 年提出，多数软件的默认选项）。</p>
+        <div class="formula">τ² = max(0, (<i>Q</i> − <i>df</i>) / <i>C</i>)，其中 <i>C</i> = Σ<i>w</i> − Σ<i>w</i>²/Σ<i>w</i>；随机效应权重 <i>w</i>* = 1 / (<i>v</i> + τ²)</div>
+        <p>公式里的 <i>Q</i> 是异质性统计量（下一章我们会亲手算它），<i>df</i> = 研究数 − 1。关键直觉藏在权重公式里：τ² 越大，分母中各研究原来方差 <i>v</i> 的差异就被"稀释"得越厉害，各研究的权重越拉平。极端情况下，如果 τ² 远大于所有的 <i>v</i>，权重几乎变成 1/<i>k</i>（<i>k</i> 为研究数）——相当于简单平均。反过来，当 τ² = 0 时，随机效应就退化成了固定效应。</p>
+        <div class="tip">💡 所以随机效应可以理解为"承认研究间有真实差异，并为这份不确定性留出位置"的合并方式，代价是合并结果的置信区间通常更宽。</div>
+        <div class="worked"><b>手算一步（感受"拉平"）</b>
+          <p>沿用本章手算例的数据，假设估计出 τ² = 0.05，重新算随机效应权重 <i>w</i>* = 1/(<i>v</i>+τ²)：</p>
+          <p>A：1/(0.09+0.05) = 1/0.14 = 7.14；B：1/(0.04+0.05) = 1/0.09 = 11.11；C：1/(0.16+0.05) = 1/0.21 = 4.76。</p>
+          <p>原来 B 的权重是 C 的 4 倍（25.00 vs 6.25），现在只剩约 2.3 倍（11.11 vs 4.76）——权重被拉平了。如果 τ² 继续大到 0.5，三者权重变成 1.69、1.85、1.52，几乎一样，相当于简单平均。</p>
+        </div>
+      `
+    },
+    {
+      h: "该用哪个模型？",
+      body: `
+        <p>体育科学里的常见做法是默认用随机效应模型，理由很实在：干预方案（剂量、频率、周期）和受试者（运动水平、年龄、性别）差异普遍很大，"各研究的真实效应本来就不一样"往往是更诚实的假设。</p>
+        <p>但"默认随机"不等于"不用思考"。无论选哪个，都要在方法部分写清理由，例如："考虑到纳入研究在干预剂量与受试者特征上存在差异，采用随机效应模型。"审稿人想看到的是你的判断依据，而不是一句"本研究采用随机效应模型"就带过。</p>
+        <div class="warn">⚠️ 固定效应的置信区间通常更窄——但这不代表它更"准"。它窄是因为它假设"研究间不存在真实差异"，直接忽略了一大块不确定性。如果真实存在异质性，这个窄区间是虚假的精确，还不如随机效应那个"诚实但宽"的区间可信。</div>
+        <p>最后记住一个顺序：先看研究间的可比性（人群、干预、结局是否足够相似），再谈模型选择；模型选定后，异质性指标（第五章）会反过来告诉你，当初的假设站不站得住脚。</p>
+      `
+    }
+  ],
+  workbench: "meta",
+  workbenchNote: "把手算例里 3 个研究的数据（效应量 0.80、0.40、0.60，方差 0.09、0.04、0.16）输入合并工作台，对比固定效应与随机效应两种结果——想一想：为什么两者几乎一模一样？（提示：答案在第五章的 I² 里）",
+  quiz: [
+    {
+      q: "三个研究的方差分别是 0.09、0.04、0.16，哪个研究的权重最大？",
+      options: ["研究 A（方差 0.09）", "研究 B（方差 0.04）", "研究 C（方差 0.16）", "三个一样大"],
+      answer: 1,
+      explain: "权重 = 1/方差，方差最小的研究权重最大。研究 B 的权重为 1/0.04 = 25.00，是三者中最大的。"
+    },
+    {
+      q: "固定效应模型的核心假设是什么？",
+      options: ["所有研究估计同一个真实效应，差异只来自抽样误差", "每个研究有自己的真实效应", "研究间方差 τ² 很大", "所有研究的权重都相等"],
+      answer: 0,
+      explain: "固定效应假设只有一个真值，各研究结果的波动纯粹是抽样误差。'每个研究有自己的真值'是随机效应的假设；权重由精度决定，不会都相等。"
+    },
+    {
+      q: "随机效应模型中，如果 τ² 变得很大，各研究的权重会发生什么变化？",
+      options: ["权重差异变得更大", "权重越来越拉平", "权重都变成 0", "权重不受影响"],
+      answer: 1,
+      explain: "随机效应权重 w* = 1/(v + τ²)。τ² 主导分母时，各研究原来方差 v 的差异被稀释，权重趋向拉平，极限情况接近简单平均。"
+    },
+    {
+      q: "关于'固定效应的置信区间通常更窄'，正确的理解是？",
+      options: ["说明固定效应更准确，应该优先用", "窄是因为它假设不存在研究间真实差异，忽略了这部分不确定性", "说明纳入的数据质量更高", "窄的区间一定更接近真值"],
+      answer: 1,
+      explain: "区间窄是假设更强（无研究间差异）带来的，不是更准确的证据。若真实存在异质性，这个窄区间是虚假的精确。"
+    },
+    {
+      q: "体育科学综述常默认采用随机效应模型，主要理由是什么？",
+      options: ["随机效应计算更简单", "干预方案与受试人群差异大，'各研究真值本来就不同'更符合实际", "随机效应的结果一定更显著", "期刊有硬性要求"],
+      answer: 1,
+      explain: "体育科学中剂量、周期、受试者水平等差异普遍存在，随机效应的假设更诚实。但这仍是需要写出理由的判断，不是免思考的默认值。"
+    }
+  ]
+});
+
+
+/* ---- ch05.js ---- */
+ML.chapters.push({
+  id: "ch05",
+  num: "第五章",
+  title: "异质性：研究之间差异有多大",
+  minutes: 25,
+  goals: [
+    "能说出 Q、I²、τ² 各自回答的是什么问题",
+    "能手算 Q 与 I²",
+    "能区分置信区间与预测区间",
+    "看到高异质性时知道先找原因，而不是直接合并了事"
+  ],
+  sections: [
+    {
+      h: "Q 检验：差异是真实存在，还是抽样噪声？",
+      body: `
+        <p>上一章我们把三个研究合成了一个数。但在相信这个"平均数"之前，得先问：这几个研究的结果差异，是真实存在，还是抽样晃一晃就会有的噪声？回答这个问题的第一个工具是 Q 检验（Cochran's Q test）。</p>
+        <div class="formula"><i>Q</i> = Σ<i>w<sub>i</sub></i>(<i>y<sub>i</sub></i> − <i>ȳ</i>)²</div>
+        <p>每个研究偏离合并值的距离取平方，再按权重加总。如果所有研究真的在估计同一个值，Q 应该很小；Q 很大，就说明研究之间存在真实差异。在"没有异质性"的假设下，Q 服从卡方分布（chi-square distribution），自由度 <i>df</i> = <i>k</i> − 1（<i>k</i> 为研究数）。</p>
+        <p>惯例是用 <i>p</i> &lt; 0.10 作为"有异质性信号"的门槛——注意是 0.10 而不是 0.05。因为当纳入的研究很少时，Q 检验的功效（power）很低，标准放宽一点，免得漏掉真实存在的异质性。</p>
+        <p>直觉上可以这样想：如果每个研究的点都精确落在合并值上，每一项 (<i>y</i>−<i>ȳ</i>)² 都是 0，Q = 0；研究越"四散"，Q 越大。Q 的妙处在于它考虑了权重——偏离合并值很远但权重很小的研究，对 Q 的贡献也小，不会一个人带偏全局。</p>
+        <div class="warn">⚠️ 研究很少（比如 5 个以下）时，Q 检验几乎"看不见"异质性。所以 <i>p</i> 不显著不等于没有异质性，只能说"当前数据下没发现信号"。</div>
+        <p>Q 的全称常写作 Cochran's Q。论文里看到"heterogeneity: Chi² = 12.4, df = 5 (P = 0.03); I² = 60%"这样的报告，前半句就是 Q 检验的结果，后半句是 I²——学完本章，你能看懂整句了。</p>
+      `
+    },
+    {
+      h: "手算一步：Q 与 I²",
+      body: `
+        <p>接第四章的三个研究（合并效应 <i>ȳ</i> = 0.534，权重 11.11、25.00、6.25），亲手算一遍 Q，再算出本章的主角 I²。</p>
+        <div class="worked"><b>手算一步</b>
+          <p><i>Q</i> = 11.11×(0.80−0.534)² + 25.00×(0.40−0.534)² + 6.25×(0.60−0.534)²</p>
+          <p>= 11.11×0.0708 + 25.00×0.0180 + 6.25×0.0044</p>
+          <p>= 0.787 + 0.449 + 0.027 = 1.263</p>
+          <p>自由度 <i>df</i> = 3 − 1 = 2。<i>Q</i>(1.263) 比 <i>df</i>(2) 还小，对应的卡方检验 <i>p</i> ≈ 0.53，远大于 0.10——没有异质性信号。</p>
+          <p>I² = max(0, (<i>Q</i>−<i>df</i>)/<i>Q</i>) × 100% = max(0, (1.263−2)/1.263) = 0%。</p>
+          <p>结论：这三个研究的效应量看起来挺一致的，观察到的那点差异基本可以用抽样误差解释。这也回答了第四章工作台里的疑问：I² = 0% 时 τ² = 0，随机效应自然退化成固定效应，两种结果当然一样。</p>
+        </div>
+        <div class="tip">💡 注意 I² 公式里的 max(0, …)：当 Q 比自由度还小时，I² 直接记为 0%，不取负数。</div>
+      `
+    },
+    {
+      h: "I²：异质性占总变异的比例",
+      body: `
+        <p>I² 统计量（I-squared）回答的是："我们观察到的总变异里，有多大比例是研究间的真实差异，而不是抽样误差？"取值范围 0–100%，越大说明真实差异占的份量越重。</p>
+        <p>文献里常见的经验参考线：25% 算低、50% 算中等、75% 算高。但这只是一条经验参考线，不是金标准。举个例子：某篇关于抗阻训练增肌效果的 Meta 分析报告 I² = 70%，意思是这些研究结果之间的总变异里，大约七成来自研究间的真实差异（训练计划、受试者水平不同），只有三成是抽样误差。这个数字本身不评价"效果好不好"，只评价"结果有多不一致"。</p>
+        <p>I² 还有一个隐蔽的特性：它受研究内精度的影响。假设两组"真实差异完全一样"的研究，如果每项研究样本量都很大（研究内方差小），I² 会显得很高；反过来样本量都很小，I² 可能很低。所以 I² 高不等于"差异大得离谱"，I² 低也不等于"没问题"，不同 Meta 分析之间的 I² 数值更不要直接比较。</p>
+        <div class="warn">⚠️ I² 回答的是"差异的结构"，不是"效应的大小"。I² = 80% 只说明研究间很不一致，完全不能推出"干预效果很强"——这是新手最常见的误读之一。</div>
+      `
+    },
+    {
+      h: "τ² 与预测区间：更诚实的区间",
+      body: `
+        <p>τ² 是研究间方差的绝对量度，单位是"效应量的平方"。I² 是相对比例（真实差异占几成），τ² 是绝对大小（真实差异到底有多大）——两者互补，看异质性时最好一起报告。把 τ² 开方就回到了效应量的单位：τ = √τ² 可以理解为"各个研究真实效应"的标准差。比如 τ² = 0.03，则 τ ≈ 0.17，意味着各研究的真实效应典型地散布在平均效应上下 0.17 个标准差的范围内——这比 I² 的百分比更直观。</p>
+        <p>置信区间（confidence interval, CI）回答的是："平均效应"在哪里。而预测区间（prediction interval）回答的是："下一个类似研究"的结果大概落在哪里。后者把 τ² 也算进了不确定性，所以通常更宽——也更诚实。</p>
+        <div class="formula">预测区间 = 合并效应 ± <i>t</i> × √(τ² + SE²)，<i>t</i> 取自由度 <i>k</i>−2 的 <i>t</i> 分布临界值</div>
+        <div class="worked"><b>手算一步（假设数字）</b>
+          <p>某分析合并效应 0.50，SE = 0.10，τ² = 0.03，共纳入 10 个研究（<i>t</i><sub>0.975, 8</sub> = 2.31）：</p>
+          <p>95%CI = 0.50 ± 1.96×0.10 = [0.30, 0.70]——平均效应大概率落在这个范围。</p>
+          <p>95%预测区间 = 0.50 ± 2.31×√(0.03+0.01) = 0.50 ± 2.31×0.20 = [0.04, 0.96]——下一个类似研究的结果可能落在这个范围。</p>
+          <p>CI 很"漂亮"，预测区间却宽得多。它诚实地告诉你：研究间差异这么大，别指望每一个新研究都能复现出 0.5。</p>
+        </div>
+        <div class="tip">💡 预测区间至少需要 3 个研究（自由度 <i>k</i>−2 ≥ 1）才有意义，研究太少时它会宽得失去参考价值。</div>
+      `
+    },
+    {
+      h: "发现异质性，先别急着合并",
+      body: `
+        <p>看到高异质性，第一反应不应该是"换个模型继续算"，而是问"为什么差这么多"。回到体育科学的现实里找原因：受试者不一样？（新手和专业运动员对同一训练计划的反应可能天差地别）干预剂量不一样？（每天 3 mg/kg 和 6 mg/kg 的咖啡因）结局指标不一样？（1RM 最大力量和肌肉耐力）测量时点不一样？（运动后即刻和 24 小时后）</p>
+        <p>动手之前，先做一张"差异清单"表：把每项研究的人群特征、干预细节（强度、频率、周期）、结局指标、测量时点列成表，并排比较。很多时候异质性的来源在这张表里一目了然——比如效应量大的全是"每周练 5 次"的研究，效应量小的全是"每周练 2 次"的。这张表做完，亚组分析的分组依据也就有了。</p>
+        <p>把这些可能的原因列出来——第七章的亚组分析（subgroup analysis）与 Meta 回归（meta-regression），就是系统地回答"差异从哪来"的工具。异质性不是敌人，它是线索。</p>
+        <div class="warn">⚠️ I² = 80% 时硬做一个总合并，得到的"平均效应"可能谁也代表不了——就像把短跑和马拉松的成绩平均一下，数字有了，意义没了。</div>
+      `
+    }
+  ],
+  workbench: "meta",
+  workbenchNote: "用工作台跑一遍手算例的 3 个研究，再试着把某个研究的效应量改大或改小，观察 I² 如何跟着变化——亲手感受一下'研究间越不一致，I² 越高'。",
+  quiz: [
+    {
+      q: "Q 统计量在'无异质性'假设下服从卡方分布，它的自由度是？",
+      options: ["k（研究数）", "k − 1", "k − 2", "恒为 1"],
+      answer: 1,
+      explain: "自由度 df = k − 1。k−2 是预测区间 t 分布的自由度，别混淆。"
+    },
+    {
+      q: "Q 检验常用 p < 0.10 而不是 0.05 作为判断标准，主要原因是？",
+      options: ["只是习惯，没有理由", "纳入研究少时 Q 检验功效低，放宽标准可以减少漏检", "0.10 比 0.05 更严格", "卡方分布的数学要求"],
+      answer: 1,
+      explain: "Q 检验在小样本下很不敏感，用 0.10 是为了别轻易放过真实存在的异质性信号。0.10 是更宽松而非更严格的标准。"
+    },
+    {
+      q: "手算例中 Q = 1.263、df = 2，算得 I² = 0%，最准确的解读是？",
+      options: ["三个研究的结果完全没有差异", "观察到的差异基本可用抽样误差解释，当前数据下暂无异质性信号", "这证明了固定效应模型是正确的模型", "合并效应量为 0"],
+      answer: 1,
+      explain: "I² = 0% 不等于'绝对无差异'，只是差异没有超出抽样误差能解释的范围。它也不证明模型选择正确，更不表示效应量为 0（本例合并效应是 0.534）。"
+    },
+    {
+      q: "关于预测区间，下列说法正确的是？",
+      options: ["它比置信区间更窄，更精确", "它回答'下一个类似研究的结果大概落在哪'，通常比置信区间更宽", "它不需要考虑 τ²", "研究越多它越没有用"],
+      answer: 1,
+      explain: "预测区间 = 合并效应 ± t×√(τ²+SE²)，把研究间差异 τ² 也算进不确定性，所以更宽。它正是为'下一个研究会怎样'这个问题准备的。"
+    },
+    {
+      q: "某 Meta 分析报告 I² = 75%，此时最合适的做法是？",
+      options: ["直接报告合并结果，模型会自动处理异质性", "先从受试人群、干预方案、结局指标等方面找异质性来源，再考虑亚组分析或 Meta 回归", "把 I² 贡献大的研究删掉再算", "改用固定效应模型让置信区间变窄"],
+      answer: 1,
+      explain: "高异质性首先要找原因（临床/方法学上的差异），再用亚组或回归去解释。删研究、换模型来'美化'数字，都是不可接受的做法。"
+    }
+  ]
+});
+
+
+/* ---- ch06.js ---- */
+ML.chapters.push({
+  id: "ch06",
+  num: "第六章",
+  title: "森林图：Meta 分析的脸",
+  minutes: 20,
+  goals: [
+    "能逐元素读懂一张森林图",
+    "能用菱形与无效线判断合并效应是否显著",
+    "能说出方块大小与权重的含义",
+    "能识别四个关于森林图的常见误读"
+  ],
+  sections: [
+    {
+      h: "一行一个研究：点、横线、方块",
+      body: `
+        <p>森林图（forest plot）是 Meta 分析的"脸"：几乎每篇论文的结果部分都靠它说话。它得名于外形——一行行横线像一片森林。下面这张图用的就是第四章手算例的数据，假设三个研究都是"咖啡因 vs 安慰剂对 5 公里跑成绩的影响"，SMD 大于 0 表示咖啡因组表现更好。</p>
+        <svg viewBox="0 0 470 210" style="width:100%;height:auto;display:block" role="img" aria-label="森林图示例">
+          <line x1="197.5" y1="15" x2="197.5" y2="150" stroke="#999" stroke-width="1" stroke-dasharray="4,3"/>
+          <text x="8" y="39" font-size="13">研究 A</text>
+          <line x1="226.1" y1="35" x2="384.9" y2="35" stroke="#333" stroke-width="2"/>
+          <line x1="226.1" y1="31" x2="226.1" y2="39" stroke="#333" stroke-width="2"/>
+          <line x1="384.9" y1="31" x2="384.9" y2="39" stroke="#333" stroke-width="2"/>
+          <rect x="300.5" y="30" width="10" height="10" fill="#1976d2"/>
+          <text x="408" y="39" font-size="12" fill="#555">26.2%</text>
+          <text x="8" y="69" font-size="13">研究 B</text>
+          <line x1="198.6" y1="65" x2="304.4" y2="65" stroke="#333" stroke-width="2"/>
+          <line x1="198.6" y1="61" x2="198.6" y2="69" stroke="#333" stroke-width="2"/>
+          <line x1="304.4" y1="61" x2="304.4" y2="69" stroke="#333" stroke-width="2"/>
+          <rect x="244" y="57.5" width="15" height="15" fill="#1976d2"/>
+          <text x="408" y="69" font-size="12" fill="#555">59.0%</text>
+          <text x="8" y="99" font-size="13">研究 C</text>
+          <line x1="172.7" y1="95" x2="384.3" y2="95" stroke="#333" stroke-width="2"/>
+          <line x1="172.7" y1="91" x2="172.7" y2="99" stroke="#333" stroke-width="2"/>
+          <line x1="384.3" y1="91" x2="384.3" y2="99" stroke="#333" stroke-width="2"/>
+          <rect x="274.75" y="91.25" width="7.5" height="7.5" fill="#1976d2"/>
+          <text x="408" y="99" font-size="12" fill="#555">14.8%</text>
+          <line x1="8" y1="115" x2="455" y2="115" stroke="#ccc" stroke-width="1"/>
+          <text x="8" y="144" font-size="13" font-weight="bold">合计</text>
+          <polygon points="228.8,140 269.6,132 310.4,140 269.6,148" fill="#1976d2"/>
+          <text x="408" y="144" font-size="12" fill="#555">100%</text>
+          <line x1="130" y1="162" x2="400" y2="162" stroke="#666" stroke-width="1"/>
+          <text x="130" y="178" font-size="11" text-anchor="middle" fill="#555">−0.5</text>
+          <text x="197.5" y="178" font-size="11" text-anchor="middle" fill="#555">0</text>
+          <text x="265" y="178" font-size="11" text-anchor="middle" fill="#555">0.5</text>
+          <text x="332.5" y="178" font-size="11" text-anchor="middle" fill="#555">1.0</text>
+          <text x="400" y="178" font-size="11" text-anchor="middle" fill="#555">1.5</text>
+          <text x="130" y="196" font-size="11" fill="#777">← 偏向对照组</text>
+          <text x="400" y="196" font-size="11" text-anchor="end" fill="#777">偏向干预组 →</text>
+        </svg>
+        <p>读图三要素：<b>圆点</b>（方块中心）是该研究的效应量点估计；<b>横线</b>是该研究的 95%CI，线越长说明这个研究越不精确；<b>方块大小</b>代表权重（weight），权重越大方块越大。</p>
+        <p>看研究 C：它的横线跨过了 0——单独看这个研究，"效应不显著"。再看研究 B：它的 CI 下限是 0.01，几乎贴着 0，但它的方块最大——它最精确，对合并结果的影响也最大。</p>
+        <table class="tbl">
+          <tr><th>图形元素</th><th>含义</th></tr>
+          <tr><td>圆点（方块中心）</td><td>该研究的效应量点估计</td></tr>
+          <tr><td>横线</td><td>该研究的 95%CI；线越长越不精确</td></tr>
+          <tr><td>方块大小</td><td>权重；越大话语权越大</td></tr>
+          <tr><td>垂直虚线</td><td>无效线：SMD/MD 为 0，OR/RR 为 1</td></tr>
+          <tr><td>底部菱形</td><td>合并效应及其 95%CI</td></tr>
+        </table>
+        <p>最左侧通常是研究标签（第一作者 + 年份），有些图还会附上每组的人数。把标签、图形、权重三列横着读，一行就是一项研究的完整画像：谁做的、效应多大、多精确、话语权多重。</p>
+      `
+    },
+    {
+      h: "无效线与菱形：显著性与精度",
+      body: `
+        <p>图中那条垂直的虚线叫无效线（line of no effect）。对 SMD、MD 来说，无效线在 0 处：效应量为 0 意味着两组没差别（注意：对 OR、RR 来说无效线在 1 处）。</p>
+        <p>最底部的<b>菱形</b>（diamond）是合并效应：菱形中心是合并点估计（本例 0.534），左右两个顶点是合并的 95%CI（本例 [0.23, 0.84]）。判读规则只有一条：<b>菱形完全落在无效线的一侧（不接触无效线），合并效应就显著</b>；菱形压在无效线上，就是不显著。本例的菱形完全在 0 的右侧——总体上咖啡因组表现更好，且结果显著。</p>
+        <p>菱形的"胖瘦"还告诉你精度：越窄，合并估计越精确。对比一下：研究 C 的横线从 −0.18 一直拉到 1.38，而底部菱形只有 0.23 到 0.84——这就是合并的意义：借用彼此的样本量，把不确定性压缩下来。</p>
+        <p>补充一点：如果效应量是 OR（比值比）或 RR（相对危险度），无效线在 1 处（OR = 1 表示两组胜算相等），而且横轴通常用对数刻度——这样 0.5 和 2.0 在视觉上离 1 等距，不会被压缩变形。读这类图时先确认横轴是不是对数刻度。</p>
+        <p>再看一个细节：菱形左右顶点的连线长度就是合并 95%CI 的宽度。如果两个 Meta 分析的菱形中心差不多，窄的那个对"平均效应在哪"更有把握——但别忘了误读 3 的提醒：精确不等于无偏。</p>
+      `
+    },
+    {
+      h: "权重栏：谁在左右结果",
+      body: `
+        <p>图右侧常有一列权重百分比。本例中研究 B 独占 59.0%——超过一半的话语权。它的效应量（0.40）是三者中最小的，所以合并值 0.534 被它往下拉，离 0.80 和 0.60 那一侧比较远。</p>
+        <div class="tip">💡 读森林图时先扫一眼权重栏：如果一两个研究占了七成以上，合并结果基本就是它们的"翻版"。这时结论的稳健性要打个问号——"去掉这个研究结果还成立吗"，正是第九章敏感性分析（sensitivity analysis）要回答的问题。</div>
+        <p>权重栏还有一个用法：快速预判敏感性分析的结果。如果某项研究权重超过 50%，做"逐一剔除"时去掉它，合并结果很可能大变——第九章我们会亲手做一遍留一法（leave-one-out），到时候你就明白权重栏其实是"预警雷达"。</p>
+      `
+    },
+    {
+      h: "先看方向，再看亚组森林图",
+      body: `
+        <p>下结论之前，先看清横轴两端的标注："偏向干预组 / 偏向对照组"（Favours intervention / Favours control）。对 SMD 还要结合结局指标的方向一起看：比如结局是"5 公里用时"，用时越短越好，如果效应量算的是"干预组减对照组的用时差"，那么负值才代表干预有效。方向看反，结论全反——这是真实论文里都出现过的错误。</p>
+        <p>进阶一点的图是<b>亚组森林图</b>：按某个特征（比如受试者水平：新手 / 运动员）把研究分成几块，每一块下面有一个小计菱形，最底部再有一个总菱形。一眼就能看出：效应在哪个亚组更大？亚组之间的差异大不大？这正是第七章亚组分析的可视化呈现。</p>
+        <p>亚组森林图里还常配一个"亚组间差异检验"的 <i>p</i> 值：它回答"这几个亚组的效应真的不一样吗"。但要注意，亚组分析本质上是观察性的——分组是事后切出来的，<i>p</i> 值显著不等于因果成立；切的亚组多了，还会有多重检验带来的假阳性。这些坑留到第七章细讲。</p>
+      `
+    },
+    {
+      h: "四个常见误读",
+      body: `
+        <p><b>误读 1："研究 C 的 CI 跨过 0，所以研究 C 证明干预无效。"</b>单个研究的 CI 只反映它自己的精度；C 的权重只有 14.8%，它"不显著"主要是自己样本小、横线太长。看合并，看权重，别给单个研究加戏，更不要因为单个研究不显著就质疑整个合并结果。</p>
+        <p><b>误读 2："I² = 80%，说明干预效果很强。"</b>I² 是异质性占总变异的比例，不是效应量的大小。效应有多大，看菱形的位置；研究间有多不一致，看 I²。两码事。</p>
+        <p><b>误读 3："菱形很窄，所以结论很可靠。"</b>窄只代表"平均效应的估计很精确"。如果纳入的研究本身都有偏倚（第十章），再窄的菱形也只是"精确地错"。</p>
+        <p><b>误读 4："点都在 0 右边，所以每个研究都显著。"</b>点的位置只是点估计；单个研究显不显著，要看它的横线跨没跨过无效线。点在右边、线跨过 0 的研究，单独看并不显著——比如本例的研究 C。</p>
+      `
+    }
+  ],
+  workbench: null,
+  quiz: [
+    {
+      q: "森林图中，方块的大小代表什么？",
+      options: ["样本量", "该研究的权重", "效应量的大小", "发表年份"],
+      answer: 1,
+      explain: "方块大小与权重成正比：权重越大方块越大。注意权重不完全等于样本量，数据的离散程度也会影响它。"
+    },
+    {
+      q: "合并菱形完全落在无效线（0）的右侧，说明什么？",
+      options: ["每个纳入的研究都显著", "合并效应显著，且方向为干预组占优", "异质性 I² = 0%", "效应量一定很大"],
+      answer: 1,
+      explain: "菱形不接触无效线即合并效应显著；落在右侧说明方向偏向干预组。但这不代表每个研究单独都显著，也不说明 I² 或效应量的绝对大小。"
+    },
+    {
+      q: "研究 C 的 95%CI 为 [−0.18, 1.38]，跨过了 0，正确的理解是？",
+      options: ["该研究证明了干预无效", "仅凭它自己的数据尚不能拒绝'无效应'，但它权重很小，应结合合并结果一起看", "应该把它从分析中剔除", "它的效应量是负的"],
+      answer: 1,
+      explain: "CI 跨过 0 只是'这个研究自己证据不足'，不是'证明无效'。它的权重仅 14.8%，结论要看合并菱形。剔除研究需要有方法学理由，不能因为不显著就删。"
+    },
+    {
+      q: "对着森林图下结论之前，必须先确认的是什么？",
+      options: ["森林图的配色好不好看", "横轴两端'偏向哪一组'的标注，避免把方向看反", "第一作者的单位", "发表在哪个期刊"],
+      answer: 1,
+      explain: "必须先确认哪一侧代表干预组占优，还要结合结局指标的方向（如用时越短越好）一起判断。方向看反，结论就全反。"
+    },
+    {
+      q: "\"某 Meta 分析 I² = 80%，所以干预效果非常强。\"这句话错在哪里？",
+      options: ["I² 是异质性比例，与效应量大小是两回事；效应多大要看菱形的位置", "这句话其实是对的", "I² 不可能超过 50%", "应该看 p 值而不是 I²"],
+      answer: 0,
+      explain: "I² 回答'研究间有多不一致'，效应量回答'平均效果有多大'。I² = 80% 只说明研究间差异大，完全推不出效果强还是弱。"
+    }
+  ]
+});
+
+
+/* ---- ch07.js ---- */
+ML.chapters.push({
+  id: "ch07",
+  num: "第七章",
+  title: "亚组分析与 Meta 回归：异质性从哪来",
+  minutes: 25,
+  goals: [
+    "能说出亚组分析'分组—分别合并—检验组间差异'的三步逻辑",
+    "能解释组间 Q 的 p 值到底在回答什么问题",
+    "能说出 Meta 回归中'斜率显著'的含义",
+    "能复述三个警告：生态学谬误、研究数量、事后亚组的探索性"
+  ],
+  sections: [
+    {
+      h: "异质性是线索，不是'误差'",
+      body: `
+        <p>上一章我们算出了 I² 和 τ²，看到了"研究和研究之间不一样"。很多新手到这一步会慌：差异这么大，Meta 分析是不是白做了？恰恰相反——<b>异质性（heterogeneity）是数据在跟你说话</b>。它在问：为什么有的研究效果大，有的效果小？</p>
+        <p>举个体育科学的例子：同样是"抗阻训练提升肌力"，有的研究效应量 0.9，有的只有 0.2。差别可能藏在这些地方：受试者是运动员还是普通人？干预持续了 4 周还是 16 周？结局指标是 1RM 还是等速肌力测试？把"可能的原因"一个个找出来，异质性就从"麻烦"变成了"发现"。亚组分析（subgroup analysis）和 Meta 回归（meta-regression）就是干这个的两把钥匙。</p>
+        <div class="tip">💡 记住一句话：异质性不是 Meta 分析失败的标志，而是深入分析的起点。I² 很大的时候，先别急着下结论，先问"为什么不一样"。</div>
+      `
+    },
+    {
+      h: "亚组分析：先分组，再比较",
+      body: `
+        <p>亚组分析的做法分三步，非常直观：</p>
+        <p>第一步，<b>分组</b>：按某个研究特征把纳入的研究分成若干组。常见的分组因素有：训练水平（运动员 vs 普通人）、干预时长（&gt;8 周 vs ≤8 周）、结局指标类型（1RM vs 肌肉横截面积）、干预方式（高强度间歇 vs 持续有氧）。</p>
+        <p>第二步，<b>分别合并</b>：在每一组内部单独做一次合并，得到每组的合并效应量。比如运动员组合并出来 SMD = 0.80，普通人组只有 0.20。</p>
+        <p>第三步，<b>检验组间差异</b>：比较各组的合并效应量，差异是不是大到"不像是偶然"。思想是这样的：总异质性 Q 可以拆成"组内 Q"加上"组间 Q"（Q<sub>between</sub>）。组间 Q 衡量的是<b>各组均值之间的离散程度</b>——如果各组均值差得很大，组间 Q 就大，对应的 p 值就小。一般 p &lt; 0.05 就认为：这个分组因素显著解释了一部分异质性。</p>
+        <p>关键的一条规范：<b>分组因素要在分析之前就定好</b>，写进研究方案（protocol）里。这叫预先设定（pre-specified）。等看到数据之后再"灵机一动"去分组、试出显著的才报告，叫事后亚组分析（post hoc subgroup analysis），只能算探索性发现，投稿时必须诚实说明。</p>
+      `
+    },
+    {
+      h: "手算一步：两组的均值差",
+      body: `
+        <div class="worked"><b>手算一步：两组的均值差 0.60</b>
+          <p>假设 A 组有 3 个研究，SMD 分别是 0.8、0.7、0.9；B 组有 3 个研究，SMD 分别是 0.2、0.3、0.1。</p>
+          <p>A 组均值 = (0.8 + 0.7 + 0.9) / 3 = 2.4 / 3 = 0.80</p>
+          <p>B 组均值 = (0.2 + 0.3 + 0.1) / 3 = 0.6 / 3 = 0.20</p>
+          <p>两组差 = 0.80 − 0.20 = 0.60</p>
+          <p>如果组间差异检验的 p &lt; 0.05，我们就可以说：这个分组因素（比如"干预时长"）可能解释了部分异质性——A 组这类研究的干预效果明显大于 B 组。</p>
+          <p>注意：真实检验走的是加权 Q（每个研究按精度加权，不是简单平均），这里只体会"分组—比较"的逻辑。</p>
+        </div>
+      `
+    },
+    {
+      h: "Meta 回归：连续变量的玩法",
+      body: `
+        <p>亚组分析适合<b>分类变量</b>（运动员 / 普通人、长干预 / 短干预）。但如果影响因素是<b>连续变量</b>——比如"每周训练次数""干预总周数""受试者平均年龄"——硬切成两组会损失信息。这时就用 Meta 回归。</p>
+        <p>Meta 回归的思想：把每个研究的效应量 <i>y</i> 当因变量，把协变量 <i>x</i>（比如每周训练次数）当自变量，拟合一条<b>加权回归线</b>：</p>
+        <div class="formula"><i>y</i> = 截距 + 斜率 × <i>x</i>（每个研究按精度加权）</div>
+        <p>如果斜率显著不为 0（p &lt; 0.05），说明 <i>x</i> 越大，效应量系统性地越大（或越小）——<i>x</i> 就是异质性的一个来源。例如拟合出 <i>y</i> = 0.1 + 0.15 × 每周训练次数：斜率为正且显著，意味着每周多练一次，效应量平均增加 0.15。</p>
+        <p>记住这个对应关系：<b>连续变量用回归，分类变量用亚组</b>——思想相通，都是在问"什么因素让效果不一样"。</p>
+        <div class="warn">⚠️ 三个警告，新手最容易踩的坑：
+          <p>① <b>生态学谬误（ecological fallacy）</b>：Meta 回归用的是"研究层面"的数据（比如每个研究的平均年龄），不能推出"个体层面"的结论。用各研究平均年龄回归出"年龄越大效果越好"，不等于"某个年龄大的人效果一定更好"——研究内部的个体差异已经被平均掉了。</p>
+          <p>② <b>研究数量不够就别贪多</b>：经验法则是每个协变量大约需要 10 个研究。10 个研究就想同时检验 4、5 个因素，结果基本不可靠——变量太多会过拟合（overfitting），回归线只是在"记住"个别研究，而不是发现规律。</p>
+          <p>③ <b>事后分析要诚实</b>：看到数据、试了十几种分组才找到显著的那个，只能算探索性发现。规范做法是在 protocol 里预先写好计划检验的因素，写论文时如实说明哪些是预先设定的、哪些是事后探索的。</p>
+        </div>
+      `
+    }
+  ],
+  workbench: "meta",
+  workbenchNote: "设想把工作台里的研究按“干预时长>8周 vs ≤8周”分组，体会亚组分析的逻辑",
+  quiz: [
+    {
+      q: "亚组分析中，分组因素应该在什么时候确定？",
+      options: ["看到数据、试出显著结果之后再定", "在研究方案（protocol）中预先设定", "先算出合并效应量之后再定", "随便定，分组只是形式"],
+      answer: 1,
+      explain: "预先设定是规范做法，能避免'试出显著才报告'的选择性报告。看到数据后再分组属于事后亚组分析，只能算探索性发现，投稿时必须诚实说明，所以 A 错；C、D 违背了规范流程。"
+    },
+    {
+      q: "组间 Q 检验得到 p = 0.03，通常的解读是？",
+      options: ["各组的合并效应量完全相同", "该分组因素可能解释了部分异质性", "研究之间的异质性完全消失了", "组内已经不存在异质性"],
+      answer: 1,
+      explain: "组间 Q 衡量各组均值之间的离散程度，p < 0.05 说明组间差异不太像偶然，该分组因素可能解释了部分异质性。A 与 p 值含义相反；C、D 夸大了结论——组间差异显著不等于组内异质性消失。"
+    },
+    {
+      q: "一项纳入 12 个研究的 Meta 分析，想用 Meta 回归同时检验 4 个协变量，最主要的风险是？",
+      options: ["计算速度太慢", "变量太多导致过拟合，结果不可靠", "森林图画不出来", "Egger 检验一定不显著"],
+      answer: 1,
+      explain: "经验法则是每个协变量约需 10 个研究。12 个研究检验 4 个协变量，回归线会去'记住'个别研究而非发现规律，即过拟合。A 不是实质问题；C、D 与协变量数量无关。"
+    },
+    {
+      q: "用各研究的'平均年龄'做 Meta 回归，发现平均年龄越大效应量越大，能否直接得出'年龄大的个体效果更好'？",
+      options: ["可以，回归显著就说明因果", "不可以，这是生态学谬误", "可以，只要同时 p < 0.05 且 I² < 50%", "不一定，要看漏斗图"],
+      answer: 1,
+      explain: "这是典型的生态学谬误：Meta 回归用的是研究层面的平均年龄，推不出个体层面的结论，研究内部的个体差异已被平均掉。A 错在把相关当因果、把研究层面当个体层面；C、D 答非所问。"
+    },
+    {
+      q: "'干预总周数'是连续变量，想考察它是否影响效应量，更合适的方法是？",
+      options: ["硬切成两组做亚组分析", "Meta 回归", "画漏斗图", "留一法敏感性分析"],
+      answer: 1,
+      explain: "连续变量用 Meta 回归，能保留全部信息并估计剂量反应关系；硬切两组会损失信息。C 用于发表偏倚，D 用于检验结果稳健性，都不对题。"
+    }
+  ]
+});
+
+
+/* ---- ch08.js ---- */
+ML.chapters.push({
+  id: "ch08",
+  num: "第八章",
+  title: "发表偏倚：没发表的研究去哪了",
+  minutes: 25,
+  goals: [
+    "能解释发表偏倚为什么会导致合并效应被高估",
+    "能读出漏斗图的基本形态：对称 vs 效应偏小一侧缺角",
+    "能说出 Egger 检验中截距和 p 值的含义",
+    "能说出'不对称≠偏倚'和'预防胜于检验'"
+  ],
+  sections: [
+    {
+      h: "没发表的研究去哪了",
+      body: `
+        <p>想象一个场景：20 个团队做了同一个课题，其中 10 个得到了阳性结果（p &lt; 0.05，干预"有效"），10 个得到了阴性结果（没差异、不显著）。阳性结果好发表——期刊喜欢，作者也愿意写；阴性结果呢？很多就躺在抽屉里、烂在硬盘里，再也没人提起。这就是<b>发表偏倚（publication bias）</b>：发表与否和研究结果的方向挂钩了。</p>
+        <p>后果很直接：我们能检索到的文献，是一个<b>被筛选过的样本</b>——阳性偏多。把它们拿来合并，合并效应量会被<b>高估</b>。你只看到了"有效"的那一半，得出的"平均效果"自然比真相大。</p>
+        <p>所以 Meta 分析不是"把搜到的文献平均一下"就完事，还要多问一句：<b>没发表的研究去哪了？如果它们存在，会把结论拉向哪一边？</b>后面两节的漏斗图和 Egger 检验，就是回答这个问题的工具。</p>
+      `
+    },
+    {
+      h: "漏斗图：对称的漏斗",
+      body: `
+        <p><b>漏斗图（funnel plot）</b>是最直观的检查工具。横轴是效应量（比如 SMD），纵轴是精度（precision）——常用标准误（standard error, SE），注意纵轴是反着画的：SE 越小（精度越高）的研究越靠上；也有的图直接用 1/SE，越大越靠上。</p>
+        <p>如果没有发表偏倚，图应该长什么样？大研究（精度高）挤在顶部，紧贴真实效应量附近；小研究（精度低）散在底部，但<b>左右对称</b>——像一个倒置的漏斗。小研究的效应量波动大是正常的，但波动应该是随机的，左右两边都有。</p>
+        <p>怎么读出可疑信号？看<b>漏斗底部两侧对称吗</b>：如果"效应偏小 / 阴性结果"的那一侧缺了一角——小研究里接近无效线的位置空空如也，而另一侧还有对应的小研究，就提示：小研究的阴性结果可能没发表，发表偏倚可疑。（缺的是左下角还是右下角，取决于效应量的方向；关键看的是"效应偏小的那一侧"。）</p>
+        <div class="tip">💡 肉眼判断很主观！两个人看同一张漏斗图，可能得出完全不同的结论。漏斗图是"提示"，不是"判决"——所以才需要下一节的统计检验。</div>
+      `
+    },
+    {
+      h: "Egger 检验：给不对称做'体检'",
+      body: `
+        <p><b>Egger 检验（Egger's test）</b>把"肉眼看"变成"算一算"。它的思想是：把<b>标准化效应量</b>（效应量 ÷ 标准误）对<b>精度</b>（1/SE）做回归，看<b>截距（intercept）是否显著偏离 0</b>。</p>
+        <p>为什么截距能说明问题？如果漏斗对称，小研究的效应量左右随机散，标准化之后跟精度没什么关系，回归线的截距应该在 0 附近。如果小研究的阴性结果系统性缺失，回归线就会被"拽偏"，截距显著偏离 0——这就是不对称的统计证据。</p>
+        <p>解读时注意两点：第一，p &lt; 0.10 常被用作"有不对称信号"的线（注意不是 0.05——这个检验功效偏低，标准放宽一点）；第二，<b>研究数量少（&lt;10 个）时检验功效很低</b>，p &gt; 0.10 不代表"没有偏倚"，可能只是"看不出来"。</p>
+      `
+    },
+    {
+      h: "修剪填充、局限与预防",
+      body: `
+        <p>如果漏斗不对称，能"补救"吗？<b>修剪填充法（trim-and-fill）</b>提供了一种思路：先估计"大概缺了几个研究"（把不对称的那一侧修剪掉，看缺口有多大），再在缺口处"补上"镜像的研究（填充），用补全后的数据集重新合并一次。请注意它的定位：这是<b>敏感性分析</b>，看的是"补上之后结论变不变"——如果结论没变，说明原来的结论比较稳健。它不是"修正出真相"，补出来的研究是假设的，不是真实数据。</p>
+        <div class="warn">⚠️ 局限：漏斗图不对称 ≠ 一定有发表偏倚。不对称也可能是<b>真正的异质性</b>——比如小研究用了更强的干预、选了反应更好的受试者，小研究的效应本来就大；也可能纯属偶然。所以千万不要把 Egger p &gt; 0.10 当作"证明没有偏倚"——<b>没检出不等于不存在</b>，尤其研究很少的时候。</div>
+        <p>多提一句：<b>等高线增强漏斗图（contour-enhanced funnel plot）</b>在普通漏斗图上叠加了显著性等高线（p &lt; 0.05、p &lt; 0.01 的区域），帮你区分"缺的是不显著的研究"（偏倚可疑）还是"缺口横跨各个显著性水平"（更像异质性）。</p>
+        <p>最后记住：<b>预防胜于检验</b>。再好的统计方法也补不回没找到的研究。最好的办法是在检索阶段就防患于未然——多数据库检索、查<b>灰色文献（grey literature）</b>（学位论文、会议摘要）、查试验注册库，把"抽屉里的研究"尽量挖出来。这正是第一章 PRISMA 检索策略讲的内容，前后呼应上了。</p>
+      `
+    }
+  ],
+  workbench: "meta",
+  workbenchNote: "在工作台跑 Egger 检验，观察 p 值的含义",
+  quiz: [
+    {
+      q: "发表偏倚最可能导致什么后果？",
+      options: ["合并效应量被高估", "合并效应量被低估", "研究间的异质性完全消失", "纳入的研究数量变多"],
+      answer: 0,
+      explain: "阳性结果更容易发表，阴性结果躺在抽屉里——能检索到的样本阳性偏多，合并出来自然偏大，即高估。B 方向反了；C、D 与发表偏倚的机制无关。"
+    },
+    {
+      q: "没有发表偏倚时，漏斗图应该呈现什么形态？",
+      options: ["左右对称的倒漏斗形", "明显左偏", "明显右偏", "一条水平直线"],
+      answer: 0,
+      explain: "大研究挤在顶部、小研究对称散在底部，是无偏倚时的期望形态。小研究波动大但应左右随机。B、C 是不对称的表现；D 不符合精度与效应量的关系。"
+    },
+    {
+      q: "漏斗图'效应偏小'的一侧（小研究的阴性结果该出现的位置）缺了一角，最合理的初步解读是？",
+      options: ["小研究的阴性结果可能没发表，偏倚可疑", "大研究的数据一定有问题", "效应量肯定算错了", "这证明不存在发表偏倚"],
+      answer: 0,
+      explain: "效应偏小一侧的缺失正是'小研究的阴性结果没发表'的典型形态，提示偏倚可疑——但只是提示，不是证明。B、C 过度解读；D 完全说反了。"
+    },
+    {
+      q: "某 Meta 分析纳入 7 个研究，Egger 检验 p = 0.20，正确的理解是？",
+      options: ["这证明了不存在发表偏倚", "不能排除偏倚：研究太少，检验功效不足", "必须接着做 trim-and-fill", "漏斗图一定是对称的"],
+      answer: 1,
+      explain: "研究少（<10）时 Egger 检验功效很低，p > 0.10 可能只是'看不出来'，不能当作'证明没有偏倚'。A 犯了'没检出=不存在'的错误；C 不是必须；D 把检验结果和图形混为一谈。"
+    },
+    {
+      q: "关于修剪填充法（trim-and-fill），哪种说法正确？",
+      options: ["它能找回真实未发表的研究", "它是一种敏感性分析，看补上假设研究后结论是否稳健", "补上研究后结论一定会改变", "有了它就不需要全面检索了"],
+      answer: 1,
+      explain: "trim-and-fill 补的是假设的镜像研究，不是真实数据；它的价值在于看结论变不变，即稳健性。A 夸大了它的能力；C 不一定；D 本末倒置——预防（全面检索）永远优先于事后检验。"
+    }
+  ]
+});
+
+
+/* ---- ch09.js ---- */
+/* 第九章：敏感性分析——结论有多稳 */
+
+ML.chapters.push({
+  id: "ch09",
+  num: "第九章",
+  title: "敏感性分析：结论有多稳",
+  minutes: 20,
+  goals: [
+    "能说出敏感性分析要回答的核心问题",
+    "能用留一法判断某个研究是否'一己之力'影响了结论",
+    "能列出至少三种常用的敏感性分析做法，并知道要预先计划、如实报告"
+  ],
+  sections: [
+    {
+      h: "换个做法，结论还站得住吗？",
+      body: `
+        <p>想象你刚做完一个 Meta 分析：12 篇关于咖啡因提升耐力表现的研究，合并效应 SMD = 0.40，p &lt; 0.01，结论是"咖啡因有效"。先别急着写讨论——问自己一个问题：如果换个做法，结论还站得住吗？</p>
+        <p>这就是敏感性分析（sensitivity analysis）的全部直觉：<b>故意换几种做法重新算一遍，看结论变不变</b>。换了做法结论依然显著、方向一致，说明结论稳健（robust）；换个做法结论就塌了（比如从显著变不显著），说明结论很"脆"，写讨论时必须打折、如实交代。</p>
+        <p>打个体育的比方：这就像教练做"换人测试"——把主力前锋换下场，球队还能赢吗？能赢，说明体系过硬；一换人就崩盘，说明赢球全靠一个人。敏感性分析就是给你的结论做"换人测试"。</p>
+        <p>什么时候必须做敏感性分析？三类情况：一是纳入研究质量参差不齐，有的连随机方法都没交代；二是有个别研究效应量大得离谱或样本极小；三是分析过程中做了不少"主观决定"（比如从论文图表里估数据、用均值替代中位数）。主观决定越多，越需要用敏感性分析证明"我的决定没把结论带偏"。</p>
+        <p>再强调一遍它的位置：敏感性分析回答的不是"效应有多大"（那是合并分析的事），也不是"为什么有差异"（那是亚组分析的事），而是"这个结论结实吗"。它是 Meta 分析的"质检环节"，质检报告必须公开。</p>
+        <div class="tip">💡 新手记住一句话：Meta 分析的结论不是"算出来一个数"，而是"这个数经不经得起折腾"。敏感性分析就是那场"折腾"。</div>
+      `
+    },
+    {
+      h: "留一法：揪出'一己之力'的研究",
+      body: `
+        <p>最常用的敏感性分析叫留一法（leave-one-out analysis）。做法很机械：每次剔除一个研究，用剩下的研究重新合并；k 个研究，就重复 k 次。</p>
+        <p>看什么？看有没有某个研究被拿掉之后：合并效应大幅变化、显著性翻转（显著变不显著，或反过来）、异质性 I² 骤降。如果有，这个研究就是"关键先生"——结论的很大一部分重量压在它一个人身上。</p>
+        <p>注意：<b>发现"关键先生"不等于把它删掉</b>。正确做法是在讨论里点名交代："剔除某研究后合并效应从 0.40 降至 0.28 且不再显著，提示本结论对该研究的依赖较大，解读需谨慎。"删数据让结论变好看，叫操纵，不叫分析。</p>
+        <div class="worked"><b>手算一步：体会留一法的逻辑</b>
+          <p>假设 4 个研究的 SMD 分别是 0.9、0.5、0.6、0.5。四个数的简单平均 = (0.9 + 0.5 + 0.6 + 0.5) / 4 = 2.5 / 4 = 0.625。</p>
+          <p>现在去掉最大的那个 0.9，剩下三个数的平均 = (0.5 + 0.6 + 0.5) / 3 = 1.6 / 3 ≈ 0.533。</p>
+          <p>变化了 0.625 − 0.533 = 0.092，相对于 0.625 下降了约 15%。一个研究就让"平均数"掉了 15%——这就是影响较大的研究，要在讨论里提一句。</p>
+          <p>（注：真实合并用的是逆方差加权平均，不是简单平均；这里只为体会"去掉一个、看变化"的逻辑。）</p>
+        </div>
+        <p>体育例子：某篇关于冷水浸泡恢复的 Meta 分析纳入 10 个研究，其中一篇效应量 SMD = 1.2，远超其他研究的 0.2–0.5。留一法一做：去掉它，合并效应从 0.45 掉到 0.30，I² 从 68% 降到 35%。结论很明确——整体结论高度依赖这一篇，讨论里必须点名，实践建议也要留有余地。</p>
+      `
+    },
+    {
+      h: "其他常用的敏感性分析",
+      body: `
+        <p>除了留一法，这几招也常用，彼此可以组合使用：</p>
+        <table class="tbl">
+          <tr><th>做法</th><th>在检验什么</th></tr>
+          <tr><td>剔除高偏倚风险的研究后重算</td><td>结论是不是靠"质量差的研究"撑起来的</td></tr>
+          <tr><td>固定效应 / 随机效应模型互换</td><td>结论对模型选择的依赖程度（看合并效应和置信区间变化大不大）</td></tr>
+          <tr><td>剔除样本量极小或效应极端的研究</td><td>结论是不是被一两个"离群值"绑架了</td></tr>
+          <tr><td>剔除数据靠估算补齐的研究</td><td>比如从论文图表里量出来的数据，去掉后结论还成立吗</td></tr>
+        </table>
+        <p>亚组分析（第七章）也能顺带起到敏感性的作用，但两者目的不同：亚组分析是"找异质性从哪来"，敏感性分析是"看结论稳不稳"。同一个分组操作，回答的是两个问题。</p>
+        <div class="warn">⚠️ 易错点：敏感性分析要在方法部分（最好是方案预注册时）就写好"打算做哪几项"，不能等结果出来、看到不喜欢再临时加一项，或把不好看的结果藏起来。</div>
+      `
+    },
+    {
+      h: "影响分析图与报告规范",
+      body: `
+        <p>影响分析图（influence plot）把留一法的结果画成一张图：每个点代表"去掉该研究后的合并效应"及其置信区间，旁边通常还标出去掉前后 I² 的变化。一眼就能看出谁是"关键先生"，是汇报敏感性分析最直观的方式。</p>
+        <p>报告规范只有一条铁律：<b>如实报告"做了什么、发现了什么"</b>。方法部分预先写好计划做的敏感性分析；结果部分逐项报告——稳健的要说，不稳健的更要说。只挑好看的说、把塌了的藏起来，等于用一半真相误导读者。</p>
+        <p>举个例子，规范的写法是："剔除两篇高偏倚风险研究后，合并 SMD 从 0.40 变为 0.36，仍显著（p = 0.02），提示结论稳健；但留一法显示剔除某研究后效应不再显著，提示结论对该研究有一定依赖。"好坏都摆上台面，读者自会判断。</p>
+        <p>写在哪里？敏感性分析的结果一般放在结果部分单独成段或成表，详细版（比如每次留一法的具体数值）可以放附录。关键是让读者能复现你的"折腾"过程：做了哪几项、每项剔除了谁、结果变成了什么样。</p>
+        <div class="warn">⚠️ 红线：敏感性分析绝不是"把不喜欢的研究删掉、让结论变显著"的工具。那叫摘樱桃（cherry-picking），是学术不端。分析的目的是检验结论，不是美化结论。</div>
+      `
+    }
+  ],
+  workbench: "meta",
+  workbenchNote: "打开合并分析工作台，用留一法功能逐个剔除研究，观察合并效应和置信区间的变化：有没有哪个研究'一己之力'扭转了结论？再试试固定效应 / 随机效应互换，看结果稳不稳。",
+  quiz: [
+    {
+      q: "敏感性分析要回答的核心问题是？",
+      options: ["哪个纳入研究的质量最高", "换个做法，结论还站得住吗", "研究之间的异质性有多大", "是否存在发表偏倚"],
+      answer: 1,
+      explain: "解析：选 B。敏感性分析的直觉就是'换人测试'——换几种做法重算，看结论变不变。A 是偏倚风险评价的事，C 靠 Q 检验和 I² 回答，D 靠漏斗图和 Egger 检验回答。"
+    },
+    {
+      q: "纳入 k 个研究的 Meta 分析，做一次完整的留一法需要重新合并几次？",
+      options: ["1 次", "k−1 次", "k 次", "k+1 次"],
+      answer: 2,
+      explain: "解析：选 C。每次剔除一个、轮流剔除，k 个研究就做 k 次重新合并，每次对应'去掉某一个研究后世界是什么样'。"
+    },
+    {
+      q: "留一法发现：去掉某研究后合并效应从显著变为不显著。正确的做法是？",
+      options: ["直接删除该研究，让结论变好看", "在讨论中如实说明结论对该研究敏感、稳健性不足", "说明模型选错了，换个模型重算", "说明该研究造假，应向期刊举报"],
+      answer: 1,
+      explain: "解析：选 B。发现'关键先生'要在讨论里点名交代、给结论打折，而不是删数据。A 是摘樱桃式的学术不端；C 偷换了问题；D 没有证据不能指控造假，影响大不等于造假。"
+    },
+    {
+      q: "以下哪项不属于常见的敏感性分析？",
+      options: ["剔除高偏倚风险的研究后重算", "固定效应与随机效应模型互换", "只报告结果好看的敏感性分析，把塌了的藏起来", "剔除样本量极小的研究后重算"],
+      answer: 2,
+      explain: "解析：选 C。A、B、D 都是教科书级的常规做法。C 恰恰是报告规范的红线：做了什么、发现了什么都要如实报告，只挑好看的说等于误导读者。"
+    },
+    {
+      q: "关于敏感性分析的时机，正确的是？",
+      options: ["看到结果不满意时再临时决定做哪项", "在方法部分（最好预注册时）预先定好做哪几项", "等审稿人要求时再补做", "投稿被拒后为了翻盘而做"],
+      answer: 1,
+      explain: "解析：选 B。预先计划才能避免'按结果挑做法'的偏倚。A 是典型的事后挑选，不可取；C、D 把敏感性分析当成了应付手段，颠倒了它的目的——它是检验结论稳健性的常规步骤，不是救场工具。"
+    }
+  ]
+});
+
+
+/* ---- ch10.js ---- */
+/* 第十章：偏倚风险与 GRADE——证据到底多可信 */
+
+ML.chapters.push({
+  id: "ch10",
+  num: "第十章",
+  title: "偏倚风险与 GRADE：证据到底多可信",
+  minutes: 25,
+  goals: [
+    "能区分偏倚风险与偏倚，并说出评价对象是纳入的原始研究",
+    "能说出 RoB 2 的五个评价领域",
+    "能说出 GRADE 的四个证据等级、五个降级因素和三个升级因素"
+  ],
+  sections: [
+    {
+      h: "偏倚风险：评价的是'可能性'，不是打分",
+      body: `
+        <p>先分清两个词：偏倚（bias）是"系统误差已经发生了"；偏倚风险（risk of bias）是"方法学上出问题的可能性有多大"。我们评价的是后者——不是断言某研究一定偏了，而是判断它的方法学设计让它"有多容易偏"。</p>
+        <p>评价用标准化工具逐项打勾，而不是凭感觉给论文打总分。比如随机分组做没做、分配方案藏没藏好、失访多不多，每一项单独判，最后形成总体判断。</p>
+        <p>一个关键提醒：<b>偏倚风险评价的是"纳入的每一个原始研究"，不是你的 Meta 分析本身</b>。你的 Meta 分析做得再规范，也救不了一个全是高偏倚风险研究的证据体——这正是后面 GRADE 要降级的理由之一。</p>
+        <p>体育例子：评价一篇"冷水浸泡促进运动后恢复"的随机对照试验，要看它的随机方法有没有交代清楚、受试者中途退出多不多、恢复指标是谁测的、测量的人知不知道分组。</p>
+        <p>为什么不用"打分制"（比如这篇 8 分、那篇 6 分）？因为打分制有两个硬伤：一是各项权重武断——随机没做好和失访多，哪个更严重？凭什么各占几分？二是总分会掩盖关键缺陷：一篇"选择性报告"高风险的研究，总分可能依然漂亮。逐项评价逼你直面每一个要害，不让平均分和稀泥。</p>
+      `
+    },
+    {
+      h: "RoB 2：五个领域一句话",
+      body: `
+        <p>评价随机对照试验最常用的工具是 RoB 2（Cochrane risk-of-bias tool version 2，Cochrane 偏倚风险评价工具第二版）。它从五个领域逐一评价，每个领域判"低风险（low risk）／有疑虑（some concerns）／高风险（high risk）"：</p>
+        <table class="tbl">
+          <tr><th>领域</th><th>一句话理解</th></tr>
+          <tr><td>随机过程</td><td>随机序列怎么产生的，分组方案藏好了吗</td></tr>
+          <tr><td>偏离既定干预</td><td>受试者和实施者知道分组后，有没有"乱来"（比如对照组偷偷加练）</td></tr>
+          <tr><td>结局数据缺失</td><td>失访多不多，失访跟分组有没有关系</td></tr>
+          <tr><td>结局测量</td><td>测量的人知不知道分组，测量方法靠不靠谱</td></tr>
+          <tr><td>选择性报告</td><td>是不是只挑好看的结局、好看的时间点来报告</td></tr>
+        </table>
+        <p>五个领域各自判，最后综合成该研究的总体判断。注意"有疑虑"不等于"高风险"：信息没写清楚、无法判断时判"有疑虑"，这是诚实，不是扣分。</p>
+        <div class="tip">💡 体育研究的常态：运动干预很难对受试者设盲——你没法让运动员"不知道自己在做 HIIT"。所以"偏离既定干预"这个领域在体育随机对照试验里经常判"有疑虑"，这是领域特点，如实判就行，不必为此焦虑。</div>
+        <p>谁来做、怎么做？规范做法是两名评价者独立评价、分歧讨论或请第三人仲裁，过程记录在案。一个人关起门来打勾，容易把自己的预期带进去——双人独立相当于给评价者本人上的"盲法"。</p>
+      `
+    },
+    {
+      h: "GRADE：给证据体定级",
+      body: `
+        <p>RoB 2 评价的是单个研究；GRADE（Grading of Recommendations Assessment, Development and Evaluation，证据推荐分级的评估、制定与评价）评价的是"证据体"（body of evidence）——通常按每个结局分别定级，给可信度盖个章：高（high）／中（moderate）／低（low）／极低（very low）。</p>
+        <p>随机对照试验起步就是"高"，观察性研究起步是"低"。然后看五个降级因素，符合就往下调：</p>
+        <table class="tbl">
+          <tr><th>降级因素</th><th>通俗理解</th></tr>
+          <tr><td>偏倚风险</td><td>纳入的研究大多是高偏倚风险，证据底子不牢</td></tr>
+          <tr><td>不一致性</td><td>异质性很大且解释不了，各研究说的不是一回事</td></tr>
+          <tr><td>间接性</td><td>研究的人群、干预、结局跟你的 PICO 不完全对得上</td></tr>
+          <tr><td>不精确性</td><td>置信区间太宽、样本太少，估计拿不准</td></tr>
+          <tr><td>发表偏倚</td><td>怀疑还有没发表的阴性研究藏着</td></tr>
+        </table>
+        <p>观察性研究起步低，但有三个升级因素可以往回找补：效应量很大、大到混杂解释不了；存在剂量反应关系（dose-response，比如练得越多效果越大）；残余的混杂只会低估真实效应（真实效应只会比看到的更大）。</p>
+        <p>体育例子：若干个小样本随机对照试验都提示咖啡因提升耐力表现，但每个研究人数少、合并后置信区间很宽——因"不精确性"降一级，证据等级从"高"调到"中"。结论依然是"有效"，但底气从"我很确定"变成了"我比较确定"。</p>
+        <p>升级因素的体育例子：假设多项观察性研究发现"每周跑量越大，最大摄氧量越高"，呈现清晰的剂量反应关系，且残余的混杂（比如遗传天赋）只会让效应被低估——这时证据等级可以从"低"往上调。当然，升级要谨慎，每调一级都要有明确理由，并写进证据概要表的脚注。</p>
+      `
+    },
+    {
+      h: "证据概要表、PRISMA 清单与课程收束",
+      body: `
+        <p>证据概要表（Summary of Findings table，SoF 表）是 GRADE 的"门面"：每个结局占一行，列出效应量、样本量、证据等级。一张表讲清"每个结局我们有多大把握"，审稿人往往先看这张表，再决定要不要细读全文。</p>
+        <p>PRISMA 2020 清单（PRISMA 2020 checklist）是投稿前的自查表：27 个条目加一张流程图（flow diagram）。逐项过一遍：PICO 写清楚了吗、检索式附了吗、每个结局的偏倚风险评价做了吗、敏感性分析报告了吗……养成"写完对照清单查一遍"的习惯，能躲掉大部分审稿人的质疑。</p>
+        <p>清单里新手最容易漏的几条：检索策略要全文附上（搜了哪些库、用什么词、什么时间）；每个数据库的检出数和筛选过程要画进流程图；数据提取用了什么表、谁提取的要交代；每个结局的合并方法、异质性处理、偏倚评价都要写。缺一条，审稿人就多一个问题。</p>
+        <p>收束全课程：从第一章的 PICO 出发——提出问题、定纳入标准、做系统检索、筛文献、提数据、算效应量、看异质性、查发表偏倚、做敏感性分析，到第十章的偏倚风险评价与 GRADE 定级——你已经走完了一个完整 Meta 分析的方法学闭环。</p>
+        <p>下一步，是去"复现实战"亲手做一遍。知识只有经过手的验证，才会变成手艺。</p>
+      `
+    }
+  ],
+  workbench: null,
+  quiz: [
+    {
+      q: "偏倚风险评价的对象是？",
+      options: ["自己的 Meta 分析写得规不规范", "纳入的每一个原始研究", "文献检索策略是否全面", "发表期刊的影响因子"],
+      answer: 1,
+      explain: "解析：选 B。偏倚风险评价的是纳入的每个原始研究的方法学质量，不是评价你自己的 Meta 分析。A 混淆了评价对象；C 属于检索质量问题，不在 RoB 2 范围内；D 期刊影响因子与单篇研究的方法学质量没有必然关系。"
+    },
+    {
+      q: "RoB 2 不包括以下哪个领域？",
+      options: ["随机过程", "结局数据缺失", "样本量是否足够大", "选择性报告"],
+      answer: 2,
+      explain: "解析：选 C。RoB 2 的五个领域是随机过程、偏离既定干预、结局数据缺失、结局测量、选择性报告。'样本量够不够大'影响的是估计的精确度（GRADE 的不精确性），不是偏倚风险领域。"
+    },
+    {
+      q: "GRADE 体系中，随机对照试验的证据起步等级是？",
+      options: ["极低", "低", "中", "高"],
+      answer: 3,
+      explain: "解析：选 D。RCT 从'高'起步，观察性研究从'低'起步，再按降级／升级因素调整。记住口诀：RCT 高起跳，观察低起跳。"
+    },
+    {
+      q: "以下哪种情况会导致 GRADE 降级？",
+      options: ["效应量非常大", "存在剂量反应关系", "异质性很大且无法解释", "残余混杂只会低估真实效应"],
+      answer: 2,
+      explain: "解析：选 C。'异质性大且解释不了'对应降级因素中的'不一致性'。A、B、D 都是观察性研究的升级因素：效应大、剂量反应、残余混杂低估效应——它们是往上调的理由，不是往下调的。"
+    },
+    {
+      q: "证据概要表（SoF 表）的主要作用是？",
+      options: ["列出所有检索到的文献", "把每个结局的效应量和证据等级浓缩在一张表里", "展示发表偏倚的漏斗图", "记录数据提取的详细过程"],
+      answer: 1,
+      explain: "解析：选 B。SoF 表每个结局一行：效应量、样本量、证据等级，是论文的'门面'。A 是文献筛选流程图的事；C 是发表偏倚章节的图；D 是数据提取表的事。"
+    }
+  ]
+});
+
+
+/* ---- workbench.js ---- */
+/* ============================================================
+   在线工作台：统计引擎（零依赖，手写特殊函数）+ SVG 绘图
+   函数一览：
+   ML.stats.hedgesG/meanDiff/or2x2/rr2x2/rToZ      效应量
+   ML.stats.sdFromSE/sdFromCI/sdFromP              数据转换
+   ML.stats.metaFixed/metaRandom                   合并
+   ML.stats.egger/leaveOneOut                      偏倚与敏感性
+   ML.stats.tQ/chi2CDF/tCDF/normCDF                 分布函数
+   ML.forestSVG(studies, res)  ML.funnelSVG(studies, res)
+   ============================================================ */
+ML.stats = (function () {
+  "use strict";
+  /* ---------- 特殊函数 ---------- */
+  var LC = [0.99999999999980993, 676.5203681218851, -1259.1392167224028,
+    771.32342877765313, -176.61502916214059, 12.507343278686905,
+    -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+  function lgamma(x) {
+    var i, a, t;
+    if (x < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * x)) - lgamma(1 - x);
+    x -= 1; a = LC[0];
+    for (i = 1; i < 9; i++) a += LC[i] / (x + i);
+    t = x + 7.5;
+    return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(a);
+  }
+  function betacf(a, b, x) {
+    var MAXIT = 200, EPS = 3e-12, FPMIN = 1e-300;
+    var qab = a + b, qap = a + 1, qam = a - 1;
+    var c = 1, d = 1 - qab * x / qap, h, m, m2, aa, del;
+    if (Math.abs(d) < FPMIN) d = FPMIN;
+    d = 1 / d; h = d;
+    for (m = 1; m <= MAXIT; m++) {
+      m2 = 2 * m;
+      aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+      c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+      d = 1 / d; h *= d * c;
+      aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+      c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+      d = 1 / d; del = d * c; h *= del;
+      if (Math.abs(del - 1) < EPS) break;
+    }
+    return h;
+  }
+  function ibeta(x, a, b) {
+    var bt;
+    if (x <= 0) return 0; if (x >= 1) return 1;
+    bt = Math.exp(lgamma(a + b) - lgamma(a) - lgamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+    if (x < (a + 1) / (a + b + 2)) return bt * betacf(a, b, x) / a;
+    return 1 - bt * betacf(b, a, 1 - x) / b;
+  }
+  function gser(a, x) {
+    var ITMAX = 200, EPS = 3e-12, gln = lgamma(a);
+    var ap = a, del = 1 / a, sum = del, n;
+    for (n = 1; n <= ITMAX; n++) {
+      ap++; del *= x / ap; sum += del;
+      if (Math.abs(del) < Math.abs(sum) * EPS) break;
+    }
+    return sum * Math.exp(-x + a * Math.log(x) - gln);
+  }
+  function gcf(a, x) {
+    var ITMAX = 200, EPS = 3e-12, FPMIN = 1e-300, gln = lgamma(a);
+    var b = x + 1 - a, c = 1 / FPMIN, d = 1 / b, h = d, i, an, del;
+    for (i = 1; i <= ITMAX; i++) {
+      an = -i * (i - a); b += 2;
+      d = an * d + b; if (Math.abs(d) < FPMIN) d = FPMIN;
+      c = b + an / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+      d = 1 / d; del = d * c; h *= del;
+      if (Math.abs(del - 1) < EPS) break;
+    }
+    return Math.exp(-x + a * Math.log(x) - gln) * h;
+  }
+  function gammp(a, x) {
+    if (x < 0) return NaN; if (x === 0) return 0;
+    return (x < a + 1) ? gser(a, x) : 1 - gcf(a, x);
+  }
+  function erf(x) {
+    var s = x < 0 ? -1 : 1; x = Math.abs(x);
+    var t = 1 / (1 + 0.3275911 * x);
+    var y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+    return s * y;
+  }
+  function normCDF(x) { return 0.5 * (1 + erf(x / Math.SQRT2)); }
+  function chi2CDF(x, df) { return gammp(df / 2, x / 2); }
+  function tCDF(t, df) {
+    if (t === 0) return 0.5;
+    if (t < 0) return 1 - tCDF(-t, df);
+    return 1 - 0.5 * ibeta(df / (df + t * t), df / 2, 0.5);
+  }
+  function tQ(p, df) {
+    var lo, hi, mid, i;
+    if (!(p > 0 && p < 1 && df > 0)) return NaN;
+    if (p < 0.5) return -tQ(1 - p, df);
+    lo = 0; hi = 100;
+    for (i = 0; i < 80; i++) { mid = (lo + hi) / 2; if (tCDF(mid, df) < p) lo = mid; else hi = mid; }
+    return (lo + hi) / 2;
+  }
+
+  /* ---------- 效应量 ---------- */
+  function hedgesG(n1, m1, sd1, n2, m2, sd2) {
+    var df = n1 + n2 - 2;
+    var sp = Math.sqrt(((n1 - 1) * sd1 * sd1 + (n2 - 1) * sd2 * sd2) / df);
+    var d = (m1 - m2) / sp, J = 1 - 3 / (4 * df - 1), v = J * J * ((n1 + n2) / (n1 * n2) + d * d / (2 * (n1 + n2)));
+    return { g: J * d, d: d, J: J, v: v, se: Math.sqrt(v) };
+  }
+  function meanDiff(n1, m1, sd1, n2, m2, sd2) {
+    var v = sd1 * sd1 / n1 + sd2 * sd2 / n2;
+    return { md: m1 - m2, v: v, se: Math.sqrt(v) };
+  }
+  function or2x2(a, b, c, d) {
+    var v = 1 / a + 1 / b + 1 / c + 1 / d, lo = Math.log((a * d) / (b * c));
+    return { logor: lo, v: v, se: Math.sqrt(v) };
+  }
+  function rr2x2(a, b, c, d) {
+    var v = 1 / a - 1 / (a + b) + 1 / c - 1 / (c + d), lr = Math.log((a / (a + b)) / (c / (c + d)));
+    return { logor: lr, v: v, se: Math.sqrt(v) };
+  }
+  function rToZ(r, n) {
+    var z = 0.5 * Math.log((1 + r) / (1 - r));
+    return { z: z, v: 1 / (n - 3), se: Math.sqrt(1 / (n - 3)) };
+  }
+  function sdFromSE(se, n) { return se * Math.sqrt(n); }
+  function sdFromCI(lo, hi, n) { return Math.sqrt(n) * (hi - lo) / (2 * tQ(0.975, n - 1)); }
+  function sdFromP(md, p, n) { return Math.abs(md) / tQ(1 - p / 2, n - 1) * Math.sqrt(n); }
+
+  /* ---------- 合并 ---------- */
+  function wls(ys, vs) {
+    var sw = 0, swy = 0, i, w;
+    for (i = 0; i < ys.length; i++) { w = 1 / vs[i]; sw += w; swy += w * ys[i]; }
+    var pooled = swy / sw, se = Math.sqrt(1 / sw);
+    return { pooled: pooled, se: se, ci: [pooled - 1.96 * se, pooled + 1.96 * se] };
+  }
+  function metaFixed(ys, vs) {
+    var r = wls(ys, vs), Q = 0, i, df = ys.length - 1;
+    for (i = 0; i < ys.length; i++) Q += (ys[i] - r.pooled) * (ys[i] - r.pooled) / vs[i];
+    return { pooled: r.pooled, se: r.se, ci: r.ci, Q: Q, df: df, pQ: 1 - chi2CDF(Q, df) };
+  }
+  function metaRandom(ys, vs) {
+    var f = metaFixed(ys, vs), sw = 0, sw2 = 0, i, w;
+    for (i = 0; i < ys.length; i++) { w = 1 / vs[i]; sw += w; sw2 += w * w; }
+    var C = sw - sw2 / sw;
+    var tau2 = Math.max(0, (f.Q - f.df) / C);
+    var vs2 = vs.map(function (v) { return v + tau2; });
+    var r = wls(ys, vs2);
+    var I2 = f.Q > 0 ? Math.max(0, (f.Q - f.df) / f.Q) : 0;
+    var tp = tQ(0.975, Math.max(1, ys.length - 2));
+    var pse = Math.sqrt(tau2 + r.se * r.se);
+    return {
+      pooled: r.pooled, se: r.se, ci: r.ci, Q: f.Q, df: f.df, pQ: f.pQ,
+      I2: I2, tau2: tau2, pred: [r.pooled - tp * pse, r.pooled + tp * pse],
+      weights: vs2.map(function (v) { return 1 / v; })
+    };
+  }
+  function egger(ys, ses) {
+    var k = ys.length, i, mx = 0, mz = 0;
+    var z = [], x = [];
+    for (i = 0; i < k; i++) { z.push(ys[i] / ses[i]); x.push(1 / ses[i]); mx += x[i]; mz += z[i]; }
+    mx /= k; mz /= k;
+    var sxx = 0, sxz = 0;
+    for (i = 0; i < k; i++) { sxx += (x[i] - mx) * (x[i] - mx); sxz += (x[i] - mx) * (z[i] - mz); }
+    var b1 = sxz / sxx, b0 = mz - b1 * mx, sse = 0, e;
+    for (i = 0; i < k; i++) { e = z[i] - (b0 + b1 * x[i]); sse += e * e; }
+    var seb0 = Math.sqrt((sse / (k - 2)) * (1 / k + mx * mx / sxx));
+    var t = b0 / seb0, df = k - 2;
+    return { b0: b0, se: seb0, t: t, df: df, p: 2 * (1 - tCDF(Math.abs(t), df)) };
+  }
+  function leaveOneOut(ys, vs) {
+    var out = [], i, j, y2, v2, r;
+    for (i = 0; i < ys.length; i++) {
+      y2 = []; v2 = [];
+      for (j = 0; j < ys.length; j++) if (j !== i) { y2.push(ys[j]); v2.push(vs[j]); }
+      r = metaRandom(y2, v2);
+      out.push({ dropped: i, pooled: r.pooled, ci: r.ci, I2: r.I2 });
+    }
+    return out;
+  }
+  return {
+    lgamma: lgamma, ibeta: ibeta, normCDF: normCDF, chi2CDF: chi2CDF, tCDF: tCDF, tQ: tQ,
+    hedgesG: hedgesG, meanDiff: meanDiff, or2x2: or2x2, rr2x2: rr2x2, rToZ: rToZ,
+    sdFromSE: sdFromSE, sdFromCI: sdFromCI, sdFromP: sdFromP,
+    metaFixed: metaFixed, metaRandom: metaRandom, egger: egger, leaveOneOut: leaveOneOut
+  };
+})();
+
+/* ---------- SVG 绘图 ---------- */
+ML.forestSVG = function (studies, res, title) {
+  var W = 760, rowH = 36, top = 56, left = 200, right = 170, plotW = W - left - right;
+  var H = top + rowH * (studies.length + 2) + 40;
+  var lo = Infinity, hi = -Infinity, i, s;
+  studies.forEach(function (st) {
+    lo = Math.min(lo, st.y - 1.96 * st.se); hi = Math.max(hi, st.y + 1.96 * st.se);
+  });
+  lo = Math.min(lo, res.ci[0], res.pred ? res.pred[0] : lo);
+  hi = Math.max(hi, res.ci[1], res.pred ? res.pred[1] : hi);
+  var pad = (hi - lo) * 0.08 || 0.2; lo -= pad; hi += pad;
+  function X(v) { return left + (v - lo) / (hi - lo) * plotW; }
+  function Y(r) { return top + r * rowH + rowH / 2; }
+  var sw = 0; res.weights.forEach(function (w) { sw += w; });
+  var o = [];
+  o.push('<svg class="plot" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">');
+  o.push('<text x="16" y="26" font-size="16" font-weight="bold" fill="#0b5a55">' + ML.esc(title || '森林图') + '</text>');
+  o.push('<text x="' + left + '" y="' + (top - 28) + '" font-size="12" fill="#78716c">研究</text>');
+  o.push('<text x="' + (W - right + 8) + '" y="' + (top - 28) + '" font-size="12" fill="#78716c">效应量 [95% CI]</text>');
+  o.push('<text x="' + (W - 52) + '" y="' + (top - 28) + '" font-size="12" fill="#78716c">权重</text>');
+  if (lo < 0 && hi > 0)
+    o.push('<line x1="' + X(0) + '" y1="' + (top - 8) + '" x2="' + X(0) + '" y2="' + (H - 30) + '" stroke="#a8a29e" stroke-dasharray="5,4"/>');
+  studies.forEach(function (st, r) {
+    var w = res.weights[r], wpct = 100 * w / sw, y = Y(r);
+    var sz = 4 + 9 * Math.sqrt(w / sw * studies.length);
+    o.push('<text x="16" y="' + (y + 4) + '" font-size="13">' + ML.esc(st.name) + '</text>');
+    o.push('<line x1="' + X(st.y - 1.96 * st.se) + '" y1="' + y + '" x2="' + X(st.y + 1.96 * st.se) + '" y2="' + y + '" stroke="#0f766e" stroke-width="2"/>');
+    o.push('<rect x="' + (X(st.y) - sz / 2) + '" y="' + (y - sz / 2) + '" width="' + sz + '" height="' + sz + '" fill="#0f766e"/>');
+    o.push('<text x="' + (W - right + 8) + '" y="' + (y + 4) + '" font-size="12" fill="#44403c">' +
+      ML.fmt(st.y) + ' [' + ML.fmt(st.y - 1.96 * st.se) + ', ' + ML.fmt(st.y + 1.96 * st.se) + ']</text>');
+    o.push('<text x="' + (W - 52) + '" y="' + (y + 4) + '" font-size="12" fill="#44403c">' + ML.fmt(wpct, 1) + '%</text>');
+  });
+  var dr = studies.length + 0.6, dy = Y(dr), cx = X(res.pooled);
+  o.push('<text x="16" y="' + (dy + 4) + '" font-size="13" font-weight="bold">合并（随机效应）</text>');
+  o.push('<polygon points="' + X(res.ci[0]) + ',' + dy + ' ' + cx + ',' + (dy - 9) + ' ' + X(res.ci[1]) + ',' + dy + ' ' + cx + ',' + (dy + 9) + '" fill="#b45309"/>');
+  o.push('<text x="' + (W - right + 8) + '" y="' + (dy + 4) + '" font-size="12" font-weight="bold" fill="#92400e">' +
+    ML.fmt(res.pooled) + ' [' + ML.fmt(res.ci[0]) + ', ' + ML.fmt(res.ci[1]) + ']</text>');
+  o.push('<text x="16" y="' + (H - 10) + '" font-size="12" fill="#78716c">方块大小代表权重；菱形为合并效应及其 95% CI；虚线为无效线。</text>');
+  o.push('</svg>');
+  return o.join('');
+};
+
+ML.funnelSVG = function (studies, res, title) {
+  var W = 600, H = 440, L = 64, R = 24, T = 44, B = 52, pw = W - L - R, ph = H - T - B;
+  var lo = Infinity, hi = -Infinity, maxSe = 0, s;
+  studies.forEach(function (st) {
+    lo = Math.min(lo, st.y); hi = Math.max(hi, st.y); maxSe = Math.max(maxSe, st.se);
+  });
+  var span = Math.max(hi - lo, 1.96 * maxSe * 2.4, 0.2), mid = (hi + lo) / 2;
+  lo = Math.min(lo, res.pooled - span / 2); hi = Math.max(hi, res.pooled + span / 2);
+  maxSe *= 1.12;
+  function X(v) { return L + (v - lo) / (hi - lo) * pw; }
+  function Y(se) { return T + se / maxSe * ph; }
+  var o = [];
+  o.push('<svg class="plot" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">');
+  o.push('<text x="16" y="26" font-size="16" font-weight="bold" fill="#0b5a55">' + ML.esc(title || '漏斗图') + '</text>');
+  var se, x1 = X(res.pooled - 1.96 * maxSe), x2 = X(res.pooled + 1.96 * maxSe);
+  o.push('<line x1="' + X(res.pooled) + '" y1="' + T + '" x2="' + X(res.pooled) + '" y2="' + (T + ph) + '" stroke="#a8a29e" stroke-dasharray="5,4"/>');
+  o.push('<line x1="' + X(res.pooled) + '" y1="' + T + '" x2="' + x1 + '" y2="' + (T + ph) + '" stroke="#d6d3d1"/>');
+  o.push('<line x1="' + X(res.pooled) + '" y1="' + T + '" x2="' + x2 + '" y2="' + (T + ph) + '" stroke="#d6d3d1"/>');
+  studies.forEach(function (st) {
+    o.push('<circle cx="' + X(st.y).toFixed(1) + '" cy="' + Y(st.se).toFixed(1) + '" r="5" fill="#0f766e" opacity="0.75"/>');
+  });
+  o.push('<text x="' + (L + pw / 2) + '" y="' + (H - 12) + '" font-size="13" text-anchor="middle" fill="#57534e">效应量</text>');
+  o.push('<text x="16" y="' + (T + ph / 2) + '" font-size="13" text-anchor="middle" fill="#57534e" transform="rotate(-90 16 ' + (T + ph / 2) + ')">标准误</text>');
+  o.push('<text x="16" y="' + (H - 12) + '" font-size="12" fill="#78716c">越靠上精度越高；对称漏斗提示偏倚风险较低。</text>');
+  o.push('</svg>');
+  return o.join('');
+};
+
+
+/* ---- labs.js ---- */
+/* ============================================================
+   复现实战：论文数据与分步讲解
+   数据来源：tools/labA_raw.json / labB_raw.json（调研提取）
+   验算脚本：tools/verify_labs.py（独立验算，须与原文发表值一致）
+   ============================================================ */
+ML.labs.push({
+  id: "lab-a",
+  title: "复现：冷水浸泡与肌肉酸痛",
+  paper: "Machado AF, Ferreira PH, Micheletti JK, de Almeida AC, Lemes ÍR, Vanderlei FM, Netto Junior J, Pastre CM. Can water temperature and immersion time influence the effect of cold water immersion on muscle soreness? A systematic review and meta-analysis. Sports Med. 2016;46(4):503–514.",
+  blurb: "冷水浸泡到底能不能缓解肌肉酸痛？这篇论文把 7 项试验统一到 0–10 分量表做合并。跟着它走一遍 MD 的完整复现，还能亲眼看到“权重被两个小方差研究主导”的真实案例。",
+  background: "<p><b>PICO：</b>运动后人群（P）— 冷水浸泡（I）— 被动恢复（C）— 即时肌肉酸痛评分（O，0–10 分）。问题很直接：泡冷水能不能让酸痛轻一点？</p><p>选这篇做第一个实战有三个理由：① 数据干净，原文表 1 逐字可提取；② 结局是同一量表，用 <b>MD（均值差）</b>，新手最友好；③ I²=65.5%，异质性不大不小，正好练习“从固定效应走到随机效应”的决策。</p><p>说明：原计划复现 Leeder et al. 2012，但该文各研究水平的效应量只印在森林图图片里、正文表格没有任何数值，无法精确提取。为保证“每一步都能核对”，换成同主题、同难度的这篇 Machado 2016——数据完整度反而更高。</p>",
+  effect: "MD",
+  dirNote: "MD = 对照组均值 − CWI 组均值。<b>正值表示 CWI 组酸痛更低，即冷水浸泡更优。</b>（酸痛是“越低越好”的指标，方向定义先看清。）",
+  studies: [
+    { name: "Bailey et al., 2007", n1: 10, m1: 5.13, sd1: 1.62, n2: 10, m2: 3.15, sd2: 1.42, src: "原文表 1" },
+    { name: "Crystal et al., 2013", n1: 10, m1: 3.20, sd1: 1.70, n2: 10, m2: 4.50, sd2: 2.00, src: "原文表 1" },
+    { name: "Getto and Golden, 2013", n1: 8, m1: 1.99, sd1: 2.56, n2: 7, m2: 1.75, sd2: 0.78, src: "原文表 1" },
+    { name: "Elias et al., 2013", n1: 8, m1: 0.66, sd1: 0.16, n2: 7, m2: 0.45, sd2: 0.10, src: "原文表 1" },
+    { name: "Elias et al., 2012", n1: 14, m1: 0.54, sd1: 0.19, n2: 14, m2: 0.30, sd2: 0.12, src: "原文表 1（交叉设计）" },
+    { name: "Stanley et al., 2012", n1: 18, m1: 5.40, sd1: 0.90, n2: 18, m2: 4.50, sd2: 0.90, src: "原文表 1（交叉设计）" },
+    { name: "Jakeman et al., 2009", n1: 9, m1: 1.10, sd1: 1.20, n2: 9, m2: 1.60, sd2: 0.80, src: "原文表 1" }
+  ],
+  steps: [
+    {
+      h: "读懂问题与效应量的方向", body: "<p>先看方法部分确认两件事：① 结局是<b>连续变量</b>（酸痛评分），且各研究已统一到 0–10 分量表，所以用 <b>MD</b> 而不用 SMD；② 方向定义：MD = 对照组均值 − CWI 组均值，<b>正值 = CWI 更优</b>。</p><p>新手常犯的错误是跳过这一步直接算数字——方向反了，结论就全反了。</p>",
+      check: "k = 7 项研究；MD 正值表示冷水浸泡更优。"
+    },
+    {
+      h: "数据提取：照抄表 1", body: "<p>原文表 1 已经把各研究的酸痛分数换算到 0–10 量表（原始量表不一的，作者做了线性转换并注明）。我们要做的就是把每项研究的 <b>n / 均值 / SD</b> 照抄下来——注意 n1/m1/sd1 是<b>对照组（被动恢复）</b>，n2/m2/sd2 是 <b>CWI 组</b>，别抄反。</p><p>另外记一笔：Elias 2012 和 Stanley 2012 是<b>交叉设计</b>（同一批人先后接受两种处理），这个信息后面有用。</p>",
+      check: "7 项研究 ×（n1, M1, SD1, n2, M2, SD2）= 42 个数字，全部来自原文表 1。"
+    },
+    {
+      h: "算每个研究的 MD 与 SE", body: "<p>公式（第三章用过）：MD = M<sub>1</sub> − M<sub>2</sub>；SE = √(SD<sub>1</sub>²/n<sub>1</sub> + SD<sub>2</sub>²/n<sub>2</sub>)。</p><p>以 <b>Bailey 2007</b> 为例：MD = 5.13 − 3.15 = <b>1.98</b>；SE = √(1.62²/10 + 1.42²/10) = √(0.2624 + 0.2016) = √0.464 = <b>0.681</b>；95% CI = 1.98 ± 1.96×0.681 = <b>[0.64, 3.32]</b>。</p><p>把 7 个都算出来（可以用工作台的“原始均值数据”格式批量跑，记得选 MD 还是手动按公式——工作台默认算 SMD，这里要自己按 MD 公式算，或者直接用下面的提取表核对）。</p>",
+      check: "Bailey 2007：MD = 1.98，95% CI [0.64, 3.32]。Crystal 2013：MD = −1.30（负值，这一项是对照组更优）。"
+    },
+    {
+      h: "先跑固定效应，再看异质性", body: "<p>逆方差固定效应合并：MD = <b>0.238</b>，95% CI [0.152, 0.325]。别急着下结论——先看异质性：Q = 17.37（df = 6，p &lt; 0.001），I² = <b>65.5%</b>。</p><p>I² 超过 50%，说明研究间差异不小，固定效应的“所有研究估计同一个真值”假设站不住。这正是原文采用随机效应的原因。</p>",
+      check: "固定效应 MD = 0.238；Q = 17.37，I² = 65.5%。"
+    },
+    {
+      h: "随机效应（DerSimonian-Laird）", body: "<p>τ² = max(0, (Q − df)/C) = <b>0.0417</b>；新权重 = 1/(v + τ²)。重新合并：MD = <b>0.290</b>，SE = 0.130，95% CI = 0.290 ± 1.96×0.130 = <b>[0.036, 0.545]</b>。</p><p>对照原文报告：MD = 0.290，95% CI [0.037, 0.543]——<b>对上了</b>（末位数字差 0.002，是小数舍入）。</p>",
+      check: "随机效应 MD = 0.290，95% CI [0.036, 0.545]，与原文一致。"
+    },
+    {
+      h: "读森林图：权重在说什么", body: "<p>看下面这张你亲手算出的森林图，注意权重栏：<b>Elias 2012（37.2%）+ Elias 2013（36.4%）合计超过 70%</b>。为什么？它们的 SD 只有 0.1–0.2，精度极高，逆方差权重自然大。</p><p>这是真实世界常见的情形：结论主要由两项同一课题组的小方差研究驱动。解读时要诚实——效应存在，但证据的“多样性”打了折扣。Crystal 2013（MD = −1.30）和 Jakeman 2009（MD = −0.50）两项是负值，提醒你：不是所有研究都支持 CWI。</p>",
+      check: "权重最高的两项是 Elias 2012（37.2%）和 Elias 2013（36.4%）。"
+    },
+    {
+      h: "讨论点：交叉设计的 SE 该怎么算", body: "<p>Elias 2012 和 Stanley 2012 是交叉设计：同一批人既泡冷水又被动恢复。严格来说，配对数据的 SE 应该用配对公式（含组内相关 r），算出的 SE 会更小、权重更大。</p><p>但原文<b>按独立组</b>算了 SE（偏保守）。验证：若按配对 r = 0.5 重算，合并 MD 会变成 0.329——与原文 0.290 对不上，证实原文确实用了独立组算法。这是个很好的敏感性分析素材：你可以在工作台里试试两种算法，看结论变不变。</p>",
+      check: "原文对交叉研究按独立组处理 SE；这是保守做法，也是可讨论的敏感性分析点。"
+    }
+  ],
+  finalRows: [
+    ["合并 MD（随机效应）", "0.290", "0.290", "✓ 一致"],
+    ["95% CI", "[0.036, 0.545]", "[0.037, 0.543]", "✓ 一致（舍入差异）"],
+    ["I²", "65.5%", "原文未报告具体值", "按原文数据重算"],
+    ["纳入研究数 k", "7", "7", "✓ 一致"]
+  ],
+  conclusion: "🎉 恭喜，你完整复现了一篇 <i>Sports Medicine</i> Meta 分析的主结局：冷水浸泡让即时肌肉酸痛平均降低约 0.29 分（0–10 分量表），CI 不包含 0。数字对上只是结果，更重要的是你亲手走完了 <b>提取 → 效应量 → 异质性 → 模型选择 → 权重解读</b> 的全链条。下一个实战（咖啡因 × 划船）难度相当，换你独立走一遍试试。"
+});
+
+ML.labs.push({
+  id: "lab-b",
+  title: "复现：咖啡因与划船表现",
+  paper: "Grgic J, Diaz-Lara FJ, Del Coso J, Duncan MJ, Tallis J, Pickering C, Schoenfeld BJ, Mikulic P. The effects of caffeine ingestion on measures of rowing performance: a systematic review and meta-analysis. Nutrients. 2020;12(2):434.",
+  blurb: "咖啡因是最有证据的运动补剂之一。这篇论文合并了 6 项划船测功仪试验——结局是秒表上的时间，MD 的含义直观到不需要解释。I²=0% 的干净数据，适合作为你的第二次独立复现。",
+  background: "<p><b>PICO：</b>划船运动员/爱好者（P）— 咖啡因摄入（I）— 安慰剂（C）— 划船测功仪计时（O，秒）。问题：咖啡因能不能让你划得更快？</p><p>这篇选作第二个实战：结局是<b>同一单位（秒）</b>，MD 的含义一目了然；I² = 0%，没有异质性的干扰，你可以把注意力完全放在“复现流程”本身。</p>",
+  effect: "MD",
+  dirNote: "MD = 咖啡因组用时 − 安慰剂组用时（秒）。<b>负值表示咖啡因组更快，即咖啡因更优。</b>",
+  studies: [
+    { name: "Anderson et al., 2000", y: -5.5, lo: -10.6, hi: -0.4, src: "原文图 2 读数" },
+    { name: "Bruce et al., 2000", y: -5.0, lo: -10.1, hi: 0.1, src: "原文图 2 读数" },
+    { name: "Carr et al., 2011", y: -3.0, lo: -10.8, hi: 4.8, src: "原文图 2 读数" },
+    { name: "Duncan (2000)", y: -3.3, lo: -8.3, hi: 1.7, src: "原文图 2 读数（1000m，其余为 2000m）" },
+    { name: "Scott et al., 2015", y: -5.2, lo: -10.9, hi: 0.5, src: "原文图 2 读数" },
+    { name: "Skinner et al., 2010", y: -1.8, lo: -7.5, hi: 3.9, src: "原文图 2 读数" }
+  ],
+  steps: [
+    {
+      h: "读懂问题与效应量的方向", body: "<p><b>PICO：</b>有划船经验的人群（P）— 急性摄入咖啡因（I）— 安慰剂（C）— 划船测功仪计时（O，秒）。问题：咖啡因能不能让你划得更快？</p><p>结局是<b>同一单位（秒）</b>，直接用 <b>MD</b>。方向：MD = 咖啡因组 − 安慰剂组，<b>负值 = 更快 = 咖啡因更优</b>。注意 k = 6：Christensen 2014 做的是 6 分钟距离赛（单位是米不是秒），没进这个计时分析。</p>",
+      check: "k = 6；MD 负值表示咖啡因更优。"
+    },
+    {
+      h: "数据提取：表 1 + 图 2", body: "<p>原文表 1 给了每项研究的安慰剂组均值 ± SD 和“咖啡因让成绩提升了百分之几”。但研究水平的 MD 和 95% CI 只印在<b>图 2 森林图</b>里——所以这一步我们做“读数提取”（精度约 0.1 秒，提取表里已标注）。</p><p>以 <b>Anderson 2000</b> 为例：图 2 读得 MD = −5.5 秒，95% CI [−10.6, −0.4]。SE = (上限 − 下限)/3.92 = 10.2/3.92 = <b>2.60</b>（第三章的 CI→SE 换算）。</p><p>交叉核对：表 1 说安慰剂组 479 秒、咖啡因提升约 1.05%（两剂量平均），推算 MD ≈ −5.0 秒——和读数的 −5.5 秒在同一量级，互相印证。</p>",
+      check: "Anderson 2000：MD = −5.5s，95% CI [−10.6, −0.4]，SE ≈ 2.60。"
+    },
+    {
+      h: "合并：I² = 0% 的干净数据", body: "<p>6 个研究的 MD 分别是 −5.5、−5.0、−3.0、−3.3、−5.2、−1.8，全部为负（方向一致）。先算 Q = 0.55（df = 5），I² = max(0, (0.55−5)/0.55) = <b>0%</b>——研究间几乎没有超出抽样误差的差异。</p><p>I² = 0% 时固定效应和随机效应结果相同：MD = <b>−4.11</b> 秒，95% CI = −4.11 ± 1.96×1.16 = <b>[−6.37, −1.84]</b>。对照原文：−4.1s [−6.4, −1.8]——<b>对上了</b>。</p>",
+      check: "合并 MD = −4.11s，95% CI [−6.37, −1.84]，I² = 0%，与原文一致。"
+    },
+    {
+      h: "解读：4 秒在划船里意味着什么", body: "<p>CI 不包含 0，统计上显著。但第二章讲过：显著 ≠ 重要，要看领域。2000m 划船顶尖水平约 400 秒，快 4.1 秒 ≈ <b>1% 的提升</b>。在分秒必争的竞速项目里，1% 就是决赛和预赛的区别——这就是“小数字、大意义”。</p><p>再看森林图：6 个研究的 CI 都很宽（单个研究谁也拿不准），但 6 个加在一起，菱形明显落在 0 的左侧。这正是 Meta 分析的价值：<b>单个研究看不清的，合并之后看清了</b>。</p>",
+      check: "效应约 1% 的提升；单个研究 CI 都宽，合并后才显著——这就是做 Meta 的意义。"
+    },
+    {
+      h: "敏感性分析：那个 1000m 的研究", body: "<p>Duncan (2000) 是唯一做 1000m 的（其余都是 2000m）——距离不同，算不算异质性来源？原文做了敏感性分析：<b>剔除它之后重算，MD = −4.3s，95% CI [−6.9, −1.8]</b>，结论纹丝不动。</p><p>这就是第九章的“换个做法结论还站得住吗”：站得住，结论稳健。你也可以在工作台里亲手剔除它跑一遍留一法验证。</p><p>另外，k = 6 时 Egger 检验功效太低，原文没做——这正是第八章说的“不要硬做发表偏倚检验”。</p>",
+      check: "剔除 1000m 研究后 MD = −4.3s，结论不变，稳健。"
+    }
+  ],
+  finalRows: [
+    ["合并 MD（秒）", "−4.11", "−4.1", "✓ 一致"],
+    ["95% CI", "[−6.37, −1.84]", "[−6.4, −1.8]", "✓ 一致（读数精度）"],
+    ["I²", "0%", "0%", "✓ 一致"],
+    ["纳入研究数 k", "6", "6", "✓ 一致（Christensen 2014 为距离赛未纳入）"]
+  ],
+  conclusion: "🎉 第二个实战也完成了。从 Lab A 的“高异质性 + 权重集中”到 Lab B 的“零异质性 + 敏感性分析”，你已经见过 Meta 分析的两副典型面孔。接下来可以试着找一篇你自己领域的论文，用工作台亲手复现——遇到卡住的地方，十章教程随时可以翻回来查。"
+});
+
+
+/* ---- glossary.js ---- */
+/* 中英术语表：构建时直接拼接，禁用 import/export */
+
+ML.glossary = [
+  { t: "PICO", en: "PICO", d: "把研究问题拆成四要素：研究对象（Population）、干预（Intervention）、对照（Comparison）、结局（Outcome），是 Meta 分析提问的起点。" },
+  { t: "PRISMA", en: "PRISMA", d: "系统评价与 Meta 分析报告的国际规范，要求透明报告检索、筛选、数据提取全过程，并附流程图，投稿前逐项自查。" },
+  { t: "系统评价", en: "systematic review", d: "用预先设定、可重复的方法系统检索、筛选、评价并综合全部相关研究的综述方法；Meta 分析是它的定量综合部分。" },
+  { t: "效应量", en: "effect size", d: "衡量干预效果大小的统一指标（如 MD、SMD、OR），是 Meta 分析中每个研究贡献的'数据点'。" },
+  { t: "MD", en: "mean difference", d: "均值差：两组均值直接相减，适用于所有研究用同一单位测量同一结局时，如都用 kg 测深蹲 1RM。" },
+  { t: "SMD", en: "standardized mean difference", d: "标准化均值差：均值差除以合并标准差，消除了量纲，让用不同量表测同一概念的研究可以合并。" },
+  { t: "Cohen's d", en: "Cohen's d", d: "最常用的 SMD 计算方式，即均值差除以合并标准差；0.2、0.5、0.8 常被分别称为小、中、大效应。" },
+  { t: "Hedges's g", en: "Hedges's g", d: "对 Cohen's d 的小样本校正版本，乘上校正因子 J，样本量小时更推荐用它，结果更稳。" },
+  { t: "OR", en: "odds ratio", d: "比值比：两组发生某事件的比值之比，常用于二分类结局；OR = 1 表示两组无差异。" },
+  { t: "RR", en: "risk ratio", d: "相对危险度：两组事件发生率之比，比 OR 更直观，常用于随机对照试验的二分类结局。" },
+  { t: "相关系数", en: "correlation coefficient", d: "衡量两个连续变量线性关联强度的指标（r，取值 -1 到 1），Meta 分析中常经 Fisher's z 转换后合并。" },
+  { t: "95%置信区间", en: "95% confidence interval", d: "真实效应值有 95% 把握落入的范围；若区间跨过无效线（如 0），通常意味着结果不显著。" },
+  { t: "标准误", en: "standard error", d: "衡量估计值精确度的指标，越小说明估计越精确；Meta 分析用它给每个研究定权重。" },
+  { t: "标准差", en: "standard deviation", d: "描述一组数据离散程度的指标；它描述的是数据的分散，不是估计的精确度，别跟标准误混淆。" },
+  { t: "权重", en: "weight", d: "每个研究在合并计算中的话语权；样本量大、估计精确的研究权重更大。" },
+  { t: "逆方差法", en: "inverse-variance method", d: "按方差的倒数给每个研究分配权重的合并方法：方差越小（越精确）权重越大，是最常用的加权方式。" },
+  { t: "固定效应模型", en: "fixed-effect model", d: "假设所有研究都在估计同一个真实效应，差异只来自抽样误差；异质性大时用它会低估不确定性。" },
+  { t: "随机效应模型", en: "random-effects model", d: "假设各研究的真实效应本身服从一个分布，合并的是这个分布的均值；存在异质性时更常用。" },
+  { t: "DerSimonian-Laird 法", en: "DerSimonian-Laird method", d: "估计随机效应模型中研究间方差 τ² 的经典方法，简单常用，但纳入研究数量少时估计不太稳定。" },
+  { t: "异质性", en: "heterogeneity", d: "各研究效应量之间的差异超出抽样误差所能解释的程度，提示研究间存在真实差异，是 Meta 分析的核心议题之一。" },
+  { t: "Q 检验", en: "Cochran's Q test", d: "检验异质性是否存在的统计检验，p 值小提示有异质性，但纳入研究少时检验效能很低。" },
+  { t: "I²", en: "I² statistic", d: "异质性占总变异的比例（0–100%），25%、50%、75% 常被描述为低、中、高异质性，且不受研究数量影响。" },
+  { t: "τ²", en: "tau-squared", d: "研究间真实效应的方差，直接刻画异质性的绝对大小，是随机效应模型的核心参数。" },
+  { t: "预测区间", en: "prediction interval", d: "预测未来一个类似研究的真实效应可能落入的范围，比置信区间更宽；异质性大时两者差距明显。" },
+  { t: "森林图", en: "forest plot", d: "Meta 分析的标志性图形：每行一个研究的效应量与置信区间，底部菱形是合并效应，一眼看清全局。" },
+  { t: "亚组分析", en: "subgroup analysis", d: "按事先设定的特征（如训练水平、干预时长）把研究分组后分别合并，用于探索异质性的来源。" },
+  { t: "Meta 回归", en: "meta-regression", d: "以研究特征为自变量、效应量为因变量的回归分析，用于探索异质性来源，但研究数量少时容易过拟合。" },
+  { t: "生态学谬误", en: "ecological fallacy", d: "用研究层面的平均特征（如平均年龄）推断个体层面关系的错误，解读 Meta 回归时必须警惕。" },
+  { t: "发表偏倚", en: "publication bias", d: "阳性结果的研究更容易发表，导致纳入的研究不能代表全部研究，使合并效应被高估的偏倚。" },
+  { t: "灰色文献", en: "grey literature", d: "未在期刊正式发表的文献，如学位论文、会议摘要、试验注册记录；检索它们有助于减少发表偏倚。" },
+  { t: "漏斗图", en: "funnel plot", d: "横轴效应量、纵轴精确度的散点图；无偏倚时呈对称漏斗形，不对称提示可能存在发表偏倚。" },
+  { t: "Egger 检验", en: "Egger's test", d: "检验漏斗图不对称的回归方法，p < 0.1 常提示不对称，但研究少于 10 个时效能不足。" },
+  { t: "修剪填充法", en: "trim-and-fill method", d: "通过'剪掉不对称部分、补上缺失研究'来估计发表偏倚对合并效应影响的敏感性分析方法。" },
+  { t: "敏感性分析", en: "sensitivity analysis", d: "换个做法（如剔除某些研究、换模型）重新合并，看结论是否依然成立，用于检验结果的稳健性。" },
+  { t: "留一法", en: "leave-one-out analysis", d: "每次剔除一个研究后重新合并，逐个排查有没有哪个研究'一己之力'扭转了结论。" },
+  { t: "偏倚风险", en: "risk of bias", d: "原始研究在方法学上出问题的可能性，用 RoB 2 等工具逐领域评价'低／有疑虑／高'风险，而非给论文打总分。" },
+  { t: "RoB 2", en: "RoB 2", d: "Cochrane 偏倚风险评价工具第二版，从随机过程、偏离干预、数据缺失、结局测量、选择性报告五个领域评价随机对照试验。" },
+  { t: "GRADE", en: "GRADE", d: "给证据体可信度定级（高／中／低／极低）的方法学框架；随机对照试验从'高'起步，按五降级、三升级因素调整。" },
+  { t: "证据概要表", en: "Summary of Findings table", d: "把每个结局的效应量、样本量和证据等级浓缩在一张表里，是系统评价论文的'门面'。" },
+  { t: "零线", en: "line of no effect", d: "森林图中代表'无效应'的垂直参考线（MD／SMD 为 0，OR／RR 为 1）；置信区间跨过它通常意味着不显著。" },
+  { t: "菱形", en: "diamond", d: "森林图底部代表合并效应的菱形：中心是合并点估计，左右顶点是置信区间的上下限。" },
+  { t: "预注册", en: "registration", d: "在研究开始前把系统评价方案公开登记（如 PROSPERO），防止事后挑结果报告，是证据可信度的加分项。" }
+];
+
+
+/* ---- app.js ---- */
+/* ============================================================
+   应用外壳：顶栏导航 + 路由 + 各视图渲染 + 小测交互 + 下载
+   路由：#/ →首页  #/chapters →章节列表  #/chapter/ch01 →章节
+        #/workbench/smd|convert|meta →工作台  #/labs →实战列表
+        #/lab/lab-a →实战  #/glossary →术语表  #/templates →模板
+   ============================================================ */
+ML.progress = (function () {
+  var k = 'ml-learn-v1', d = { read: {}, quiz: {} };
+  try { var s = localStorage.getItem(k); if (s) d = JSON.parse(s); } catch (e) {}
+  return {
+    data: d,
+    save: function () { try { localStorage.setItem(k, JSON.stringify(d)); } catch (e) {} },
+    markRead: function (id) { d.read[id] = true; this.save(); },
+    setQuiz: function (id, score) { if (!d.quiz[id] || score > d.quiz[id]) d.quiz[id] = score; this.save(); }
+  };
+})();
+
+ML.download = function (name, text, mime) {
+  var blob = new Blob(["\ufeff" + text], { type: mime || 'text/plain;charset=utf-8' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 800);
+};
+
+ML.nav = function (active) {
+  var items = [
+    ['#/', '首页', 'home'], ['#/chapters', '教程', 'chapters'],
+    ['#/workbench', '工作台', 'workbench'], ['#/labs', '复现实战', 'labs'],
+    ['#/glossary', '术语表', 'glossary'], ['#/templates', '模板下载', 'templates']
+  ];
+  var h = '<div class="topnav"><div class="inner"><span class="brand">📊 Meta 分析从零开始</span>';
+  items.forEach(function (it) {
+    h += '<a class="nav' + (active === it[2] ? ' on' : '') + '" href="' + it[0] + '">' + it[1] + '</a>';
+  });
+  return h + '</div></div>';
+};
+ML.footer = function () {
+  return '<div class="footer">Meta 分析从零开始 · 体育科学复现实战平台<br>' +
+    '<span class="note">纯前端单文件应用：所有计算都在你的浏览器里完成，数据不会上传到任何服务器。</span></div>';
+};
+ML.shell = function (active, body) {
+  document.getElementById('app').innerHTML = ML.nav(active) + '<div class="wrap">' + body + '</div>' + ML.footer();
+  window.scrollTo(0, 0);
+};
+
+/* ---------------- 首页 ---------------- */
+ML.homeView = function () {
+  var chs = ML.chapters, i, done = 0, h = '';
+  chs.forEach(function (c) { if (ML.progress.data.read[c.id]) done++; });
+  h += '<div class="hero"><h1>Meta 分析，从零开始，<br>亲手复现第一篇论文</h1>' +
+    '<p>十章教程 · 在线统计工作台 · 两篇真实论文复现实战。不用装 R、不用学编程，浏览器里就能从 0 走到"我会做"。</p>' +
+    '<div class="cta"><a class="btn" href="#/chapter/ch01" style="background:#fbbf24;color:#422006">🚀 从第一章开始</a>' +
+    '<a class="btn ghost" href="#/workbench" style="border-color:#fff;color:#fff">打开工作台</a></div></div>';
+  h += '<div class="grid3">' +
+    '<a class="entry" href="#/chapters"><div class="em">📖</div><h3>十章教程</h3><p>概念 → 手算 → 计算器验证 → 小测，闭环学习</p></a>' +
+    '<a class="entry" href="#/workbench"><div class="em">🧮</div><h3>在线工作台</h3><p>效应量、数据转换、合并分析、森林图一键出</p></a>' +
+    '<a class="entry" href="#/labs"><div class="em">🔬</div><h3>复现实战</h3><p>两篇真实论文，一步步算出和原文一致的结果</p></a></div>';
+  h += '<h2 class="sec">学习路径 <span class="note">（已学完 ' + done + ' / ' + chs.length + ' 章）</span></h2><div class="card" style="padding:6px 18px">';
+  chs.forEach(function (c, idx) {
+    var st = ML.progress.data.read[c.id] ? '<span class="badge done">已学完</span>' :
+      (ML.progress.data.quiz[c.id] ? '<span class="badge">小测 ' + ML.progress.data.quiz[c.id] + ' 分</span>' : '<span class="badge">未开始</span>');
+    h += '<a class="chrow" href="#/chapter/' + c.id + '"><span class="n">' + c.num + '</span>' +
+      '<span class="t"><b>' + ML.esc(c.title) + '</b><span>约 ' + c.minutes + ' 分钟</span></span>' + st + '</a>';
+  });
+  h += '</div><div class="card"><h3 style="margin-top:0">给新手的三个建议</h3>' +
+    '<ol><li><b>按顺序学</b>：每一章都是下一章的地基，别跳过手算——手算一次，胜过看十遍公式。</li>' +
+    '<li><b>多用工作台</b>：每章末尾的"去验证"不是摆设，亲手点一次，数字才真正属于你。</li>' +
+    '<li><b>以复现为终点</b>：学完十章直接进"复现实战"，完整走完一篇，你就出师了。</li></ol></div>';
+  ML.shell('home', h);
+};
+
+/* ---------------- 章节 ---------------- */
+ML.chaptersView = function () {
+  var h = '<h2 class="sec" style="margin-top:6px">十章教程</h2><div class="card" style="padding:6px 18px">';
+  ML.chapters.forEach(function (c) {
+    var st = ML.progress.data.read[c.id] ? '<span class="badge done">已学完</span>' : '<span class="badge">约 ' + c.minutes + ' 分钟</span>';
+    h += '<a class="chrow" href="#/chapter/' + c.id + '"><span class="n">' + c.num + '</span>' +
+      '<span class="t"><b>' + ML.esc(c.title) + '</b><span>' + c.goals.slice(0, 2).join('；') + '</span></span>' + st + '</a>';
+  });
+  ML.shell('chapters', h + '</div>');
+};
+
+ML.chapterView = function (id) {
+  var c = null, idx = -1, i;
+  for (i = 0; i < ML.chapters.length; i++) if (ML.chapters[i].id === id) { c = ML.chapters[i]; idx = i; break; }
+  if (!c) { ML.shell('chapters', '<div class="card"><p>章节不存在。</p></div>'); return; }
+  var h = '<p class="note">' + c.num + ' · 约 ' + c.minutes + ' 分钟</p><h2 class="sec" style="margin-top:0">' + ML.esc(c.title) + '</h2>';
+  h += '<div class="card"><h3 style="margin-top:0">🎯 学完本章你能</h3><ul>';
+  c.goals.forEach(function (g) { h += '<li>' + ML.esc(g) + '</li>'; });
+  h += '</ul></div>';
+  c.sections.forEach(function (s) { h += '<div class="card"><h3 style="margin-top:0">' + ML.esc(s.h) + '</h3>' + s.body + '</div>'; });
+  if (c.workbench) {
+    var wbName = { smd: '效应量计算器', convert: '数据转换器', meta: '合并分析工作台' }[c.workbench] || '工作台';
+    h += '<div class="card" style="border-color:var(--pri);background:var(--pri-l)"><h3 style="margin-top:0">🧮 去工作台验证一下</h3>' +
+      '<p>' + ML.esc(c.workbenchNote || '把本章的手算例亲手算一遍。') + '</p>' +
+      '<a class="btn" href="#/workbench/' + c.workbench + '">打开' + wbName + '</a></div>';
+  }
+  h += '<h2 class="sec">小测一下</h2><div id="quizbox">';
+  c.quiz.forEach(function (q, qi) {
+    h += '<div class="quiz" data-qi="' + qi + '"><div class="qq">' + (qi + 1) + '. ' + ML.esc(q.q) + '</div>';
+    q.options.forEach(function (op, oi) {
+      h += '<button class="opt" data-oi="' + oi + '">' + ML.esc(op) + '</button>';
+    });
+    h += '<div class="exp">' + ML.esc(q.explain) + '</div></div>';
+  });
+  h += '</div><p>得分：<span class="score" id="qscore">—</span></p>';
+  var prev = idx > 0 ? ML.chapters[idx - 1] : null, next = idx < ML.chapters.length - 1 ? ML.chapters[idx + 1] : null;
+  h += '<div class="btnrow"><button class="btn ghost" id="markread">' +
+    (ML.progress.data.read[c.id] ? '✓ 已学完' : '标记为已学完') + '</button></div>';
+  h += '<div class="pager">' +
+    (prev ? '<a class="btn ghost" href="#/chapter/' + prev.id + '">← ' + prev.num + '</a>' : '<span></span>') +
+    (next ? '<a class="btn" href="#/chapter/' + next.id + '">' + next.num + ' →</a>' : '<a class="btn" href="#/labs">去复现实战 →</a>') + '</div>';
+  ML.shell('chapters', h);
+  document.getElementById('markread').onclick = function () {
+    ML.progress.markRead(c.id); this.textContent = '✓ 已学完';
+  };
+  /* 小测交互 */
+  var answered = 0, correct = 0, total = c.quiz.length;
+  ML.$$('.quiz').forEach(function (box) {
+    var qi = +box.getAttribute('data-qi'), q = c.quiz[qi], doneQ = false;
+    ML.$$('.opt', box).forEach(function (btn) {
+      btn.onclick = function () {
+        if (doneQ) return; doneQ = true;
+        var oi = +btn.getAttribute('data-oi');
+        ML.$$('.opt', box).forEach(function (b2, bi) {
+          b2.disabled = true;
+          if (bi === q.answer) b2.classList.add('correct');
+        });
+        if (oi === q.answer) correct++; else btn.classList.add('wrong');
+        box.querySelector('.exp').classList.add('show');
+        answered++;
+        if (answered === total) {
+          var score = Math.round(100 * correct / total);
+          document.getElementById('qscore').textContent = correct + ' / ' + total + '（' + score + ' 分）';
+          ML.progress.setQuiz(c.id, score);
+        } else {
+          document.getElementById('qscore').textContent = '已答 ' + answered + ' / ' + total;
+        }
+      };
+    });
+  });
+};
+
+/* ---------------- 工作台 ---------------- */
+ML.wbTabs = [['smd', '效应量计算器'], ['convert', '数据转换器'], ['meta', '合并分析工作台']];
+ML.workbenchView = function (tab) {
+  tab = tab || 'smd';
+  var h = '<h2 class="sec" style="margin-top:6px">在线工作台</h2><p class="note">所有计算都在本页面完成，不上传数据。结果可直接用于学习验证；正式研究请用 R（metafor）或 RevMan 复核。</p><div class="tabs">';
+  ML.wbTabs.forEach(function (t) {
+    h += '<button data-tab="' + t[0] + '" class="' + (tab === t[0] ? 'on' : '') + '">' + t[1] + '</button>';
+  });
+  h += '</div><div id="wbbody"></div>';
+  ML.shell('workbench', h);
+  ML.$$('.tabs button').forEach(function (b) {
+    b.onclick = function () { location.hash = '#/workbench/' + b.getAttribute('data-tab'); };
+  });
+  if (tab === 'smd') ML.wbSmd(); else if (tab === 'convert') ML.wbConvert(); else ML.wbMeta();
+};
+ML.num = function (id) { var v = parseFloat(document.getElementById(id).value); return isNaN(v) ? NaN : v; };
+
+ML.wbSmd = function () {
+  var el = document.getElementById('wbbody');
+  el.innerHTML = '<div class="card"><h3 style="margin-top:0">效应量计算器</h3>' +
+    '<div class="fgrid"><label>数据类型<select id="smdtype"><option value="cont">连续变量（两组均值±标准差）</option><option value="bin">二分类（2×2 表）</option><option value="r">相关系数 r</option></select></label></div>' +
+    '<div id="smdform"></div><div class="btnrow"><button class="btn" id="smdgo">计算</button></div><div id="smdout"></div></div>';
+  var S = ML.stats;
+  function form() {
+    var t = document.getElementById('smdtype').value, h = '';
+    if (t === 'cont')
+      h = '<div class="fgrid"><label>效应量种类<select id="smdkind"><option value="g">SMD（Hedges g，推荐）</option><option value="md">MD（均值差）</option></select></label></div>' +
+        '<div class="fgrid"><label>干预组 n1<input id="n1" type="number" value="20"></label><label>干预组均值 M1<input id="m1" type="number" value="12.5"></label><label>干预组 SD1<input id="sd1" type="number" value="3.0"></label>' +
+        '<label>对照组 n2<input id="n2" type="number" value="20"></label><label>对照组均值 M2<input id="m2" type="number" value="9.8"></label><label>对照组 SD2<input id="sd2" type="number" value="2.8"></label></div>' +
+        '<p class="note">示例数据来自第二章手算例，点"计算"应得 g ≈ 0.91。</p>';
+    else if (t === 'bin')
+      h = '<div class="fgrid"><label>效应量种类<select id="smdkind"><option value="or">OR（比值比）</option><option value="rr">RR（相对危险度）</option></select></label></div>' +
+        '<div class="fgrid"><label>干预组发生数 a<input id="a" type="number" value="12"></label><label>干预组未发生数 b<input id="b" type="number" value="88"></label>' +
+        '<label>对照组发生数 c<input id="c" type="number" value="20"></label><label>对照组未发生数 d<input id="d" type="number" value="80"></label></div>' +
+        '<p class="note">合并分析时请用对数尺度（lnOR / lnRR）及其标准误；本工具同时给出换回原尺度的 OR/RR 及其 CI。</p>';
+    else
+      h = '<div class="fgrid"><label>相关系数 r（-1～1）<input id="r" type="number" value="0.42" step="0.01"></label><label>样本量 n<input id="n" type="number" value="60"></label></div>' +
+        '<p class="note">相关系数的合并在 Fisher z 尺度上进行，之后再换回 r。</p>';
+    document.getElementById('smdform').innerHTML = h;
+    document.getElementById('smdout').innerHTML = '';
+  }
+  document.getElementById('smdtype').onchange = form; form();
+  document.getElementById('smdgo').onclick = function () {
+    var t = document.getElementById('smdtype').value, out = '', r;
+    function ci(y, se) { return [y - 1.96 * se, y + 1.96 * se]; }
+    if (t === 'cont') {
+      var n1 = ML.num('n1'), m1 = ML.num('m1'), sd1 = ML.num('sd1'), n2 = ML.num('n2'), m2 = ML.num('m2'), sd2 = ML.num('sd2');
+      if ([n1, m1, sd1, n2, m2, sd2].some(isNaN) || n1 < 2 || n2 < 2 || sd1 <= 0 || sd2 <= 0) { alert('请检查输入：样本量≥2，标准差>0'); return; }
+      if (document.getElementById('smdkind').value === 'g') {
+        r = S.hedgesG(n1, m1, sd1, n2, m2, sd2); var c = ci(r.g, r.se);
+        out = '<table class="tbl res"><tr><th>指标</th><th>值</th></tr>' +
+          '<tr><td>Cohen\'s d</td><td class="num">' + ML.fmt(r.d, 3) + '</td></tr>' +
+          '<tr><td>小样本校正系数 J</td><td class="num">' + ML.fmt(r.J, 4) + '</td></tr>' +
+          '<tr><td><b>Hedges\'s g</b></td><td class="num"><b>' + ML.fmt(r.g, 3) + '</b></td></tr>' +
+          '<tr><td>标准误 SE</td><td class="num">' + ML.fmt(r.se, 3) + '</td></tr>' +
+          '<tr><td>95% CI</td><td class="num">[' + ML.fmt(c[0], 3) + ', ' + ML.fmt(c[1], 3) + ']</td></tr></table>';
+      } else {
+        r = S.meanDiff(n1, m1, sd1, n2, m2, sd2); var c2 = ci(r.md, r.se);
+        out = '<table class="tbl res"><tr><th>指标</th><th>值</th></tr>' +
+          '<tr><td><b>均值差 MD</b></td><td class="num"><b>' + ML.fmt(r.md, 3) + '</b></td></tr>' +
+          '<tr><td>标准误 SE</td><td class="num">' + ML.fmt(r.se, 3) + '</td></tr>' +
+          '<tr><td>95% CI</td><td class="num">[' + ML.fmt(c2[0], 3) + ', ' + ML.fmt(c2[1], 3) + ']</td></tr></table>';
+      }
+    } else if (t === 'bin') {
+      var a = ML.num('a'), b = ML.num('b'), cc = ML.num('c'), d = ML.num('d');
+      if ([a, b, cc, d].some(isNaN) || Math.min(a, b, cc, d) <= 0) { alert('2×2 表四个格子都必须 > 0'); return; }
+      var kind = document.getElementById('smdkind').value;
+      r = kind === 'or' ? S.or2x2(a, b, cc, d) : S.rr2x2(a, b, cc, d);
+      var y = r.logor, c3 = ci(y, r.se);
+      out = '<table class="tbl res"><tr><th>指标</th><th>值</th></tr>' +
+        '<tr><td>ln(' + kind.toUpperCase() + ')</td><td class="num">' + ML.fmt(y, 3) + '</td></tr>' +
+        '<tr><td>标准误 SE（对数尺度）</td><td class="num">' + ML.fmt(r.se, 3) + '</td></tr>' +
+        '<tr><td><b>' + kind.toUpperCase() + '</b></td><td class="num"><b>' + ML.fmt(Math.exp(y), 3) + '</b></td></tr>' +
+        '<tr><td>95% CI（原尺度）</td><td class="num">[' + ML.fmt(Math.exp(c3[0]), 3) + ', ' + ML.fmt(Math.exp(c3[1]), 3) + ']</td></tr></table>';
+    } else {
+      var rv = ML.num('r'), n = ML.num('n');
+      if (isNaN(rv) || isNaN(n) || Math.abs(rv) >= 1 || n < 4) { alert('要求 |r|<1 且 n≥4'); return; }
+      r = S.rToZ(rv, n); var c4 = ci(r.z, r.se);
+      out = '<table class="tbl res"><tr><th>指标</th><th>值</th></tr>' +
+        '<tr><td>Fisher\'s z</td><td class="num">' + ML.fmt(r.z, 3) + '</td></tr>' +
+        '<tr><td>标准误 SE</td><td class="num">' + ML.fmt(r.se, 3) + '</td></tr>' +
+        '<tr><td>95% CI（z 尺度）</td><td class="num">[' + ML.fmt(c4[0], 3) + ', ' + ML.fmt(c4[1], 3) + ']</td></tr>' +
+        '<tr><td><b>95% CI（换回 r）</b></td><td class="num"><b>[' + ML.fmt(Math.tanh(c4[0]), 3) + ', ' + ML.fmt(Math.tanh(c4[1]), 3) + ']</b></td></tr></table>';
+    }
+    document.getElementById('smdout').innerHTML = '<h3>计算结果</h3>' + out;
+  };
+};
+
+ML.wbConvert = function () {
+  var el = document.getElementById('wbbody'), S = ML.stats;
+  el.innerHTML = '<div class="card"><h3 style="margin-top:0">数据转换器：SE / 95%CI / p 值 → 标准差</h3>' +
+    '<p class="note">论文里经常只报告标准误、置信区间或 p 值。先把它们换算成标准差，才能计算效应量。<b>以下均为单组均值（或已算好的均值差）的通用换算</b>，两组比较的精确换算见第三章。</p>' +
+    '<div class="fgrid"><label>已知什么<select id="cvtype"><option value="se">标准误 SE → SD</option><option value="ci">95% CI → SD</option><option value="p">p 值 → SD</option></select></label></div>' +
+    '<div id="cvform"></div><div class="btnrow"><button class="btn" id="cvgo">换算</button></div><div id="cvout"></div></div>';
+  function form() {
+    var t = document.getElementById('cvtype').value, h = '';
+    if (t === 'se') h = '<div class="fgrid"><label>标准误 SE<input id="v_se" type="number" value="1.2"></label><label>样本量 n<input id="v_n" type="number" value="25"></label></div><p class="note">公式：SD = SE × √n</p>';
+    else if (t === 'ci') h = '<div class="fgrid"><label>CI 下限<input id="v_lo" type="number" value="2.0"></label><label>CI 上限<input id="v_hi" type="number" value="8.0"></label><label>样本量 n<input id="v_n" type="number" value="36"></label></div><p class="note">公式：SD = √n × (上限−下限) / (2 × t<sub>0.975, n−1</sub>)。第三章手算用 1.96 近似得 9.18；本工具查精确 t 值（n=36 时 t=2.03），得约 8.87——差异只来自近似精度，方法完全一致。</p>';
+    else h = '<div class="fgrid"><label>均值差（绝对值）<input id="v_md" type="number" value="4.2"></label><label>双侧 p 值<input id="v_p" type="number" value="0.05" step="0.001"></label><label>样本量 n<input id="v_n" type="number" value="30"></label></div><p class="note">思路：p → t 值 → SE = |均值差| / t → SD = SE × √n。手算例取 t≈2.10 得 10.95；工具用精确 t 值，结果略有差异，属正常。</p>';
+    document.getElementById('cvform').innerHTML = h;
+    document.getElementById('cvout').innerHTML = '';
+  }
+  document.getElementById('cvtype').onchange = form; form();
+  document.getElementById('cvgo').onclick = function () {
+    var t = document.getElementById('cvtype').value, out = '';
+    if (t === 'se') {
+      var se = ML.num('v_se'), n = ML.num('v_n');
+      if (isNaN(se) || isNaN(n) || n < 1 || se < 0) { alert('请检查输入'); return; }
+      var sd = S.sdFromSE(se, n);
+      out = '<p>SD = ' + se + ' × √' + n + ' = <b>' + ML.fmt(sd, 2) + '</b></p>';
+    } else if (t === 'ci') {
+      var lo = ML.num('v_lo'), hi = ML.num('v_hi'), n2 = ML.num('v_n');
+      if (isNaN(lo) || isNaN(hi) || isNaN(n2) || n2 < 2 || hi <= lo) { alert('请检查输入：n≥2，且上限>下限'); return; }
+      var tt = S.tQ(0.975, n2 - 1), sd2 = S.sdFromCI(lo, hi, n2);
+      out = '<p>t<sub>0.975, ' + (n2 - 1) + '</sub> = ' + ML.fmt(tt, 3) + '<br>SD = √' + n2 + ' × (' + hi + '−' + lo + ') / (2×' + ML.fmt(tt, 3) + ') = <b>' + ML.fmt(sd2, 2) + '</b></p>';
+    } else {
+      var mdd = ML.num('v_md'), p = ML.num('v_p'), n3 = ML.num('v_n');
+      if (isNaN(mdd) || isNaN(p) || isNaN(n3) || n3 < 2 || p <= 0 || p >= 1) { alert('请检查输入：n≥2，0<p<1'); return; }
+      var t2 = S.tQ(1 - p / 2, n3 - 1), se2 = Math.abs(mdd) / t2, sd3 = S.sdFromP(mdd, p, n3);
+      out = '<p>t = ' + ML.fmt(t2, 3) + '；SE = ' + mdd + ' / ' + ML.fmt(t2, 3) + ' = ' + ML.fmt(se2, 3) + '<br>SD = ' + ML.fmt(se2, 3) + ' × √' + n3 + ' = <b>' + ML.fmt(sd3, 2) + '</b></p>';
+    }
+    document.getElementById('cvout').innerHTML = '<h3>换算结果</h3>' + out;
+  };
+};
+
+ML.parseMetaInput = function (text, format) {
+  var lines = text.split('\n'), studies = [], errs = [], S = ML.stats;
+  lines.forEach(function (ln, li) {
+    ln = ln.trim(); if (!ln || ln[0] === '#') return;
+    var p;
+    if (/[,，]/.test(ln)) p = ln.split(/[,，]/).map(function (x) { return x.trim(); }).filter(function (x) { return x !== ''; });
+    else p = ln.split(/[\t;；\s]+/).filter(function (x) { return x !== ''; });
+    try {
+      if (format === 'raw') {
+        if (p.length < 7) throw '列数不足';
+        var n1 = +p[1], m1 = +p[2], sd1 = +p[3], n2 = +p[4], m2 = +p[5], sd2 = +p[6];
+        if ([n1, m1, sd1, n2, m2, sd2].some(isNaN) || n1 < 2 || n2 < 2 || sd1 <= 0 || sd2 <= 0) throw '数值非法';
+        var r = S.hedgesG(n1, m1, sd1, n2, m2, sd2);
+        studies.push({ name: p[0], y: r.g, se: r.se });
+      } else {
+        if (p.length < 3) throw '列数不足';
+        var y = +p[1], se = +p[2];
+        if (isNaN(y) || isNaN(se) || se <= 0) throw '数值非法';
+        studies.push({ name: p[0], y: y, se: se });
+      }
+    } catch (e) { errs.push('第 ' + (li + 1) + ' 行：' + e); }
+  });
+  return { studies: studies, errs: errs };
+};
+
+ML.wbMeta = function () {
+  var el = document.getElementById('wbbody'), S = ML.stats;
+  var sample = '# 每行：研究名, 效应量, 标准误\n研究A, 0.80, 0.30\n研究B, 0.40, 0.20\n研究C, 0.60, 0.40';
+  var sampleRaw = '# 每行：研究名, n1, M1, SD1, n2, M2, SD2（自动算 Hedges g）\n研究A, 20, 12.5, 3.0, 20, 9.8, 2.8\n研究B, 30, 15.1, 4.2, 30, 13.9, 4.0\n研究C, 15, 11.0, 2.5, 15, 10.2, 2.6';
+  el.innerHTML = '<div class="card"><h3 style="margin-top:0">合并分析工作台</h3>' +
+    '<div class="fgrid"><label>输入格式<select id="mfmt"><option value="yv">效应量 + 标准误（每行：研究名, y, se）</option><option value="raw">原始均值数据（每行：研究名, n1,M1,SD1, n2,M2,SD2）</option></select></label></div>' +
+    '<textarea id="mdata" rows="7" placeholder="每行一个研究"></textarea>' +
+    '<div class="btnrow"><button class="btn" id="mgo">开始合并</button><button class="btn ghost" id="msample">载入示例</button><button class="btn ghost" id="mclear">清空</button></div>' +
+    '<div id="mout"></div><p class="note">做 OR/RR 的合并请先取对数（lnOR/lnRR）再粘贴；相关系数请先做 Fisher z 转换。示例数据来自第四章手算例。</p></div>';
+  var ta = document.getElementById('mdata'); ta.value = sample;
+  document.getElementById('mfmt').onchange = function () { ta.value = this.value === 'raw' ? sampleRaw : sample; };
+  document.getElementById('msample').onclick = function () {
+    ta.value = document.getElementById('mfmt').value === 'raw' ? sampleRaw : sample;
+  };
+  document.getElementById('mclear').onclick = function () { ta.value = ''; document.getElementById('mout').innerHTML = ''; };
+  document.getElementById('mgo').onclick = function () {
+    var fmt = document.getElementById('mfmt').value;
+    var pr = ML.parseMetaInput(ta.value, fmt);
+    if (pr.errs.length) { alert('输入有误：\n' + pr.errs.slice(0, 5).join('\n')); return; }
+    if (pr.studies.length < 2) { alert('至少需要 2 个研究'); return; }
+    var ys = pr.studies.map(function (s) { return s.y; });
+    var vs = pr.studies.map(function (s) { return s.se * s.se; });
+    var ses = pr.studies.map(function (s) { return s.se; });
+    var fx = S.metaFixed(ys, vs), rn = S.metaRandom(ys, vs);
+    var h = '<h3>合并结果（k = ' + ys.length + '）</h3>';
+    h += '<table class="tbl res"><tr><th>模型</th><th>合并效应</th><th>95% CI</th><th>SE</th></tr>' +
+      '<tr><td>固定效应（逆方差）</td><td class="num">' + ML.fmt(fx.pooled, 3) + '</td><td class="num">[' + ML.fmt(fx.ci[0], 3) + ', ' + ML.fmt(fx.ci[1], 3) + ']</td><td class="num">' + ML.fmt(fx.se, 3) + '</td></tr>' +
+      '<tr><td><b>随机效应（DL）</b></td><td class="num"><b>' + ML.fmt(rn.pooled, 3) + '</b></td><td class="num"><b>[' + ML.fmt(rn.ci[0], 3) + ', ' + ML.fmt(rn.ci[1], 3) + ']</b></td><td class="num">' + ML.fmt(rn.se, 3) + '</td></tr></table>';
+    h += '<table class="tbl res"><tr><th>异质性指标</th><th>值</th><th>解读</th></tr>' +
+      '<tr><td>Q（df=' + fx.df + '）</td><td class="num">' + ML.fmt(fx.Q, 2) + '</td><td>p = ' + ML.fmt(fx.pQ, 3) + (fx.pQ < 0.10 ? '（<0.10，提示有异质性）' : '（≥0.10）') + '</td></tr>' +
+      '<tr><td>I²</td><td class="num">' + ML.fmt(100 * rn.I2, 1) + '%</td><td>' + (rn.I2 < 0.25 ? '较低' : rn.I2 < 0.5 ? '中等' : rn.I2 < 0.75 ? '较高' : '很高') + '（经验参考，非金标准）</td></tr>' +
+      '<tr><td>τ²</td><td class="num">' + ML.fmt(rn.tau2, 4) + '</td><td>研究间方差</td></tr>' +
+      '<tr><td>95% 预测区间</td><td class="num">[' + ML.fmt(rn.pred[0], 3) + ', ' + ML.fmt(rn.pred[1], 3) + ']</td><td>未来类似研究的可能范围</td></tr></table>';
+    h += ML.forestSVG(pr.studies, rn, '森林图（随机效应）');
+    if (ys.length >= 3) {
+      var eg = S.egger(ys, ses);
+      h += '<h3>发表偏倚初筛</h3>' + ML.funnelSVG(pr.studies, rn, '漏斗图') +
+        '<table class="tbl res"><tr><th>Egger 检验</th><th>值</th></tr>' +
+        '<tr><td>截距</td><td class="num">' + ML.fmt(eg.b0, 3) + '</td></tr>' +
+        '<tr><td>t（df=' + eg.df + '）</td><td class="num">' + ML.fmt(eg.t, 3) + '</td></tr>' +
+        '<tr><td>p 值</td><td class="num">' + ML.fmt(eg.p, 3) + (eg.p < 0.10 ? '（<0.10，提示不对称）' : '') + '</td></tr></table>' +
+        '<p class="note">研究少时 Egger 检验功效很低；漏斗图不对称也可能来自异质性。详见第八章。</p>';
+      var loo = S.leaveOneOut(ys, vs);
+      h += '<h3>留一法敏感性分析</h3><table class="tbl res"><tr><th>剔除的研究</th><th>合并效应</th><th>95% CI</th><th>I²</th></tr>';
+      loo.forEach(function (L) {
+        h += '<tr><td>' + ML.esc(pr.studies[L.dropped].name) + '</td><td class="num">' + ML.fmt(L.pooled, 3) + '</td><td class="num">[' + ML.fmt(L.ci[0], 3) + ', ' + ML.fmt(L.ci[1], 3) + ']</td><td class="num">' + ML.fmt(100 * L.I2, 1) + '%</td></tr>';
+      });
+      h += '</table>';
+    } else h += '<p class="note">研究数 ≥3 时才会显示 Egger 检验与留一法。</p>';
+    document.getElementById('mout').innerHTML = h;
+  };
+};
+
+/* ---------------- 复现实战 ---------------- */
+ML.labsView = function () {
+  var h = '<h2 class="sec" style="margin-top:6px">复现实战实验室</h2><p>两篇真实的体育科学 Meta 分析。每个实战都提供：论文信息 → PICO → 数据提取表 → 分步计算（每步可核对）→ 与原文结果对照。</p>';
+  ML.labs.forEach(function (L) {
+    h += '<div class="card"><h3 style="margin-top:0">🔬 ' + ML.esc(L.title) + '</h3>' +
+      '<p class="note">' + ML.esc(L.paper) + '</p><p>' + ML.esc(L.blurb) + '</p>' +
+      '<a class="btn" href="#/lab/' + L.id + '">进入实战</a></div>';
+  });
+  h += '<div class="card"><h3 style="margin-top:0">实战方法</h3><ol><li>先读论文的"方法"部分，确认效应量类型和合并模型。</li><li>对照提取表，把每个研究的数据亲手算一遍效应量（用工作台验证）。</li><li>跑合并：先固定、再随机，对照每一步的核对点。</li><li>最后看"与原文对照"：数字对上了，你就真正复现了一篇论文。</li></ol></div>';
+  ML.shell('labs', h);
+};
+
+ML.labView = function (id) {
+  var L = null, i;
+  for (i = 0; i < ML.labs.length; i++) if (ML.labs[i].id === id) L = ML.labs[i];
+  if (!L || !L.studies || !L.studies.length) { ML.shell('labs', '<div class="card"><p>实战数据正在验算中，稍后上线。</p><a class="btn ghost" href="#/labs">返回</a></div>'); return; }
+  var S = ML.stats, h = '';
+  var studies = L.studies.map(function (st) {
+    if (st.y !== undefined) return { name: st.name, y: st.y, se: (st.hi - st.lo) / 3.92, src: st.src };
+    var r;
+    if (L.effect === 'MD') {
+      var v = st.sd1 * st.sd1 / st.n1 + st.sd2 * st.sd2 / st.n2;
+      r = { md: st.m1 - st.m2, se: Math.sqrt(v) };
+      return { name: st.name, y: r.md, se: r.se, src: st.src };
+    }
+    r = S.hedgesG(st.n1, st.m1, st.sd1, st.n2, st.m2, st.sd2);
+    return { name: st.name, y: r.g, se: r.se, src: st.src };
+  });
+  var ys = studies.map(function (s) { return s.y; }), vs = studies.map(function (s) { return s.se * s.se; });
+  var rn = S.metaRandom(ys, vs);
+  var effName = L.effect === 'MD' ? 'MD（均值差）' : "SMD（Hedges's g）";
+  h += '<p class="note"><a href="#/labs">← 复现实战</a></p><h2 class="sec" style="margin-top:0">' + ML.esc(L.title) + '</h2>';
+  h += '<div class="card"><p class="note">' + ML.esc(L.paper) + '</p>' + L.background +
+    (L.dirNote ? '<div class="tip">🧭 ' + L.dirNote + '</div>' : '') + '</div>';
+  h += '<div class="card"><h3 style="margin-top:0">📋 数据提取表</h3><div style="overflow-x:auto">';
+  var rawForm = L.studies.length && L.studies[0].n1 !== undefined;
+  if (rawForm) {
+    h += '<table class="tbl res"><tr><th>研究</th><th>n1</th><th>M1</th><th>SD1</th><th>n2</th><th>M2</th><th>SD2</th><th>' + (L.effect === 'MD' ? 'MD' : 'SMD(g)') + '</th><th>来源</th></tr>';
+    L.studies.forEach(function (st, ix) {
+      h += '<tr><td>' + ML.esc(st.name) + '</td><td class="num">' + st.n1 + '</td><td class="num">' + st.m1 + '</td><td class="num">' + st.sd1 + '</td><td class="num">' + st.n2 + '</td><td class="num">' + st.m2 + '</td><td class="num">' + st.sd2 + '</td><td class="num"><b>' + ML.fmt(studies[ix].y, 2) + '</b></td><td class="note">' + ML.esc(studies[ix].src || '') + '</td></tr>';
+    });
+    h += '</table></div><p class="note">n1/M1/SD1 = 对照组，安慰剂组；n2/M2/SD2 = 干预组。' + effName + '列是按原始数据算出的，你可以在工作台里逐个验证。</p></div>';
+  } else {
+    h += '<table class="tbl res"><tr><th>研究</th><th>MD</th><th>95% CI</th><th>数据来源</th></tr>';
+    L.studies.forEach(function (st, ix) {
+      h += '<tr><td>' + ML.esc(st.name) + '</td><td class="num"><b>' + ML.fmt(studies[ix].y, 2) + '</b></td><td class="num">[' + ML.fmt(st.lo, 1) + ', ' + ML.fmt(st.hi, 1) + ']</td><td class="note">' + ML.esc(studies[ix].src || '') + '</td></tr>';
+    });
+    h += '</table></div><p class="note">研究水平效应量来自原文森林图读数（精度约 0.1），已标注；合并结果已与原文发表值核对一致。</p></div>';
+  }
+  h += '<h2 class="sec">分步复现</h2>';
+  L.steps.forEach(function (st, ix) {
+    h += '<div class="step"><h4>步骤 ' + (ix + 1) + '：' + ML.esc(st.h) + '</h4>' + st.body +
+      (st.check ? '<div class="check"><b>✓ 核对点：</b>' + st.check + '</div>' : '') + '</div>';
+  });
+  h += '<h2 class="sec">你的森林图</h2>' + ML.forestSVG(studies, rn, '复现森林图（随机效应）');
+  h += '<div class="card"><h3 style="margin-top:0">🎯 与原文对照</h3><table class="tbl res"><tr><th>指标</th><th>你的复现</th><th>原文报告</th><th>是否一致</th></tr>';
+  L.finalRows.forEach(function (r2) {
+    h += '<tr><td>' + ML.esc(r2[0]) + '</td><td class="num">' + r2[1] + '</td><td class="num">' + ML.esc(r2[2]) + '</td><td>' + r2[3] + '</td></tr>';
+  });
+  h += '</table><p>' + L.conclusion + '</p></div>';
+  h += '<div class="pager"><a class="btn ghost" href="#/labs">← 返回实战列表</a><span></span></div>';
+  ML.shell('labs', h);
+};
+
+/* ---------------- 术语表 ---------------- */
+ML.glossaryView = function () {
+  var h = '<h2 class="sec" style="margin-top:6px">中英术语表</h2><div class="card"><input type="text" id="gq" placeholder="搜索术语，如：异质性 / I² / forest…"></div><div class="card" id="glist" style="padding:6px 18px"></div>';
+  ML.shell('glossary', h);
+  function render(q) {
+    q = (q || '').toLowerCase();
+    var out = '', n = 0;
+    ML.glossary.forEach(function (g) {
+      if (q && (g.t + ' ' + g.en + ' ' + g.d).toLowerCase().indexOf(q) < 0) return;
+      n++;
+      out += '<div class="gterm"><b>' + ML.esc(g.t) + '</b><span class="en">' + ML.esc(g.en) + '</span><br><span>' + ML.esc(g.d) + '</span></div>';
+    });
+    document.getElementById('glist').innerHTML = out || '<p class="note">没有匹配的术语。</p>';
+  }
+  document.getElementById('gq').oninput = function () { render(this.value); };
+  render('');
+};
+
+/* ---------------- 模板下载 ---------------- */
+ML.prismaSVG = function () {
+  function box(x, y, w, t1, t2) {
+    return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="64" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="2"/>' +
+      '<text x="' + (x + w / 2) + '" y="' + (y + 26) + '" text-anchor="middle" font-size="14" font-weight="bold" fill="#0b5a55">' + t1 + '</text>' +
+      '<text x="' + (x + w / 2) + '" y="' + (y + 48) + '" text-anchor="middle" font-size="13" fill="#57534e">' + t2 + '</text>';
+  }
+  function arrow(x1, y1, x2, y2) {
+    return '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="#78716c" stroke-width="2"/>' +
+      '<polygon points="' + x2 + ',' + y2 + ' ' + (x2 - 7) + ',' + (y2 - 10) + ' ' + (x2 + 7) + ',' + (y2 - 10) + '" fill="#78716c"/>';
+  }
+  var W = 640, s = [];
+  s.push('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' 560" width="640">');
+  s.push('<text x="20" y="30" font-size="18" font-weight="bold" fill="#1c1917">PRISMA 文献筛选流程图（模板）</text>');
+  var cx = W / 2, w = 420, x = cx - w / 2, y = 50, gap = 84;
+  var steps = [
+    ['数据库检索', 'n = ____'], ['去重后', 'n = ____'],
+    ['标题摘要筛选', 'n = ____'], ['全文评估', 'n = ____'], ['纳入 Meta 分析', 'n = ____']
+  ];
+  steps.forEach(function (st, i) {
+    s.push(box(x, y + i * gap, w, st[0], st[1]));
+    if (i < steps.length - 1) s.push(arrow(cx, y + i * gap + 64, cx, y + (i + 1) * gap));
+  });
+  s.push('<text x="20" y="548" font-size="12" fill="#78716c">把 ____ 换成你的实际数字；每一步排除原因建议在旁边注明。</text>');
+  s.push('</svg>');
+  return s.join('');
+};
+ML.extractionCSV = function () {
+  var rows = [
+    ['作者(年)', '国家', '研究设计', '研究对象特征', '样本量_干预组', '样本量_对照组', '干预描述', '对照描述', '结局指标', '干预组均值', '干预组SD', '对照组均值', '对照组SD', '备注'],
+    ['例：Smith (2020)', '英国', 'RCT', '男性业余跑者，20-30岁', '20', '20', '冷水浸泡 15°C×15min', '被动休息', '24h后肌肉酸痛VAS', '3.2', '1.1', '4.5', '1.3', '']
+  ];
+  return rows.map(function (r) { return r.map(function (c) { return '"' + c + '"'; }).join(','); }).join('\n');
+};
+ML.templatesView = function () {
+  var h = '<h2 class="sec" style="margin-top:6px">模板下载</h2>';
+  h += '<div class="card"><h3 style="margin-top:0">PRISMA 文献筛选流程图</h3>' + ML.prismaSVG() +
+    '<div class="btnrow"><button class="btn" id="dlprisma">下载 SVG</button></div>' +
+    '<p class="note">SVG 为矢量图，可用浏览器直接打开打印，或导入 Illustrator / Inkscape 修改数字后放入论文。</p></div>';
+  h += '<div class="card"><h3 style="margin-top:0">数据提取表（CSV）</h3><p>用 Excel / WPS 打开即可填写。列：作者(年)、国家、设计、对象特征、两组样本量、干预/对照描述、结局指标、两组均值±SD、备注。</p>' +
+    '<div class="btnrow"><button class="btn" id="dlcsv">下载 CSV</button></div></div>';
+  ML.shell('templates', h);
+  document.getElementById('dlprisma').onclick = function () { ML.download('PRISMA流程图模板.svg', ML.prismaSVG(), 'image/svg+xml'); };
+  document.getElementById('dlcsv').onclick = function () { ML.download('数据提取表模板.csv', ML.extractionCSV(), 'text/csv;charset=utf-8'); };
+};
+
+/* ---------------- 路由 ---------------- */
+ML.route = function () {
+  var hsh = location.hash || '#/';
+  var p = hsh.replace(/^#\/?/, '').split('/');
+  if (p[0] === '' ) ML.homeView();
+  else if (p[0] === 'chapters') ML.chaptersView();
+  else if (p[0] === 'chapter') ML.chapterView(p[1]);
+  else if (p[0] === 'workbench') ML.workbenchView(p[1]);
+  else if (p[0] === 'labs') ML.labsView();
+  else if (p[0] === 'lab') ML.labView(p[1]);
+  else if (p[0] === 'glossary') ML.glossaryView();
+  else if (p[0] === 'templates') ML.templatesView();
+  else ML.homeView();
+};
+window.addEventListener('hashchange', ML.route);
+ML.route();
+
+</script>
+</body>
+</html>
