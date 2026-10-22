@@ -16,3 +16,4 @@ jobs:
           node-version: '24'
       - run: npm install --ignore-scripts --no-audit --no-fund
       - run: npm test
+      - run: python3 -m unittest discover -s maintenance/tests -v

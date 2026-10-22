@@ -1,5 +1,5 @@
 /* 文献库 PWA Service Worker — 缓存外壳，数据与鉴权永远走网络 */
-var CACHE = 'litdb-shell-93';
+var CACHE = 'litdb-shell-94';
 var SHELL = ['./environment-review.js?v=93', './environment-review.css?v=93', './', './index.html', './meta-core.js?v=87', './meta-hub.js?v=87', './meta-hub.css?v=87', './article-reader.js?v=88', './article-reader.css?v=88', './open-pdf-sources.json?v=91', './fulltext-reader.js?v=92', './fulltext-reader.css?v=88', './manifest.json', './jcr-data.js', './library-jcr.js', './follow-hub.js?v=79', './follow-hub.css', './memo.js?v=86', './memo.css?v=86', './figure-extract.js?v=80', './figure-hub.js?v=80', './figure-hub.css?v=80', './paradigm-guide.js?v=82', './assets/research-thinker.webp', './paradigm-rings.js?v=82', './paradigm-rings.css?v=82', './library-storage.js', './library-cache.js'];
 
 self.addEventListener('install', function(e){

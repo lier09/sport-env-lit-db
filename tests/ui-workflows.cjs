@@ -7,6 +7,7 @@ const {JSDOM, VirtualConsole} = jsdom;
 let IDBFactory;try{({IDBFactory}=require('fake-indexeddb'));}catch(e){({IDBFactory}=require(path.join(process.env.TEMP,'sport-env-startup-tests','node_modules','fake-indexeddb')));}
 const root = path.join(__dirname, '..');
 const reviewMode=process.argv.includes('--review');
+const ingestSmoke=process.argv.includes('--ingest-smoke');
 const reviewRows=[];
 const baseline=process.argv.includes('--baseline');
 const sourceHtml = baseline ? require('node:child_process').execFileSync('git',['show','HEAD:index.html'],{cwd:root,encoding:'utf8',maxBuffer:8*1024*1024}) : fs.readFileSync(path.join(root,'index.html'),'utf8');
@@ -17,6 +18,7 @@ const records=[{id:'fixture1',title:'Cold-water immersion after exercise',abstra
 {id:'fixture2',title:'Exercise heat acclimation',abstract:'Exercise in heat.',authors:'Fixture Author',env:'高温',tags:'热习服',type:'原创研究',year:'2025',cited:0,journal:'Fixture Journal'}];
 for(let i=3;i<=105;i++)records.push({...records[0],id:"fixture"+i,title:"Cold-water immersion recovery study "+i});
 if(reviewMode){records[104].id='https://openalex.org/W999991';records[104].env=['待分类'];}
+if(ingestSmoke)records[104]=JSON.parse(fs.readFileSync(path.join(root,'maintenance/tests/fixtures/hbo-paper.json'),'utf8'));
 if(baseline) Object.assign(records[1],{authors:['Fixture Author'],env:['高温'],tags:['热习服']});
 function response(data,status=200){return new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json'}});}
 const virtualConsole=new VirtualConsole();
@@ -77,6 +79,19 @@ setTimeout(async()=>{
       assert.match(d.getElementById('exportSummary').textContent,/105/,'reviewed paper is restored to ordinary search');
       console.log('PASS: full-page pending facet, admin multi-environment assignment, updated counts and ordinary-search inclusion.');
       return;
+    }
+    if(ingestSmoke){
+      const w=dom.window,delay=ms=>new Promise(r=>setTimeout(r,ms));
+      const click=s=>{const e=d.querySelector(s);assert.ok(e,'Missing '+s);e.click();};
+      click('#prClose');await delay(100);
+      click('[data-field="population"] input[value="human"]');
+      d.getElementById('q').value='10.1007/s00421-025-05997-7';click('#btnSearch');
+      assert.equal(d.querySelectorAll('#results .card').length,1,'DOI + human filter must find staged paper');
+      assert.match(d.getElementById('results').textContent,/Synergistic effects/);
+      click('#results .readlink');
+      assert.equal(d.querySelector('#r_read .rabs').textContent,records[104].abstract,'full enriched abstract preserved through reader');
+      assert.ok(d.querySelector('#r_read .rabs').textContent.length>1900);
+      console.log('PASS: real staged paper is discoverable by DOI with human filter and full 1953-character abstract.');return;
     }
     const meta=d.getElementById('dbmeta').textContent;
     assert.match(meta,/已收录 105 篇/);

@@ -2463,7 +2463,7 @@ function filtered(){
     if(!matchAdv(p,adv)) return false;
     if(adv.text){
       var hay = (p.title+" "+(p.authors||[]).join(" ")+" "+
-                 (p.journal||"")+" "+(p.abstract||"")+" "+
+                 (p.journal||"")+" "+(p.abstract||"")+" "+(p.id||"")+" "+(p.doi||"")+" "+(p.doi?doiUrl(p.doi):"")+" "+
                  (p.tags||[]).join(" ")).toLowerCase();
       if(hay.indexOf(adv.text)<0) return false;
     }

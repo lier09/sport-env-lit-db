@@ -1,0 +1,25 @@
+{
+  "id": "W4414569677",
+  "doi": "10.1007/s00421-025-05997-7",
+  "title": "Synergistic effects of immediate post-sprint interval training low-dose hyperbaric oxygen on aerobic and anaerobic performance and recovery indicators: a four-week randomized controlled trial",
+  "year": 2025,
+  "abstract": "This study investigated whether, and to what extent, immediate post-sprint interval training (SIT) low-dose hyperbaric oxygen (HBO) could augment adaptations in aerobic and anaerobic performance and recovery indicators in healthy men. A 4-week randomized controlled trial assigned 24 healthy men to either the SIT&#x2009;+&#x2009;HBO or SIT-only groups. Outcomes assessed pre- and post-intervention included aerobic and anaerobic performance, body composition, countermovement jump (CMJ), Pittsburgh Sleep Quality Index (PSQI), Profile of Mood States (POMS), and heart rate variability (HRV). Both groups significantly improved aerobic performance and body composition, with no between-group differences. However, SIT&#x2009;+&#x2009;HBO led to greater gains in anaerobic power indices: peak power (PP) (&#x394;:&#x2009;+&#x2009;21.6% vs.&#x2009;+&#x2009;11.9%, g&#x2009;=&#x2009;0.69), peak power relative to body mass (PP&#x202f;kg&#x207b;1) (&#x394;:&#x2009;+&#x2009;24.1% vs.&#x2009;+&#x2009;13.0%, g&#x2009;=&#x2009;0.75) and mean power relative to body mass (MP&#x202f;kg&#x207b;1) (&#x394;:&#x2009;+&#x2009;31.6% vs.&#x2009;+&#x2009;11.8%, g&#x2009;=&#x2009;0.94). A significant interaction was also observed for mean power (MP) (&#x394;:&#x2009;+&#x2009;24.5% vs.&#x2009;+&#x2009;10.6%, g&#x2009;=&#x2009;0.88), though post-hoc comparison was non-significant due to an outlier. Despite positive numerical trends, particularly for PSQI (p&#x2009;=&#x2009;0.06), no significant synergistic effects were found for aerobic capacity, PSQI, or HRV. SIT improved aerobic and anaerobic performance and fat mass. Immediate post-SIT low-dose HBO yielded a synergistic benefit for anaerobic power, but not for aerobic or recovery outcomes. The small sample may have limited power and generalizability, increasing the risk of Type II errors. Future studies should clarify mechanisms and refine protocols via larger placebo-controlled trials with biomarkers.",
+  "authors": [
+    "Zepeng Hu",
+    "Wenjing Guo",
+    "Hao Wu"
+  ],
+  "journal": "European Journal of Applied Physiology",
+  "cited": 1,
+  "type": "原创研究",
+  "population": "human",
+  "env": [
+    "高氧"
+  ],
+  "tags": [
+    "干预研究",
+    "RCT",
+    "高压氧",
+    "冲刺间歇训练"
+  ]
+}
