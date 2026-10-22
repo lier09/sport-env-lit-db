@@ -1,5 +1,5 @@
 {
-  "enabled": false,
+  "enabled": true,
   "url": "https://ywmjbivuibxsgjcmekob.supabase.co/functions/v1/pdf-reader",
   "protocol": 1
 }
