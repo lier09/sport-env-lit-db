@@ -36,6 +36,8 @@ def public_paper(p):
             name=i.get('display_name')
             if name and name not in names:names.append(name)
     p['affiliations']=names
+    # Internal audit/operator notes belong in the private receipt, not shards.
+    p={k:v for k,v in p.items() if not k.startswith('_')}
     return p
 
 def build(baseline_manifest, baseline_dir, additions, approved_ids, output):

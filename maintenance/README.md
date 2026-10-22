@@ -1,8 +1,55 @@
 # Historical reconciliation and data-only release
 
-These tools supplement the existing daily ingestion pipeline. They do not deploy
-HTML, truncate abstracts, upload data, delete canonical records, or advance the
-daily successful-publication-date watermark. No credentials belong in this repo.
+## Audited daily runtime (2026-10-22)
+
+`pipeline/` contains reviewed replacements for the three daily collectors and
+shared runtime, not a website template. Install with `install_pipeline.py`:
+preflight is the default, original file hashes must match, the actual writer
+and enqueue locks must be free, and every replaced file is backed up. Do not
+copy the archive's SQLite/queue snapshots over the current VM. Unfinished runs
+need an explicitly reviewed `--accept-pending-replay`; their original scope,
+date window, retry time and raw-page cache are retained. A code difference must
+be inspected, never bypassed with a force flag.
+
+The patched collectors only change local data. They do not rebuild old HTML,
+increment build source versions or upload. Missing abstracts/topics, retractions,
+and uncertain exercise relationships are saved with raw metadata for review.
+They are not automatically admitted, nor assumed irrelevant. This conservative
+policy increases manual review. The public environment review overlay handles
+environment assignment of existing records; the new raw intake queue is separate
+and is **not yet automatically displayed in that public review workspace**.
+
+Identity uses normalized ID and DOI, not title alone. The dedup blocklist is
+required and applies to all three daily jobs. Malformed/missing blocklists block
+collection. Known papers are not retroactively deleted or relabeled. Full daily
+intake entries and abstracts are retained. Duplicate/overlapping API pages cannot
+be certified complete merely because their row count matches `meta.count`.
+
+Before each managed job, a recoverable journal backs up the canonical output set.
+Failures restore that set; after a killed process, the next managed invocation
+recovers it before any job runs. Durable raw pages and pending-review evidence
+survive. This is process-interruption recovery under the shared writer lock,
+not a simultaneous multi-file snapshot for external readers. Publish only staged,
+verified releases. Manual scripts bypassing the managed entry still require
+separate review and the same lock; they must not run alongside these collectors.
+
+`audit_corpus.py` profiles the supplied three snapshots without editing them.
+`normalize_corpus.py` stages deterministic schema repairs without deleting records
+or inferring human participants. Its explicit `--apply` mode uses the installed
+writer lock, verifies a backup and replaces canonical JSON atomically. It never
+uploads. Run schema repair on the **current** canonical data, not an old snapshot.
+
+Daily and historical collection now share `effective_queries()`, including the
+seven synonym queries. Patched rules change the history fingerprint: retain old
+ledgers and start a new `history-v2-*.sqlite3`, rather than reusing an incompatible
+unfinished ledger. The historical worker captures review decisions in its own
+ledger without writing to canonical data directories.
+
+The historical/release tools below supplement the daily ingestion pipeline.
+They do not deploy HTML, truncate abstracts, upload data, delete canonical records,
+or advance its successful-date watermark. The audited daily runtime above still
+advances its own watermark only after successful collection. No credentials
+belong in this repo.
 
 ## Why this is needed
 

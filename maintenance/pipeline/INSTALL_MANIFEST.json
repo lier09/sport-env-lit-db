@@ -1,0 +1,65 @@
+{
+  "format": 1,
+  "files": [
+    {
+      "path": "cold-lit-db/daily_update.py",
+      "sha256": "b4b07e8a8fade7e9ab734c34bb0a445771d4f2a6bf3fb83ca21f4be7eb551190",
+      "expected_before": "5889f2fae9f222b4107ce1e9adb7685bbf6500403ccad7bceab9353074e5e0df"
+    },
+    {
+      "path": "cold-lit-db/data_transaction.py",
+      "sha256": "43f680b470af4ffc226ddc1b68021df934d21383334825d80c008ae11f0f7c7d",
+      "expected_before": null
+    },
+    {
+      "path": "cold-lit-db/history_reconcile.py",
+      "sha256": "d6519fd0899eb39d05e99fb394767f3fd103fe880b570ab82e0c6e784cde2206",
+      "expected_before": null
+    },
+    {
+      "path": "cold-lit-db/ingest_guard.py",
+      "sha256": "7ba8e0e3192fb42d942b4aa8b611994d66c9be18b84a112b76e1b01617ab8c93",
+      "expected_before": null
+    },
+    {
+      "path": "cold-lit-db/openalex_auth.py",
+      "sha256": "4df64d51d5cdd8086d6802dfc9b5328ce53eb3606f8efeb2f97ae98f4eadb31c",
+      "expected_before": "847f986b08207015c7ffd852877c2a145daf609a685f4a2413490183959c5521"
+    },
+    {
+      "path": "cold-lit-db/openalex_runtime.py",
+      "sha256": "6b4b4a9276ef8e7f5584dd5c8e684a942f8272a8fb22ec184450c2c89d02c1d5",
+      "expected_before": "01d607c24e633a2adea4cca1b842e26cad1faf02f663d913ab05ebc9415f8c6d"
+    },
+    {
+      "path": "cold-lit-db/run_pipeline.py",
+      "sha256": "b8877dccd2091337263432770db26598d9558c4d3d4a5d3791d6d3891cf57531",
+      "expected_before": "496aa93a1d5855239ffaa10d71bdeee6d38392a1f186304efa6f601e3b00000b"
+    },
+    {
+      "path": "cold-lit-db/safe_entry.py",
+      "sha256": "efac87c6d1fd403276f7488dde6acbcfa83ad3c8265c96019428bdd58511961f",
+      "expected_before": "b3ed6805790e4974118fd2e5540e44120f7f5909f886a0158248f3fa903abeee"
+    },
+    {
+      "path": "consensus-db/collect.py",
+      "sha256": "d3130db3e5b4e7c2cbed8d77ef90d66f3aa69fce02e86d9d0421d5d60b652fb5",
+      "expected_before": "97402d95b685169122905fc84c4fea7fd4b49fb73ceb8620a6a837fcbb3f7a59"
+    },
+    {
+      "path": "consensus-db/daily_update.py",
+      "sha256": "65613d9d30ded9de81f359c952f4d447a4288fd152dc7d21f28bb52e27dfd3af",
+      "expected_before": "b4b5a6f59b043f002b1ef647c3c4ea74c8f8a9c4639edcb379fd5b59118e6631"
+    },
+    {
+      "path": "perfmod-db/collect.py",
+      "sha256": "6cbe8943bafc906f58bbb96e56d28057e64fa17020a258ec92d72ae969cdbc79",
+      "expected_before": "253f8527e5553a362a7afcf1453cca3f219f2ba8911986a9e9bceab290166e5e"
+    },
+    {
+      "path": "perfmod-db/daily_update.py",
+      "sha256": "d7b70c2ed7e1d11e54e35f19d53c99c23bad3d0dedaef30ed08c1ed99e86e9c5",
+      "expected_before": "960f2743308bf63d46d7957c00396b9e2cb30bf3757dc5c176079827ff6bd321"
+    }
+  ]
+}

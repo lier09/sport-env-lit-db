@@ -90,8 +90,13 @@ class History:
         if raw.get('is_retracted'):
             return key, 'pending', 'retracted_record', None
         prior = len(rules.PENDING_REVIEW)
-        cleaned = rules.clean_record(raw, q['env'], q['tag'], q['mode'], q['q'])
+        # Patched daily rules normally persist review evidence. Discovery owns
+        # its own atomic ledger and must not write to canonical data directories.
+        capture = rules.guard.capture_reviews() if hasattr(rules, 'guard') else contextlib.nullcontext([])
+        with capture as captured:
+            cleaned = rules.clean_record(raw, q['env'], q['tag'], q['mode'], q['q'])
         pending = rules.PENDING_REVIEW[prior:]
+        pending += captured
         del rules.PENDING_REVIEW[prior:]
         if not cleaned:
             return key, 'pending' if pending else 'rejected', (pending[0].get('reason') if pending else 'current_rules_reject'), None
@@ -196,6 +201,7 @@ def main():
     # daily_update only has definitions/top-level constants, plus cwd change.
     rules=importlib.import_module('daily_update')
     queries=json.loads((workspace/'data/queries.json').read_text(encoding='utf-8'))
+    if hasattr(rules, 'effective_queries'): queries=rules.effective_queries(queries)
     if args.env:queries=[q for q in queries if q['env']==args.env]
     if args.query:queries=[q for q in queries if q['q']==args.query]
     if not queries:raise ValueError('No matching configured queries')
@@ -213,7 +219,11 @@ def main():
             else:ledger=ledger.with_name(ledger.stem+'.'+dt.date.today().isoformat()+ledger.suffix)
     known=json.loads((workspace/'data/merged.json').read_text(encoding='utf-8'))
     bl=workspace/'data/dedup_blocklist_20261014.json'
-    rules_hash=hashlib.sha256((workspace/'daily_update.py').read_bytes()).hexdigest()
+    if not bl.exists(): raise ValueError('Required dedup blocklist missing')
+    if hasattr(rules, 'guard'): rules.guard.blocked(bl)
+    rule_files=[workspace/'daily_update.py']
+    if (workspace/'ingest_guard.py').exists(): rule_files.append(workspace/'ingest_guard.py')
+    rules_hash=hashlib.sha256(b''.join(p.read_bytes() for p in rule_files)).hexdigest()
     state_root=Path(os.environ.get('OA_STATE_DIR','~/.local/state/litdb-openalex')).expanduser()
     history=History(ledger,queries,rules_hash,dt.date.today().isoformat(),openalex_auth.has_key(),known,
                     json.loads(bl.read_text(encoding='utf-8')) if bl.exists() else {})
