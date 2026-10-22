@@ -1,6 +1,6 @@
 /* 文献库 PWA Service Worker — 缓存外壳，数据与鉴权永远走网络 */
-var CACHE = 'litdb-shell-92';
-var SHELL = ['./', './index.html', './meta-core.js?v=87', './meta-hub.js?v=87', './meta-hub.css?v=87', './article-reader.js?v=88', './article-reader.css?v=88', './open-pdf-sources.json?v=91', './fulltext-reader.js?v=92', './fulltext-reader.css?v=88', './manifest.json', './jcr-data.js', './library-jcr.js', './follow-hub.js?v=79', './follow-hub.css', './memo.js?v=86', './memo.css?v=86', './figure-extract.js?v=80', './figure-hub.js?v=80', './figure-hub.css?v=80', './paradigm-guide.js?v=82', './assets/research-thinker.webp', './paradigm-rings.js?v=82', './paradigm-rings.css?v=82', './library-storage.js', './library-cache.js'];
+var CACHE = 'litdb-shell-93';
+var SHELL = ['./environment-review.js?v=93', './environment-review.css?v=93', './', './index.html', './meta-core.js?v=87', './meta-hub.js?v=87', './meta-hub.css?v=87', './article-reader.js?v=88', './article-reader.css?v=88', './open-pdf-sources.json?v=91', './fulltext-reader.js?v=92', './fulltext-reader.css?v=88', './manifest.json', './jcr-data.js', './library-jcr.js', './follow-hub.js?v=79', './follow-hub.css', './memo.js?v=86', './memo.css?v=86', './figure-extract.js?v=80', './figure-hub.js?v=80', './figure-hub.css?v=80', './paradigm-guide.js?v=82', './assets/research-thinker.webp', './paradigm-rings.js?v=82', './paradigm-rings.css?v=82', './library-storage.js', './library-cache.js'];
 
 self.addEventListener('install', function(e){
   e.waitUntil(
@@ -22,7 +22,7 @@ self.addEventListener('activate', function(e){
 self.addEventListener('fetch', function(e){
   var url = e.request.url;
   // Runtime backend switch must reflect deployment status, never a stale shell copy.
-  if(url.indexOf('/pdf-service-config.json')>=0)return;
+  if(url.indexOf('/pdf-service-config.json')>=0||url.indexOf('/environment-review-config.json')>=0)return;
   // Supabase API / 认证 / 数据：一律走网络，不缓存
   if(url.indexOf('https://api.openalex.org/')===0 || url.indexOf('https://content.openalex.org/')===0)return;
   if(url.indexOf('supabase.co') >= 0 || url.indexOf('/auth/v1/') >= 0 || url.indexOf('/rest/v1/') >= 0 || url.indexOf('/storage/v1/') >= 0){

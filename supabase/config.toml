@@ -1,2 +1,5 @@
 [functions.pdf-reader]
 verify_jwt = true
+
+[functions.environment-review]
+verify_jwt = true

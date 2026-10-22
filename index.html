@@ -1239,6 +1239,7 @@ canvas.net{cursor:grab}
     <div class="tags" id="tagbar"></div>
   </div>
   <div id="c-results">
+    <div id="environmentReviewHost"></div>
     <div class="resultbar">
       <span id="count"></span>
       <span class="tools">
@@ -1285,6 +1286,7 @@ canvas.net{cursor:grab}
     <span>已选 <b id="batchCount">0</b> 篇</span>
     <button class="btn ghost sm" id="bbFav">★ 收藏</button>
     <button class="btn ghost sm" id="bbRead">✓ 标已读</button>
+    <button class="btn ghost sm" id="bbEnvironment">环境归类</button>
     <button class="btn ghost sm" id="bbTag">🏷️ 打标签</button>
     <button class="btn ghost sm" id="bbOutline">📑 生成大纲</button>
     <button class="btn ghost sm" id="bbCsv">CSV</button>
@@ -1542,6 +1544,8 @@ var Fr={},Gr={};var Wr,Hr=function(){function t(t,e,n){var i=this;this._sleepAft
 <script src="./jcr-data.js"></script>
 <script src="./library-jcr.js"></script>
 <script src="./follow-hub.js?v=79"></script>
+<link rel="stylesheet" href="./environment-review.css?v=93">
+<script src="./environment-review.js?v=93"></script>
 <script src="./library-storage.js"></script>
 <script src="./library-cache.js"></script>
 <script>/* 低温与运动科学文献数据库 - 前端逻辑 */
@@ -2090,9 +2094,16 @@ function risSave(a){ try{ personalStore.setItem(RIS_KEY, JSON.stringify(a)); ret
   });
 })();
 
+var envReview=window.LitdbEnvironmentReview.create({
+  papers:PAPERS,base:SUPA_URL,anon:SUPA_ANON,
+  existingToken:function(){return supaSession&&supaSession.access_token;},
+  getSelected:function(){return Object.keys(batchSel||{}).map(function(id){return id2paper[id];}).filter(Boolean);},
+  onlyPending:function(){selectPendingReview();},onChange:function(changed){refreshEnvironmentReview(changed);}
+});
+await envReview.load(false);
 var ENV_ORDER = ["低温","高氧","高温","高温高湿","交叉适应","高原低氧","其他环境"];
 var ENV_COLORS = {"低温":"#1a6fd4","高氧":"#0e9f6e","高温":"#d43d1a",
-  "高温高湿":"#b45309","交叉适应":"#7c5cd6","高原低氧":"#0f766e","其他环境":"#64748b"};
+  "高温高湿":"#b45309","交叉适应":"#7c5cd6","高原低氧":"#0f766e","其他环境":"#64748b","待核查":"#b45309"};
 
 var state = { q:"", env:{}, tags:{}, type:"all", ymin:DATA_YEAR_MIN, ymax:DATA_YEAR_MAX,
   journal:"all", jcr:"all", minCited:0, oa:false, sort:"year_desc", page:1,
@@ -2135,7 +2146,7 @@ PAPERS.forEach(function(p){
   (p.tags||[]).forEach(function(t){ tagCounts[t]=(tagCounts[t]||0)+1; });
   p.env.forEach(function(e){
     envCounts[e]=(envCounts[e]||0)+1;
-    if(!state.env.hasOwnProperty(e)) state.env[e]=true;
+    if(!state.env.hasOwnProperty(e)) state.env[e]=e!=="待核查";
   });
   yearCounts[p.year]=(yearCounts[p.year]||0)+1;
   if(p.journal){ journalCounts[p.journal]=(journalCounts[p.journal]||0)+1; }
@@ -2392,7 +2403,7 @@ function initMultiFilters(){
 
 function filterKey(){
   var conditions=Object.assign({},state);delete conditions.page;
-  return JSON.stringify([PAPERS.length,conditions,!!favOnly,window._aiMode?window._aiConcepts:null,window._aiAuthor,!!window._aiAuthorExpand,favs,myTags,folders,deletedIds]);
+  return JSON.stringify([PAPERS.length,(typeof envReview!=="undefined"?envReview.revision():0),conditions,!!favOnly,window._aiMode?window._aiConcepts:null,window._aiAuthor,!!window._aiAuthorExpand,favs,myTags,folders,deletedIds]);
 }
 function filtered(){
   var memoKey=filterKey();
@@ -2543,6 +2554,7 @@ function render(){
       links+='<a class="rellink" data-id="'+esc(p.id)+'">相关文献 ↓</a>';
       links+='<a class="graphlink" data-id="'+esc(p.id)+'" title="以此篇为中心的关系图谱">🕸️ 图谱</a>';
       links+='<a class="taglink" data-id="'+esc(p.id)+'" title="打自定义标签">🏷️ 标签</a>';
+      if((p.env||[]).indexOf('待核查')>=0||p._envReviewConfirmed) links+='<button type="button" class="env-review-link" data-id="'+esc(p.id)+'">审核环境</button>';
       links+='<button type="button" class="figurelink" data-id="'+esc(p.id)+'" title="添加到文献看图识记">▧ 看图识记</button>';
       links+='<a class="readlink" data-id="'+esc(p.id)+'" title="查看摘要、笔记及全文阅读">📖 阅读</a></div>';
       var mytagHtml=paperMyTags(p.id).map(function(t){
@@ -2636,6 +2648,7 @@ function render(){
   box.querySelectorAll(".graphlink").forEach(function(el){
     el.onclick=function(){ openPaperGraph(el.getAttribute("data-id")); };
   });
+  box.querySelectorAll(".env-review-link").forEach(function(el){el.onclick=function(e){e.stopPropagation();envReview.open([id2paper[el.getAttribute("data-id")]]);};});
   box.querySelectorAll(".taglink").forEach(function(el){
     el.onclick=function(ev){
       openTagPop(el.getAttribute("data-id"),ev.clientX,ev.clientY);
@@ -2746,6 +2759,18 @@ function drawCharts(){
 
 /* ---------- 控件 ---------- */
 /* ---------- 环境栏 + 主题标签栏 ---------- */
+function refreshEnvironmentReview(changed){
+  if(changed&&batchSel){var changedIds=new Set(changed.map(function(r){return r.paper_id;}));Object.keys(batchSel).forEach(function(id){if(changedIds.has(LitdbEnvironmentReview.id(id)))delete batchSel[id];});}
+  envCounts={};PAPERS.forEach(function(p){(p.env||[]).forEach(function(e){envCounts[e]=(envCounts[e]||0)+1;if(!Object.prototype.hasOwnProperty.call(state.env,e))state.env[e]=false;});});
+  filterMemo.key=null;state.page=1;
+  buildEnvbar();buildSpectrum();buildFacet();buildTagbar();render();
+}
+function selectPendingReview(){
+  if($("btnReset"))$("btnReset").click();
+  Object.keys(state.env).forEach(function(e){state.env[e]=false;});state.env["待核查"]=true;favOnly=false;
+  buildEnvbar();buildSpectrum();buildFacet();buildTagbar();state.page=1;render();
+}
+
 function envOnlyFiltered(){
   var activeEnvs = Object.keys(state.env).filter(function(e){return state.env[e];});
   if(!activeEnvs.length) return [];
@@ -2754,9 +2779,10 @@ function envOnlyFiltered(){
     return activeEnvs.some(function(e){return pe.indexOf(e)>=0;});
   });
 }
+function environmentFilterOrder(){return ENV_ORDER.concat(["待核查"]).filter(function(e){return e==="待核查"||envCounts[e];});}
 function buildEnvbar(){
   var eb=$("envbar");
-  var order = ENV_ORDER.filter(function(e){return envCounts[e];});
+  var order = environmentFilterOrder();
   Object.keys(envCounts).forEach(function(e){
     if(order.indexOf(e)<0) order.push(e);
   });
@@ -2771,6 +2797,7 @@ function buildEnvbar(){
   eb.querySelectorAll(".chip").forEach(function(ch){
     ch.onclick=function(){
       var e=ch.getAttribute("data-e");
+      if(e==="待核查"){selectPendingReview();return;}
       state.env[e]=!state.env[e];
       paintEnvbar(); state.tags={}; buildTagbar(); state.page=1; render();
     };
@@ -2820,7 +2847,7 @@ function buildJournals(){
 var PILL_CLASS={"低温":"p-cold","高温":"p-heat","高温高湿":"p-heat","高氧":"p-oxy","高原低氧":"p-alt","交叉适应":"","其他环境":""};
 function buildSpectrum(){
   var box=$("specLabels"); if(!box) return;
-  var order=ENV_ORDER.filter(function(e){return envCounts[e];});
+  var order=environmentFilterOrder();
   box.innerHTML=order.map(function(e){
     var c=ENV_COLORS[e]||"#64748b";
     return '<span data-e="'+esc(e)+'" style="color:'+c+'">'+esc(e)+'</span>';
@@ -2833,6 +2860,7 @@ function buildSpectrum(){
   box.querySelectorAll("span").forEach(function(s){
     s.onclick=function(){
       var e=s.getAttribute("data-e");
+      if(e==="待核查"){selectPendingReview();return;}
       state.env[e]=!state.env[e];
       paint(); paintEnvbar(); buildFacet(); state.tags={}; buildTagbar();
       state.page=1; render();
@@ -2844,7 +2872,7 @@ function buildSpectrum(){
 }
 function buildFacet(){
   var box=$("l4FacetBody"); if(!box) return;
-  var order=ENV_ORDER.filter(function(e){return envCounts[e];});
+  var order=environmentFilterOrder();
   var html='<h4>环境</h4>'+order.map(function(e){
     var c=ENV_COLORS[e]||"#64748b", on=!!state.env[e];
     return '<div class="l4-frow'+(on?"":" off")+'" data-e="'+esc(e)+'">'+
@@ -2891,6 +2919,7 @@ function buildFacet(){
     row.onclick=function(){
       var e=row.getAttribute("data-e"), t=row.getAttribute("data-t"), ty=row.getAttribute("data-ty"), pop=row.getAttribute("data-pop");
       if(e){
+        if(e==="待核查"){selectPendingReview();return;}
         state.env[e]=!state.env[e];
         state.tags={}; buildTagbar();
         if($("specLabels")._paint) $("specLabels")._paint();
@@ -3096,7 +3125,7 @@ function bind(){
     state.tags={}; state.population="all"; state.author=""; state.affiliation=""; state.authorExpand=false;
     window._aiAuthorExpand=false;
     try{$("aiQ").value="";}catch(e){}
-    state.env={};Object.keys(envCounts).forEach(function(e){state.env[e]=true;});
+    state.env={};Object.keys(envCounts).forEach(function(e){state.env[e]=e!=="待核查";});
     paintEnvbar(); buildTagbar(); buildFacet();
     if($("specLabels")._paint) $("specLabels")._paint();
     document.querySelectorAll("#tagbar .chip").forEach(function(c){c.classList.remove("on");});
@@ -3718,6 +3747,7 @@ function bindBatchbar(){
     Object.keys(batchSel).forEach(function(id){ readSt[id]=1; });
     saveRead(); toast("已标记 "+Object.keys(batchSel).length+" 篇为已读"); render();
   };
+  if($("bbEnvironment"))$("bbEnvironment").onclick=function(){envReview.open(Object.keys(batchSel).map(function(id){return id2paper[id];}).filter(Boolean));};
   $("bbTag").onclick=function(){
     var ids=Object.keys(batchSel);
     if(!ids.length) return;
@@ -5689,7 +5719,7 @@ function init(){
   safe("数据概览", function(){
     var years=PAPERS.map(function(p){return p.year;}).filter(Boolean);
     var cited=PAPERS.reduce(function(s,p){return s+(p.cited||0);},0);
-    var nEnv=Object.keys(envCounts).length;
+    var nEnv=ENV_ORDER.filter(function(e){return envCounts[e];}).length;
     $("dbmeta").textContent="已收录 "+PAPERS.length+" 篇文献 · "+nEnv+" 大环境 · "+
       (years.length?Math.min.apply(null,years):"—")+"–"+
       (years.length?Math.max.apply(null,years):"—")+" · 累计被引 "+cited.toLocaleString();
@@ -5701,6 +5731,7 @@ function init(){
   });
   safe("主题", initTheme);
   safe("界面布局", function(){ applyLayout("classic", false); });
+  safe("环境审核",function(){envReview.mount($("environmentReviewHost"));});
   safe("环境条", buildEnvbar);
   safe("标签条", buildTagbar);
   safe("期刊", buildJournals);

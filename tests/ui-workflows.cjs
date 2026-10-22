@@ -6,14 +6,17 @@ try{jsdom=require('jsdom');}catch(e){jsdom=require(path.join(process.env.TEMP, '
 const {JSDOM, VirtualConsole} = jsdom;
 let IDBFactory;try{({IDBFactory}=require('fake-indexeddb'));}catch(e){({IDBFactory}=require(path.join(process.env.TEMP,'sport-env-startup-tests','node_modules','fake-indexeddb')));}
 const root = path.join(__dirname, '..');
+const reviewMode=process.argv.includes('--review');
+const reviewRows=[];
 const baseline=process.argv.includes('--baseline');
 const sourceHtml = baseline ? require('node:child_process').execFileSync('git',['show','HEAD:index.html'],{cwd:root,encoding:'utf8',maxBuffer:8*1024*1024}) : fs.readFileSync(path.join(root,'index.html'),'utf8');
-const html=sourceHtml.replace('<script src="./article-reader.js?v=88"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'article-reader.js'),'utf8')+'</script>').replace('<script src="./meta-core.js?v=87"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'meta-core.js'),'utf8')+'</script>').replace('<script src="./meta-hub.js?v=87"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'meta-hub.js'),'utf8')+'</script>').replace('<script src="./fulltext-reader.js?v=92"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'fulltext-reader.js'),'utf8')+'</script>').replace('<script src="./paradigm-guide.js?v=82"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'paradigm-guide.js'),'utf8')+'</script>').replace('<script src="./paradigm-rings.js?v=82"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'paradigm-rings.js'),'utf8')+'</script>').replace('<script src="./figure-extract.js?v=80"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'figure-extract.js'),'utf8')+'</script>').replace('<script src="./figure-hub.js?v=80"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'figure-hub.js'),'utf8')+'</script>').replace('<script src="./memo.js?v=86"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'memo.js'),'utf8')+'</script>').replace('<script src="./follow-hub.js?v=79"></script>','<script>'+fs.readFileSync(path.join(root,'follow-hub.js'),'utf8')+'</script>').replace('<script src="./library-jcr.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-jcr.js'),'utf8')+'</script>').replace('<script src="./library-storage.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-storage.js'),'utf8')+'</script>').replace('<script src="./library-cache.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-cache.js'),'utf8')+'</script>');
+const html=sourceHtml.replace('<script src="./article-reader.js?v=88"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'article-reader.js'),'utf8')+'</script>').replace('<script src="./meta-core.js?v=87"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'meta-core.js'),'utf8')+'</script>').replace('<script src="./meta-hub.js?v=87"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'meta-hub.js'),'utf8')+'</script>').replace('<script src="./fulltext-reader.js?v=92"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'fulltext-reader.js'),'utf8')+'</script>').replace('<script src="./paradigm-guide.js?v=82"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'paradigm-guide.js'),'utf8')+'</script>').replace('<script src="./paradigm-rings.js?v=82"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'paradigm-rings.js'),'utf8')+'</script>').replace('<script src="./figure-extract.js?v=80"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'figure-extract.js'),'utf8')+'</script>').replace('<script src="./figure-hub.js?v=80"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'figure-hub.js'),'utf8')+'</script>').replace('<script src="./memo.js?v=86"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'memo.js'),'utf8')+'</script>').replace('<script src="./follow-hub.js?v=79"></script>','<script>'+fs.readFileSync(path.join(root,'follow-hub.js'),'utf8')+'</script>').replace('<script src="./library-jcr.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-jcr.js'),'utf8')+'</script>').replace('<script src="./environment-review.js?v=93"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'environment-review.js'),'utf8')+'</script>').replace('<script src="./library-storage.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-storage.js'),'utf8')+'</script>').replace('<script src="./library-cache.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-cache.js'),'utf8')+'</script>');
 const storageKey = html.match(/var LS_SESS\s*=\s*"([^"]+)"/)[1];
 const warnings=[],metaRequests=[];
 const records=[{id:'fixture1',title:'Cold-water immersion after exercise',abstract:'Exercise recovery in cold water.',authors:['Ben Lee'],env:['低温'],tags:['冷水浸泡'],type:'原创研究',year:2026,cited:1,journal:'Fixture Journal',population:'human'},
 {id:'fixture2',title:'Exercise heat acclimation',abstract:'Exercise in heat.',authors:'Fixture Author',env:'高温',tags:'热习服',type:'原创研究',year:'2025',cited:0,journal:'Fixture Journal'}];
 for(let i=3;i<=105;i++)records.push({...records[0],id:"fixture"+i,title:"Cold-water immersion recovery study "+i});
+if(reviewMode){records[104].id='https://openalex.org/W999991';records[104].env=['待分类'];}
 if(baseline) Object.assign(records[1],{authors:['Fixture Author'],env:['高温'],tags:['热习服']});
 function response(data,status=200){return new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json'}});}
 const virtualConsole=new VirtualConsole();
@@ -25,9 +28,13 @@ beforeParse(w){
   w.indexedDB=new IDBFactory();w.URL.createObjectURL=()=> 'blob:fixture';w.URL.revokeObjectURL=()=>{};
   w.localStorage.setItem(storageKey,JSON.stringify({access_token:'fixture',refresh_token:'fixture',user:{id:'fixture-user'}}));
   w.Response=Response; w.AbortController=AbortController;w.TextDecoder=TextDecoder;
-  w.fetch=async url=>{
+  w.fetch=async (url,opts={})=>{
+    if(String(url).includes("/rest/v1/literature_env_reviews"))return response(reviewRows);
+    if(String(url).includes("/functions/v1/environment-review")){if(opts.method!=="POST")return response({can_review:true});const body=JSON.parse(opts.body);reviewRows.splice(0,reviewRows.length,...body.changes.map(c=>({paper_id:c.paper_id,environments:c.environments,revision:c.expected_revision+1})));return response({rows:reviewRows});}
     if(String(url).includes('meta-topics.json')){metaRequests.push(url);return response({format:'litdb-meta-candidates',version:1,ruleVersion:1,corpus:{version:'fixture',generated_at:'2026-10-20',total:105},topics:[{...require('../meta-rules.json').topics[0],records:require('../meta-core.js').collect(records,require('../meta-rules.json').topics[0])}]});}
+    if(String(url).includes('environment-review-config.json'))return response(reviewMode?{enabled:true,protocol:1,url:'https://ywmjbivuibxsgjcmekob.supabase.co/functions/v1/environment-review'}:{enabled:false});
     if(url.endsWith("/manifest.json"))return response({},404);
+    if(String(url).includes('/auth/v1/token'))return response({access_token:'fixture-admin'});
     if(url.includes('/auth/v1/user'))return response({id:'fixture-user'});
     if(url.includes('/rest/v1/profiles'))return response([{id:'fixture-user',banned:false}]);
     if(url.includes('papers-'))return response(url.includes('papers-1')?records:[]);
@@ -48,6 +55,27 @@ setTimeout(async()=>{
       assert.ok(warnings.some(x=>/Cannot set properties of null.*onclick/.test(x)),warnings.join('\n'));
       assert.equal(d.getElementById('slot-classic-analytics').children.length,0);
       console.log('PASS: unmodified GitHub HEAD reproduces the missing-element onclick error and empty analytics layout.');
+      return;
+    }
+    if(reviewMode){
+      const w=dom.window,delay=ms=>new Promise(r=>setTimeout(r,ms));
+      w.confirm=()=>true;
+      const click=selector=>{const el=d.querySelector(selector);assert.ok(el,'Missing '+selector);el.click();return el;};
+      click('#prClose');await delay(100);
+      assert.equal(d.querySelectorAll('#results .card').length,20);
+      click('#erOnly');
+      assert.equal(d.querySelectorAll('#results .card').length,1,'pending filter shows every unclassified record');
+      assert.match(d.getElementById('results').textContent,/待核查/);
+      click('#results .env-review-link');await delay(40);
+      if(d.getElementById('erAssign').hidden){d.getElementById('erEmail').value='admin@example.test';d.getElementById('erPassword').value='fixture';d.getElementById('erLoginForm').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await delay(40);}
+      assert.equal(d.getElementById('erAssign').hidden,false,'current administrator can assign');
+      click('#erAssign input[value="低温"]');click('#erAssign input[value="高原低氧"]');
+      click('#erSave');await delay(100);
+      assert.equal(reviewRows.length,1);assert.equal(reviewRows[0].environments.length,2);
+      assert.equal(d.querySelectorAll('#results .card').length,0,'classified paper leaves pending list');
+      click('#btnReset');
+      assert.match(d.getElementById('exportSummary').textContent,/105/,'reviewed paper is restored to ordinary search');
+      console.log('PASS: full-page pending facet, admin multi-environment assignment, updated counts and ordinary-search inclusion.');
       return;
     }
     const meta=d.getElementById('dbmeta').textContent;
