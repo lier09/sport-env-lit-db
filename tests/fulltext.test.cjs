@@ -89,6 +89,38 @@ test('licensed same-origin PDF catalog is loaded on demand, verifies bytes/hash 
  }finally{a.w.close();}
  }
 });
+test('PDF relay is on demand, posts only paper identifiers and never forwards the reader OpenAlex key',async()=>{
+ const endpoint='https://project.supabase.co/functions/v1/pdf-reader',identifier='10.1234/relay';
+ const a=setup(async u=>u===endpoint?new Response(pdf,{headers:{'X-Litdb-Protocol':'1','X-Litdb-Source':'https://www.frontiersin.org/paper.pdf','X-Litdb-DOI':identifier}}):u.includes('open-pdf-sources.json')?json({}):u.includes('/search?')?json({resultList:{result:[]}}):json({...work,has_content:{pdf:false}}));
+ try{
+  a.w.LITDB_PDF_SERVICE_URL=endpoint;a.w.SUPABASE_URL='https://project.supabase.co';a.w.SUPABASE_ANON_KEY='public-anon';
+  a.w.localStorage.setItem('litdb-openalex-content-key','private-reader-key');assert.equal(a.requests.length,0);
+  a.w.LitdbFulltext.open({...work,doi:identifier});await until(()=>a.stats.renders.length);
+  const post=a.requests.find(x=>x.url===endpoint);assert.equal(post.options.method,'POST');assert.equal(post.options.credentials,'omit');
+  assert.deepEqual(JSON.parse(post.options.body),{doi:identifier,workId:'W2168063968'});
+  assert.equal(post.options.headers.Authorization,'Bearer public-anon');assert.ok(!JSON.stringify(post).includes('private-reader-key'));
+  assert.equal(a.d.getElementById('ftSource').href,'https://www.frontiersin.org/paper.pdf');assert.match(a.d.getElementById('ftStatus').textContent,/开放 PDF 服务/);
+ }finally{a.w.close();}
+});
+test('disabled PDF service sends no relay request and successful direct PDF bypasses the relay config',async()=>{
+ const endpoint='https://project.supabase.co/functions/v1/pdf-reader';
+ for(const direct of [true,false]){
+  const a=setup(async u=>u.includes('pdf-service-config')?json({enabled:false,url:endpoint,protocol:1}):u.includes('api.openalex.org')?json({...work,has_content:{pdf:false},best_oa_location:direct?{pdf_url:'https://repository.invalid/paper.pdf'}:null}):new Response(pdf));
+  try{a.w.SUPABASE_URL='https://project.supabase.co';a.w.LitdbFulltext.open(work);await until(()=>!a.d.getElementById('ftRetry').disabled);assert.ok(!a.requests.some(x=>x.url===endpoint));if(direct)assert.ok(!a.requests.some(x=>x.url.includes('pdf-service-config')));}finally{a.w.close();}
+ }
+});
+test('PDF relay rejects DOI mismatches and shows service authorization failures without asking for OpenAlex keys',async()=>{
+ const endpoint='https://project.supabase.co/functions/v1/pdf-reader';
+ for(const variant of ['doi','auth','html']){
+  const a=setup(async u=>u===endpoint?(variant==='auth'?json({},401):new Response(variant==='html'?'<html>error</html>':pdf,{headers:{'X-Litdb-Protocol':'1','X-Litdb-Source':'https://www.frontiersin.org/paper.pdf','X-Litdb-DOI':'10.1234/wrong'}})):u.includes('/search?')?json({resultList:{result:[]}}):json({...work,has_content:{pdf:false}}));
+  try{a.w.LITDB_PDF_SERVICE_URL=endpoint;a.w.LitdbFulltext.open({...work,doi:'10.1234/correct'});await until(()=>!a.d.getElementById('ftRetry').disabled);assert.equal(a.stats.loads,0);assert.equal(a.d.getElementById('ftConfig').hidden,true);assert.match(a.d.getElementById('ftStatus').textContent,variant==='doi'?/标识不一致/:variant==='auth'?/服务尚未正确授权/:/没有返回有效/);}finally{a.w.close();}
+ }
+});
+test('closing reader cancels relay download and prevents stale rendering',async()=>{
+ const endpoint='https://project.supabase.co/functions/v1/pdf-reader';let finish,signal;
+ const a=setup(async(u,o)=>u===endpoint?new Promise(resolve=>{finish=resolve;signal=o.signal;}):json({...work,has_content:{pdf:false}}));
+ try{a.w.LITDB_PDF_SERVICE_URL=endpoint;a.w.LitdbFulltext.open(work);await until(()=>finish);a.w.LitdbFulltext.close();assert.equal(signal.aborted,true);finish(new Response(pdf,{headers:{'X-Litdb-Protocol':'1','X-Litdb-Source':'https://www.frontiersin.org/paper.pdf'}}));await new Promise(r=>setTimeout(r,30));assert.equal(a.stats.loads,0);}finally{a.w.close();}
+});
 test('no-content and network failure remain explicit; HTML and oversized responses never reach PDF.js',async()=>{
  for(const variant of ['none','html','large','network']){
   const a=setup(async u=>{if(variant==='network')throw new TypeError('Network error');if(u.includes('api.openalex.org'))return json({...work,has_content:{pdf:false},best_oa_location:variant==='none'?null:{pdf_url:'https://repository.invalid/paper.pdf'}});return new Response(variant==='html'?'<html>Sign in</html>':pdf,{headers:variant==='large'?{'content-length':String(81*1024*1024)}:{}});});

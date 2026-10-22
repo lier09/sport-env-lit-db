@@ -75,20 +75,27 @@
     var result=resolve(requestedPDF),gen=generation;
     result.catch(function(e){if(gen===generation)showError(e);});
   }
-  async function request(url, kind, signal, gen) {
+  async function request(url, kind, signal, gen, options) {
     var abort = new AbortController(), timer, chunks = [], bytes = 0, limit = kind === 'pdf' ? MAX : kind === 'xml' ? 8 * 1024 * 1024 : 2 * 1024 * 1024;
     function reset() { clearTimeout(timer); timer = setTimeout(function () { abort.abort(); }, kind === 'pdf' ? 45000 : 20000); }
     function cancel() { abort.abort(); }
     signal.addEventListener('abort', cancel, {once:true}); if (signal.aborted) abort.abort(); reset();
     try {
-      var r = await w.fetch(url, {credentials:'omit', cache:'no-store', referrerPolicy:'no-referrer', signal:abort.signal});
-      if (!r.ok) { var err = new Error(r.status === 401 || r.status === 403 ? '来源拒绝访问，请检查 OpenAlex 密钥或改用本地 PDF。' : r.status === 429 ? 'OpenAlex 请求或每日额度受限，请稍后重试。' : '全文来源返回 HTTP ' + r.status + '，可重试或上传 PDF。'); err.status = r.status; throw err; }
+      var settings={credentials:'omit', cache:'no-store', referrerPolicy:'no-referrer', signal:abort.signal};
+      if(options){settings.method=options.method;settings.headers=options.headers;settings.body=options.body;}
+      var r = await w.fetch(url, settings);
+      if (!r.ok) { var err = new Error(options&&options.service ? (r.status===401||r.status===403?'PDF 服务尚未正确授权或配置，请由管理员检查部署。':r.status===429?'PDF 服务或公开来源暂时限流，请稍后重试。':r.status===413?'PDF 超过服务允许的 25 MB，可下载后上传本地阅读。':r.status===404||r.status===422?'尚未找到服务支持的公开 PDF，可打开来源网页或上传本地文件。':r.status===504?'PDF 来源响应超时，请稍后重试。':'PDF 获取服务暂时不可用，请稍后重试或上传本地文件。') : r.status === 401 || r.status === 403 ? '来源拒绝访问，请检查 OpenAlex 密钥或改用本地 PDF。' : r.status === 429 ? 'OpenAlex 请求或每日额度受限，请稍后重试。' : '全文来源返回 HTTP ' + r.status + '，可重试或上传 PDF。'); err.status = r.status; throw err; }
       if (Number(r.headers.get('content-length')) > limit) throw new Error('文件超过允许大小（PDF 最大 80 MB）。');
       if (r.body && r.body.getReader) {
         var reader = r.body.getReader();
         while (true) { var next = await reader.read(); if (next.done) break; reset(); bytes += next.value.byteLength; if (bytes > limit) { await reader.cancel(); throw new Error('文件超过允许大小（PDF 最大 80 MB）。'); } chunks.push(next.value); if (kind === 'pdf' && gen === generation) notice('正在获取全文 · ' + (bytes / 1024 / 1024).toFixed(1) + ' MB'); }
       } else { var buffer = await r.arrayBuffer(); bytes = buffer.byteLength; if (bytes > limit) throw new Error('文件过大。'); chunks.push(new Uint8Array(buffer)); }
       var blob = new Blob(chunks, {type:kind === 'pdf' ? 'application/pdf' : kind === 'xml' ? 'application/xml' : 'application/json'});
+      if(options&&options.service){
+        if(r.headers.get('X-Litdb-Protocol')!=='1')throw new Error('PDF 服务版本不匹配，请由管理员检查部署。');
+        blob.pdfSource=https(r.headers.get('X-Litdb-Source'));blob.pdfDOI=String(r.headers.get('X-Litdb-DOI')||'').toLowerCase();
+        if(!blob.pdfSource || String(await blob.slice(0,5).text())!=='%PDF-')throw new Error('PDF 服务没有返回有效的原版文件。');
+      }
       return kind === 'pdf' ? blob : kind === 'xml' ? blob.text() : JSON.parse(await blob.text());
     } catch (e) { if (abort.signal.aborted && !signal.aborted) throw new Error('连接或下载超时，请重试。'); if (signal.aborted) throw new DOMException('Cancelled', 'AbortError'); throw e; }
     finally { clearTimeout(timer); signal.removeEventListener('abort', cancel); }
@@ -141,13 +148,17 @@
     if (gen !== generation) return;
     var archived = work && work.has_content && work.has_content.pdf && workId(work), location = work && work.best_oa_location;
     var publicPDF = https(location && location.pdf_url || p.pdf_url), source = https(location && location.landing_page_url) || (doi(p) ? 'https://doi.org/' + doi(p) : publicPDF);
-    setSource(source);$('ftExternalPDF').hidden=!publicPDF;if(publicPDF)$('ftExternalPDF').href=publicPDF;else $('ftExternalPDF').removeAttribute('href');var lastError;
+    setSource(source);$('ftExternalPDF').hidden=!publicPDF;if(publicPDF)$('ftExternalPDF').href=publicPDF;else $('ftExternalPDF').removeAttribute('href');var lastError,relayError;
     if (publicPDF) {
       // Keys must never be forwarded to publisher/repository URLs.
       notice('正在尝试读取公开 PDF…');
       try { var publicBlob = await request(publicPDF, 'pdf', signal, gen); if (gen !== generation) return; await load(publicBlob, gen, '公开来源'); return; }
       catch (e) { if (e.name === 'AbortError') throw e; lastError = e; }
     }
+    if (gen !== generation) return;
+    try { if(await relayPDF(p,signal,gen))return; }
+    catch(e){if(e.name==='AbortError')throw e;relayError=e;}
+    if (gen !== generation) return;
     if (archived && key()) {
       notice('正在获取 OpenAlex 存档 PDF…');
       try { var content = new URL('https://content.openalex.org/works/' + archived + '.pdf'); content.searchParams.set('api_key', key()); var blob = await request(content.href, 'pdf', signal, gen); if (gen !== generation) return; await load(blob, gen, 'OpenAlex 存档'); return; }
@@ -156,9 +167,31 @@
     if (gen !== generation) return;
     $('ftRetry').disabled = false;
     $('ftEmpty').querySelector('strong').textContent=preferPDF?'暂时无法内嵌原版 PDF':'暂未获取全文';
-    if (archived && !key()) { notice(publicPDF?'公开 PDF 暂时无法内嵌读取，可点击“在新窗口打开 PDF”或上传文件。OpenAlex 存档需密钥，属于可选方式。':'尚未找到免密钥的公开 PDF。可打开来源网页或上传本地 PDF；也可在 OpenAlex 设置中选填密钥读取存档。'); }
+    if(relayError){notice(relayError.message,true);}
+    else if (archived && !key()) { notice(publicPDF?'公开 PDF 暂时无法内嵌读取，可点击“在新窗口打开 PDF”或上传文件。OpenAlex 存档需密钥，属于可选方式。':'尚未找到免密钥的公开 PDF。可打开来源网页或上传本地 PDF；也可在 OpenAlex 设置中选填密钥读取存档。'); }
     else if (lastError || metaError) { notice((lastError && lastError.status || metaError && metaError.status) === 429 ? 'OpenAlex 请求或每日额度受限，请稍后重试或上传 PDF。' : '暂时无法直接读取全文，可能是网络、密钥或来源跨域限制。可打开来源网页，或上传本地 PDF。', true); }
     else notice('当前未找到可直接读取的全文。可打开来源网页，或上传本地 PDF；这不影响摘要与笔记。');
+  }
+  async function relayPDF(p,signal,gen){
+    var endpoint=w.LITDB_PDF_SERVICE_URL;
+    if(!endpoint){
+      if(!w.SUPABASE_URL)return false;
+      var config=await request(new URL('./pdf-service-config.json?v=92',d.baseURI).href,'json',signal,gen);
+      if(!config||config.enabled!==true||config.protocol!==1)return false;
+      endpoint=config.url;
+    }
+    var url;try{url=new URL(endpoint);}catch(_){throw new Error('PDF 服务地址配置无效。');}
+    var local=d.location.hostname==='127.0.0.1'&&url.hostname==='127.0.0.1'&&url.protocol==='http:';
+    if((!local&&(url.protocol!=='https:'||!/^[-a-z0-9]+\.supabase\.co$/.test(url.hostname)))||url.username||url.password||url.search||url.hash||(!local&&url.pathname!=='/functions/v1/pdf-reader'))throw new Error('PDF 服务地址配置无效。');
+    var identity={};if(doi(p))identity.doi=doi(p);if(workId(p))identity.workId=workId(p);if(!identity.doi&&!identity.workId)return false;
+    var headers={'Content-Type':'application/json'};
+    if(w.SUPABASE_ANON_KEY&&https(w.SUPABASE_URL)&&new URL(w.SUPABASE_URL).origin===url.origin){headers.apikey=w.SUPABASE_ANON_KEY;headers.Authorization='Bearer '+w.SUPABASE_ANON_KEY;}
+    notice('正在通过开放 PDF 服务获取原版文件…');
+    var blob=await request(url.href,'pdf',signal,gen,{service:true,method:'POST',headers:headers,body:JSON.stringify(identity)});
+    if(gen!==generation)return false;
+    if(identity.doi&&blob.pdfDOI!==identity.doi.toLowerCase())throw new Error('PDF 服务返回的论文标识不一致，已停止读取。');
+    setSource(blob.pdfSource);$('ftExternalPDF').href=blob.pdfSource;$('ftExternalPDF').hidden=false;
+    await load(blob,gen,'开放 PDF 服务 · 按需获取');return true;
   }
   async function openPDFCopy(p,signal,gen) {
     var identifier=doi(p).toLowerCase();if(!identifier)return false;
