@@ -130,6 +130,8 @@
     var triedStructured = !!(doi(p) || p.pmcid || p.pmid);
     if (!preferPDF && w.LitdbArticle && triedStructured) { try { if (await structured(p,signal,gen)) return; } catch (e) { if (e.name === 'AbortError') throw e; } }
     if (gen !== generation) return;
+    if (preferPDF) { try { if (await openPDFCopy(p,signal,gen)) return; } catch(e) { if(e.name==='AbortError')throw e; } }
+    if (gen !== generation) return;
     if (identifier) {
       try { var u = new URL('https://api.openalex.org/works/' + identifier); u.searchParams.set('select', 'id,doi,title,has_content,content_urls,best_oa_location'); if (key()) u.searchParams.set('api_key', key()); work = await request(u.href, 'json', signal, gen); }
       catch (e) { if (e.name === 'AbortError') throw e; metaError = e; }
@@ -157,6 +159,23 @@
     if (archived && !key()) { notice(publicPDF?'公开 PDF 暂时无法内嵌读取，可点击“在新窗口打开 PDF”或上传文件。OpenAlex 存档需密钥，属于可选方式。':'尚未找到免密钥的公开 PDF。可打开来源网页或上传本地 PDF；也可在 OpenAlex 设置中选填密钥读取存档。'); }
     else if (lastError || metaError) { notice((lastError && lastError.status || metaError && metaError.status) === 429 ? 'OpenAlex 请求或每日额度受限，请稍后重试或上传 PDF。' : '暂时无法直接读取全文，可能是网络、密钥或来源跨域限制。可打开来源网页，或上传本地 PDF。', true); }
     else notice('当前未找到可直接读取的全文。可打开来源网页，或上传本地 PDF；这不影响摘要与笔记。');
+  }
+  async function openPDFCopy(p,signal,gen) {
+    var identifier=doi(p).toLowerCase();if(!identifier)return false;
+    var catalog=await request(new URL('./open-pdf-sources.json?v=90',d.baseURI).href,'json',signal,gen);
+    if(gen!==generation)return false;
+    var entry=catalog&&catalog.format==='litdb-open-pdf-sources'&&catalog.version===1&&catalog.papers&&catalog.papers[identifier];
+    if(!entry||!/^assets\/open-pdfs\/[a-z0-9._-]+\.pdf$/i.test(entry.path||'')||!/^[a-f0-9]{64}$/.test(entry.sha256||'')||!/^CC BY(?: 4\.0)?$/.test(entry.license||''))return false;
+    var url=new URL('./'+entry.path,d.baseURI);if(url.origin!==new URL(d.baseURI).origin)return false;
+    notice('正在读取已核验的开放 PDF 副本…');
+    var blob=await request(url.href,'pdf',signal,gen);if(gen!==generation)return false;
+    if(blob.size!==entry.bytes||!w.crypto||!w.crypto.subtle)throw Error('开放 PDF 副本校验失败。');
+    var hash=await w.crypto.subtle.digest('SHA-256',await blob.arrayBuffer());
+    var hex=Array.from(new Uint8Array(hash)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+    if(gen!==generation)return false;if(hex!==entry.sha256)throw Error('开放 PDF 副本校验失败。');
+    setSource(entry.source);$('ftExternalPDF').href=url.href;$('ftExternalPDF').hidden=false;
+    await load(blob,gen,'开放 PDF 副本 · '+entry.citation+' · '+entry.license);
+    return true;
   }
   function library() {
     if (!modulePromise) modulePromise = (api.loadLibrary ? api.loadLibrary() : import(ROOT + 'pdf.mjs')).then(function (lib) { lib.GlobalWorkerOptions.workerSrc = new URL(ROOT + 'pdf.worker.mjs', d.baseURI).href; return lib; }).catch(function (e) { modulePromise = null; throw e; });

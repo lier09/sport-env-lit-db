@@ -1,0 +1,30 @@
+{
+  "format": "litdb-open-pdf-sources",
+  "version": 1,
+  "papers": {
+    "10.3389/fphys.2025.1717275": {
+      "path": "assets/open-pdfs/fphys-2025-1717275.pdf",
+      "title": "Sweat sodium composition and sweat loss estimation through wearable sensors and predictive equations in dry and humid hot conditions",
+      "authors": [
+        "David Bandiera",
+        "Jean de Bardonnèche",
+        "Delphine Margout-Jantac",
+        "Léa Dubois",
+        "Nisrine El Allaoui",
+        "Jonathan Steven Elie Rubio",
+        "Jean-Christophe Aubin",
+        "Sébastien Racinais",
+        "Antonio Tessitore",
+        "Yannis Pitsiladis"
+      ],
+      "citation": "Bandiera et al. Frontiers in Physiology. DOI: 10.3389/fphys.2025.1717275",
+      "source": "https://doi.org/10.3389/fphys.2025.1717275",
+      "download_source": "https://public-pages-files-2025.frontiersin.org/journals/physiology/articles/10.3389/fphys.2025.1717275/pdf",
+      "license": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "bytes": 1390085,
+      "sha256": "cc672ab003d737a00cc1b8e6933d4f314b32909db90b666380c0a4dea1449e24",
+      "retrieved_at": "2026-10-22"
+    }
+  }
+}
