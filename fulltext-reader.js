@@ -162,7 +162,7 @@
   }
   async function openPDFCopy(p,signal,gen) {
     var identifier=doi(p).toLowerCase();if(!identifier)return false;
-    var catalog=await request(new URL('./open-pdf-sources.json?v=90',d.baseURI).href,'json',signal,gen);
+    var catalog=await request(new URL('./open-pdf-sources.json?v=91',d.baseURI).href,'json',signal,gen);
     if(gen!==generation)return false;
     var entry=catalog&&catalog.format==='litdb-open-pdf-sources'&&catalog.version===1&&catalog.papers&&catalog.papers[identifier];
     if(!entry||!/^assets\/open-pdfs\/[a-z0-9._-]+\.pdf$/i.test(entry.path||'')||!/^[a-f0-9]{64}$/.test(entry.sha256||'')||!/^CC BY(?: 4\.0)?$/.test(entry.license||''))return false;

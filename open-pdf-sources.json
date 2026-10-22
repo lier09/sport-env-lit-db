@@ -25,6 +25,23 @@
       "bytes": 1390085,
       "sha256": "cc672ab003d737a00cc1b8e6933d4f314b32909db90b666380c0a4dea1449e24",
       "retrieved_at": "2026-10-22"
+    },
+    "10.3389/fspor.2025.1702420": {
+      "path": "assets/open-pdfs/fspor-2025-1702420.pdf",
+      "title": "Affective and fatigue responses to incremental exercise: the effect of hypoxic and normoxic training protocols",
+      "authors": [
+        "Stela Pismiri",
+        "Nektarios A M Stavrou",
+        "Igor B Mekjavic"
+      ],
+      "citation": "Pismiri et al. Frontiers in Sports and Active Living. DOI: 10.3389/fspor.2025.1702420",
+      "source": "https://doi.org/10.3389/fspor.2025.1702420",
+      "download_source": "https://public-pages-files-2025.frontiersin.org/journals/sports-and-active-living/articles/10.3389/fspor.2025.1702420/pdf",
+      "license": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "bytes": 751219,
+      "sha256": "3ee3856e73faf3850284474725e1f021a3e99418330f30ccdce4245ce2d16f68",
+      "retrieved_at": "2026-10-22"
     }
   }
 }

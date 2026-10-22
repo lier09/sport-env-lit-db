@@ -15,3 +15,17 @@ Source: https://public-pages-files-2025.frontiersin.org/journals/physiology/arti
 License: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
 
 Retrieved 2026-10-22. Unmodified publisher PDF; SHA256 cc672ab003d737a00cc1b8e6933d4f314b32909db90b666380c0a4dea1449e24. The original attribution and license remain in the PDF. The license is also present in the Europe PMC JATS record PMC12813213.
+
+## fspor-2025-1702420.pdf
+
+Affective and fatigue responses to incremental exercise: the effect of hypoxic and normoxic training protocols
+
+Authors: Stela Pismiri, Nektarios A M Stavrou, Igor B Mekjavic
+
+Pismiri et al. Frontiers in Sports and Active Living. DOI: 10.3389/fspor.2025.1702420
+
+Source: https://public-pages-files-2025.frontiersin.org/journals/sports-and-active-living/articles/10.3389/fspor.2025.1702420/pdf
+
+License: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+
+Retrieved 2026-10-22. Unmodified publisher PDF (12 pages); SHA256 3ee3856e73faf3850284474725e1f021a3e99418330f30ccdce4245ce2d16f68. Original attribution and license remain in the PDF and Europe PMC JATS record PMC12833306.

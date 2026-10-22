@@ -77,14 +77,17 @@ test('blocked public PDF exposes a direct link and does not force or repeatedly 
  }finally{a.w.close();}
 });
 test('licensed same-origin PDF catalog is loaded on demand, verifies bytes/hash and renders without OpenAlex credentials',async()=>{
- const crypto=require('node:crypto'),catalog=JSON.parse(fs.readFileSync(path.join(__dirname,'../open-pdf-sources.json'),'utf8')),entry=catalog.papers['10.3389/fphys.2025.1717275'],bytes=fs.readFileSync(path.join(__dirname,'..',entry.path));
+ const crypto=require('node:crypto'),catalog=JSON.parse(fs.readFileSync(path.join(__dirname,'../open-pdf-sources.json'),'utf8'));
+ for(const [identifier,entry] of Object.entries(catalog.papers)){
+ const bytes=fs.readFileSync(path.join(__dirname,'..',entry.path));
  assert.equal(bytes.length,entry.bytes);assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'),entry.sha256);assert.equal(entry.license,'CC BY 4.0');assert.match(bytes.subarray(0,8).toString(),/%PDF-/);
  const a=setup(async u=>u.includes('open-pdf-sources.json')?json(catalog):u.includes(entry.path)?new Response(bytes):u.includes('/search?')?json({resultList:{result:[]}}):json({...work,has_content:{pdf:false}}));try{
-  Object.defineProperty(a.w.crypto,'subtle',{value:crypto.webcrypto.subtle});assert.equal(a.requests.length,0);a.w.LitdbFulltext.open({...work,doi:'10.3389/fphys.2025.1717275'});await until(()=>!a.d.getElementById('ftRetry').disabled);assert.equal(a.requests.filter(r=>r.url.includes(entry.path)).length,0);
+  Object.defineProperty(a.w.crypto,'subtle',{value:crypto.webcrypto.subtle});assert.equal(a.requests.length,0);a.w.LitdbFulltext.open({...work,doi:identifier,title:entry.title});await until(()=>!a.d.getElementById('ftRetry').disabled);assert.equal(a.requests.filter(r=>r.url.includes(entry.path)).length,0);
   const count=a.requests.filter(r=>r.url.includes('api.openalex.org')).length;a.d.getElementById('ftPDF').click();await until(()=>a.stats.renders.length);
-  assert.equal(a.requests.filter(r=>r.url.includes('api.openalex.org')).length,count);assert.equal(a.d.getElementById('ftConfig').hidden,true);assert.match(a.d.getElementById('ftStatus').textContent,/Bandiera.*CC BY 4.0/);assert.equal(a.d.getElementById('ftSource').href,entry.source);
+  assert.equal(a.requests.filter(r=>r.url.includes('api.openalex.org')).length,count);assert.equal(a.d.getElementById('ftConfig').hidden,true);assert.ok(a.d.getElementById('ftStatus').textContent.includes(entry.citation));assert.match(a.d.getElementById('ftStatus').textContent,/CC BY 4.0/);assert.equal(a.d.getElementById('ftSource').href,entry.source);
   assert.ok(!fs.readFileSync(path.join(__dirname,'../sw.js'),'utf8').includes(entry.path),'PDF is not in startup shell');
  }finally{a.w.close();}
+ }
 });
 test('no-content and network failure remain explicit; HTML and oversized responses never reach PDF.js',async()=>{
  for(const variant of ['none','html','large','network']){
