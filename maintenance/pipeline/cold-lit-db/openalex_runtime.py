@@ -28,6 +28,10 @@ class PipelineError(RuntimeError):
     """Do not advance the successful watermark or publish this run."""
 
 
+class PaginationError(PipelineError):
+    """A structurally valid HTTP response failed query-wide coverage checks."""
+
+
 class Deferred(PipelineError):
     def __init__(self, reason, retry_at):
         self.reason, self.retry_at = reason, retry_at
@@ -104,6 +108,13 @@ class Client:
               CREATE TABLE IF NOT EXISTS pages (scope TEXT, request TEXT, payload TEXT,
                 saved REAL, PRIMARY KEY(scope, request));
               CREATE TABLE IF NOT EXISTS events (at REAL, scope TEXT, kind TEXT, detail TEXT);
+              CREATE TABLE IF NOT EXISTS query_requests (scope TEXT, query_id TEXT, request TEXT,
+                PRIMARY KEY(scope,query_id,request));
+              CREATE TABLE IF NOT EXISTS pagination_retries (scope TEXT, query_id TEXT,
+                failures INTEGER NOT NULL, PRIMARY KEY(scope,query_id));
+              CREATE TABLE IF NOT EXISTS invalidated_pages (scope TEXT, query_id TEXT,
+                attempt INTEGER, request TEXT, payload TEXT, rejected REAL, reason TEXT,
+                PRIMARY KEY(scope,query_id,attempt,request));
             """)
         with contextlib.suppress(OSError):
             os.chmod(self.dbpath, 0o600)
@@ -187,6 +198,7 @@ class Client:
         with self.db() as conn:
             row = conn.execute("SELECT payload FROM pages WHERE scope=? AND request=?", (self.scope, request_id)).fetchone()
         if row:
+            self.event('cache_hit', {'request': request_id})
             return json.loads(row[0])
         # Attach credentials only after validation, never to the cache key or log.
         signed = openalex_auth.with_key(clean)
@@ -249,7 +261,49 @@ class Client:
         now = dt.datetime.fromtimestamp(self.clock(), dt.timezone.utc)
         return (now.replace(hour=0, minute=0, second=0, microsecond=0) + dt.timedelta(days=1)).timestamp()
 
+    def reject_query_cache(self, query_id, reason):
+        """Quarantine only this query's pages, keeping quota and other queries.
+
+        Replaying an old first page against a fresh later page is not a coherent
+        retry. Preserve all failed-query payloads as evidence, then refetch that
+        query from page one. Never discard an ID and claim complete coverage.
+        """
+        with self.db() as conn:
+            conn.execute('BEGIN IMMEDIATE')
+            row = conn.execute('SELECT failures FROM pagination_retries WHERE scope=? AND query_id=?',
+                               (self.scope, query_id)).fetchone()
+            attempt = (row[0] if row else 0) + 1
+            conn.execute('INSERT OR REPLACE INTO pagination_retries VALUES (?,?,?)',
+                         (self.scope, query_id, attempt))
+            conn.execute('''INSERT OR REPLACE INTO invalidated_pages
+                SELECT p.scope,?, ?,p.request,p.payload,?,? FROM pages p
+                JOIN query_requests q ON p.scope=q.scope AND p.request=q.request
+                WHERE q.scope=? AND q.query_id=?''',
+                (query_id, attempt, self.clock(), reason, self.scope, query_id))
+            conn.execute('''DELETE FROM pages WHERE scope=? AND request IN
+                (SELECT request FROM query_requests WHERE scope=? AND query_id=?)''',
+                (self.scope, self.scope, query_id))
+            conn.execute('DELETE FROM query_requests WHERE scope=? AND query_id=?', (self.scope, query_id))
+        self.event('pagination_rejected', {'query': query_id, 'attempt': attempt, 'reason': reason,
+                                         'retry': attempt < 3})
+        if attempt >= 3:
+            raise PipelineError('Pagination inconsistent after 3 rejected query attempts; inspect quarantined evidence')
+        raise Deferred('pagination_inconsistent_retry', self.clock() + 900 * attempt)
+
     def iter_pages(self, params):
+        normalized = dict(params)
+        normalized.pop('page', None); normalized.pop('cursor', None)
+        query_id = hashlib.sha256(json.dumps(normalized, sort_keys=True).encode()).hexdigest()
+        try:
+            yield from self._iter_pages(normalized, query_id)
+        except PaginationError as exc:
+            self.reject_query_cache(query_id, str(exc))
+        else:
+            with self.db() as conn:
+                conn.execute('DELETE FROM pagination_retries WHERE scope=? AND query_id=?',
+                             (self.scope, query_id))
+
+    def _iter_pages(self, params, query_id):
         """Full pagination: no silent 5/20 page cap; cursor when keyed.
 
         Without a key the official 10,000-result boundary is an explicit error,
@@ -269,30 +323,35 @@ class Client:
         while True:
             if not cursor_mode and (params["page"] - 1) * per >= 10000:
                 raise PipelineError("Unfinished query exceeds basic paging limit; configure a free API key for cursor paging")
-            data = self.fetch("https://api.openalex.org/works?" + urllib.parse.urlencode(params))
+            url = 'https://api.openalex.org/works?' + urllib.parse.urlencode(params)
+            request_id = hashlib.sha256(canonical(url).encode()).hexdigest()
+            with self.db() as conn:
+                conn.execute('INSERT OR IGNORE INTO query_requests VALUES (?,?,?)',
+                             (self.scope, query_id, request_id))
+            data = self.fetch(url)
             count = data["meta"].get("count")
             if type(count) is not int or count < 0:
                 raise PipelineError("Invalid total result count")
             if total is None:
                 total = count
             elif count != total:
-                raise PipelineError("Live result count changed during pagination; review/restart this query with a new run scope")
+                raise PaginationError('Live result count changed during pagination')
             records = data['results']
-            if len(records) > per: raise PipelineError('Oversized result page')
+            if len(records) > per: raise PaginationError('Oversized result page')
             ids = [(p.get('id') or '').rstrip('/').split('/')[-1].upper() for p in records]
             if any(not re.fullmatch(r'W\d+', i) for i in ids):
                 raise PipelineError('Invalid/missing result ID')
             if len(ids) != len(set(ids)) or seen_ids.intersection(ids):
-                raise PipelineError('Repeated paper IDs; pagination coverage not established')
+                raise PaginationError('Repeated paper IDs; pagination coverage not established')
             seen_ids.update(ids)
             downloaded += len(records)
-            if downloaded > total: raise PipelineError('Downloaded count differs from declared total')
+            if downloaded > total: raise PaginationError('Downloaded count differs from declared total')
             # Validate each page BEFORE allowing callers to process its records.
             if downloaded < total and len(records) < per:
-                raise PipelineError('Short page before declared total; query is incomplete')
+                raise PaginationError('Short page before declared total; query is incomplete')
             if downloaded < total and cursor_mode:
                 nxt = data['meta'].get('next_cursor')
-                if not nxt or nxt in cursors: raise PipelineError('Missing or repeated pagination cursor')
+                if not nxt or nxt in cursors: raise PaginationError('Missing or repeated pagination cursor')
             yield data
             if downloaded >= total:
                 if downloaded != total:

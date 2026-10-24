@@ -1,5 +1,16 @@
 # Historical reconciliation and data-only release
 
+## Pagination recovery v3 (2026-10-24)
+
+For an already installed v2 runtime, follow `INSTALL_PAGINATION_V3.md`.
+HTTP-valid pages can still fail query-wide consistency checks. The transport
+now quarantines all cached pages for the failed query, preserving their payloads
+and all other queries, then defers a bounded retry. Cache replay emits `cache_hit`;
+fresh HTTP responses emit `response`. Two automatic retries (15/30 minutes) are
+allowed before a third failure blocks for inspection. Global quota/cooldown and
+the original successful-date window are never reset. The installer can explicitly
+resume only recognized legacy pagination blocks; other blocks remain blocked.
+
 ## Audited daily runtime (2026-10-22)
 
 `pipeline/` contains reviewed replacements for the three daily collectors and

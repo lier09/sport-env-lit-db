@@ -16,6 +16,13 @@ from contextlib import ExitStack
 
 HERE = Path(__file__).resolve().parent
 
+LEGACY_PAGINATION_BLOCKS = {
+    'Repeated paper IDs; pagination coverage not established',
+    'Live result count changed during pagination; review/restart this query with a new run scope',
+    'Short page before declared total; query is incomplete',
+    'Missing or repeated pagination cursor',
+}
+
 
 def sha(path): return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
@@ -51,7 +58,9 @@ def install(workspace, state, execute=False, accept_pending_replay=False):
                     raise ValueError('Archive old rewash queue after review; historical discovery replaces it')
                 if not accept_pending_replay:
                     raise ValueError('Pending scopes need --accept-pending-replay after reviewing preserved windows/pages')
-                if item.get('status') not in ('pending', 'running'):
+                if item.get('status') == 'blocked' and item.get('error') in LEGACY_PAGINATION_BLOCKS:
+                    pass  # v2 pagination failures are recoverable with v3 query quarantine.
+                elif item.get('status') not in ('pending', 'running'):
                     raise ValueError('Resolve blocked queue before installation')
                 queues.append((path, item))
         summary = {'status': 'preflight_passed', 'files': len(manifest['files']),
@@ -78,6 +87,9 @@ def install(workspace, state, execute=False, accept_pending_replay=False):
             updated = importlib.util.module_from_spec(spec); spec.loader.exec_module(updated)
             fingerprints = updated.sources(workspace)
             for path, item in queues:
+                if item.get('status') == 'blocked':
+                    item['pagination_block_recovered_from'] = item.get('error')
+                    item.update(retry_at=0, error=None)
                 item.update(sources=fingerprints, status='pending', patch_replay_reviewed=True)
                 updated.atomic_json(path, item)
         except BaseException:
