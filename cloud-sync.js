@@ -1,12 +1,12 @@
 /* Private account sync. Local saves remain usable when the network fails. */
 (function(){
 'use strict';
-var w=window,d=document,core=w.LitdbCloudCore,cfg,db,base={},running=false,applying=false,changed=0,syncEpoch=0,timer,poll,notice='未登录 · 仅保存在本机',remote=[],lastError='',conflicts=0;
+var w=window,d=document,core=w.LitdbCloudCore,cfg,db,base={},running=false,applying=false,changed=0,syncEpoch=0,timer,poll,notice='未登录 · 仅保存在本机',remote=[],lastError='',conflicts=0,unclaimed=0;
 var enc=function(v){return encodeURIComponent(v);},key=function(r){return r.kind+':'+r.doc_id;};
 var safeKeys=['litdb-meta-tracker','envLitPageSize','litdb-ris-imports','envLitFolders','envLitFolderList','envLitMyTags','envLitTagList','envLitFollow','envLitHist','envLitSavedQ','envLitDeleted','envLitFavs','litdb-follows','envLitNotes','envLitRead'];
 function el(tag,text){var x=d.createElement(tag);if(text!==undefined)x.textContent=text;return x;}
 function button(text,action){var b=el('button',text);b.type='button';b.onclick=function(){Promise.resolve().then(action).catch(fail);};return b;}
-function status(text,error){notice=text;lastError=error?text:'';d.querySelectorAll('[data-cloud-status]').forEach(function(x){x.textContent=text;x.classList.toggle('cloud-warning',!!error);});var p=d.getElementById('personalStatus');if(p)p.textContent=text;}
+function status(text,error){if(unclaimed&&!text.includes('待归属'))text+=' · 本机还有资料待归属';notice=text;lastError=error?text:'';d.querySelectorAll('[data-cloud-status]').forEach(function(x){x.textContent=text;x.classList.toggle('cloud-warning',!!error);});var p=d.getElementById('personalStatus');if(p)p.textContent=text;}
 function fail(e){console.error('Personal sync:',e&&e.message);status('尚未同步：'+(e&&e.message||'连接失败')+'。本机内容保留，请重试或导出完整备份。',true);}
 function openDB(){if(db)return Promise.resolve(db);return new Promise(function(res,rej){var r=w.indexedDB.open('litdb-sync',1);r.onupgradeneeded=function(){r.result.createObjectStore('state');};r.onsuccess=function(){db=r.result;res(db);};r.onerror=function(){rej(r.error);};});}
 async function stateGet(id){await openDB();return new Promise(function(res,rej){var r=db.transaction('state').objectStore('state').get(id);r.onsuccess=function(){res(r.result);};r.onerror=function(){rej(r.error);};});}
@@ -97,10 +97,10 @@ function panel(){
  var dialog=d.getElementById('cloudDialog');if(dialog){dialog.showModal();return;}
  dialog=el('dialog');dialog.id='cloudDialog';dialog.className='cloud-dialog';var top=el('header');top.append(el('h2','个人资料与备份'),button('关闭',function(){dialog.close();}));dialog.append(top);
  var state=el('p',notice);state.dataset.cloudStatus='';state.setAttribute('role','status');dialog.append(state);
- dialog.append(el('p',cfg&&cfg.userId?'已登录账号：'+(cfg.email||cfg.userId):'登录后可将本机资料同步到自己的账号。未登录时仅保存在当前浏览器。'));
+ dialog.append(el('p',cfg&&cfg.userId?'已登录账号：'+(cfg.email||cfg.userId):'登录后可将本机资料同步到自己的账号。未登录时仅保存在当前浏览器。'));if(unclaimed){var alert=el('p','本机还有未归属的旧笔记、关注或收藏。请确认它们属于你，再点击“归入本账号：本机未归属资料”；这些资料仍保留在本机。');alert.className='cloud-warning';dialog.append(alert);}
  var actions=el('div');actions.className='cloud-actions';actions.append(button(cfg&&cfg.userId?'立即同步':'登录并开启云同步',async function(){if(!cfg.userId){await cfg.login();return;}await sync();}),button('导出完整备份',exportAll));
  var input=el('input');input.type='file';input.accept='.json,application/json';input.hidden=true;input.onchange=async function(){try{var file=input.files[0];if(!file)return;if(file.size>400*1024*1024)throw new Error('文件超过400MB');var payload=JSON.parse(await file.text());await importAll(payload);status('完整备份已导入，本机已有笔记保留');}catch(e){fail(e);}finally{input.value='';}};actions.append(input,button('导入完整备份',function(){input.click();}));
- if(cfg&&cfg.userId){actions.append(button('重新登录／切换账号',cfg.login),button('历史版本与每日检查点',function(){return historyView(history);}),button('开启电脑独立备份',chooseBackupDirectory),button('归入本账号：本机未归属资料',async function(){if(!w.confirm('确认这台浏览器中未归属的笔记、关注和收藏属于当前登录账号？其他账号的资料不会迁入。'))return;await cfg.claim();await w.LitdbMemo.cloud.claimLocal();if(cfg.reload)cfg.reload();queue();status('本机未归属资料已归入当前账号，正在等待同步');}),button('退出账号',async function(){if(w.LitdbMemo.cloud.isEditing())throw new Error('请先保存笔记');if(!w.confirm('退出前请确认资料已同步，或先导出完整备份。'))return;cfg.logout();}));}
+ if(cfg&&cfg.userId){actions.append(button('重新登录／切换账号',cfg.login),button('历史版本与每日检查点',function(){return historyView(history);}),button('开启电脑独立备份',chooseBackupDirectory),button('归入本账号：本机未归属资料',async function(){if(!w.confirm('确认这台浏览器中未归属的笔记、关注和收藏属于当前登录账号？其他账号的资料不会迁入。'))return;await w.LitdbMemo.cloud.claimLocal();await cfg.claim();unclaimed=0;if(cfg.reload)cfg.reload();queue();status('本机未归属资料已归入当前账号，正在等待同步');}),button('退出账号',async function(){if(w.LitdbMemo.cloud.isEditing())throw new Error('请先保存笔记');if(!w.confirm('退出前请确认资料已同步，或先导出完整备份。'))return;cfg.logout();}));}
  dialog.append(actions,el('p','云端保存正文、附件、关注、收藏和分组，并保留至少30天历史。电脑独立备份需选择目录，仅在网页使用期间每天写入；清理浏览器后，已经写出的备份文件仍在。'));
  var history=el('section');history.className='cloud-history';dialog.append(history);d.body.append(dialog);dialog.showModal();
 }
@@ -109,7 +109,7 @@ async function configure(config){
  d.addEventListener('click',function(e){if(e.target.closest('[data-cloud-open]'))panel();});
  cfg.store.subscribe(queue);w.addEventListener('litdb-memo-change',queue);w.addEventListener('online',queue);
  w.addEventListener('beforeunload',function(e){if(running||notice.includes('等待')||lastError){e.preventDefault();e.returnValue='';}});
- if(!cfg.userId)return;await w.LitdbMemo.ready;await w.LitdbMemo.cloud.setAccount(cfg.userId);base=await stateGet('base:'+cfg.userId)||{};
+ if(!cfg.userId)return;await w.LitdbMemo.ready;await w.LitdbMemo.cloud.setAccount(cfg.userId);unclaimed=await w.LitdbMemo.cloud.anonymousCount()||cfg.hasUnclaimed&&cfg.hasUnclaimed()?1:0;base=await stateGet('base:'+cfg.userId)||{};
  poll=setInterval(function(){if(!d.hidden&&!w.LitdbMemo.cloud.isEditing())sync().catch(fail);},60000);await sync();
 }
 w.LitdbCloud={configure:function(c){return configure(c).catch(fail);},sync:sync,open:panel,exportAll:exportAll,importAll:importAll,status:function(){return notice;},stop:function(){clearTimeout(timer);clearInterval(poll);}};

@@ -20,3 +20,9 @@ test('quota errors retain disk data, keep new edits in memory, and expose backup
 test('corrupted saved workspace is never silently overwritten',()=>{
  const s=store({'litdb-personal:a':'{corrupt'}),a=create('a',s);a.setItem('envLitNotes','{}');assert.equal(s.dump('litdb-personal:a'),'{corrupt');assert.equal(a.persistent(),false);
 });
+test('claiming anonymous data starts a fresh anonymous generation and preserves the original source',()=>{
+ const original='{"envLitFavs":"{\\"paper\\":true}"}';
+ const s=store({'litdb-personal:anonymous':original,'litdb-personal-legacy-owner':'anonymous','envLitFavs':'{"old":true}','litdb-anonymous-generation':'1'});
+ const a=create('anonymous',s),other=create('another-user',s);assert.equal(a.getItem('envLitFavs'),null);assert.equal(other.getItem('envLitFavs'),null);assert.equal(s.dump('litdb-personal:anonymous'),original);
+ a.setItem('envLitFavs','{"fresh":true}');assert.equal(s.dump('litdb-personal:anonymous'),original);assert.equal(JSON.parse(s.dump('litdb-personal:anonymous:1')).envLitFavs,'{"fresh":true}');
+});

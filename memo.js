@@ -6,7 +6,8 @@ var cats={reading:'文献阅读',idea:'研究想法',experiment:'实验记录',f
 var account='anonymous',cloudApplying=false;
 try{var storedSession=JSON.parse(w.localStorage.getItem('litdb-supa-session')||'null');if(storedSession&&storedSession.user&&storedSession.user.id)account=storedSession.user.id;}catch(e){}
 function owned(m){return (m._account||'anonymous')===account;}
-function catalogId(){return account==='anonymous'?'memo-group-catalog':'memo-group-catalog:'+account;}
+function anonymousCatalogId(){var generation=w.localStorage.getItem('litdb-anonymous-generation');return 'memo-group-catalog'+(generation?':anonymous:'+generation:'');}
+function catalogId(){return account==='anonymous'?anonymousCatalogId():'memo-group-catalog:'+account;}
 function cloudChanged(force){if(force||!cloudApplying)w.dispatchEvent(new w.Event('litdb-memo-change'));}
 var groups=[],group='all',editingGroup=null,imageUndo=null,selectedImage=null;
 var templates={reading:'## 研究问题\n\n## 研究设计与样本\n\n## 主要发现与原文依据\n\n## 局限性与下一步\n',idea:'## 研究问题\n\n## 理论依据与来源\n\n## 可检验的假设\n\n## 验证方案与不确定性\n',experiment:'## 实验目的\n\n## 设计、样本与对照\n\n## 操作流程与测量指标\n\n## 原始观察与数据位置\n\n## 偏差、局限与下一步\n',free:''};
@@ -206,7 +207,7 @@ async function cloudApply(doc,getFile){
 async function claimLocal(){
  if(account==='anonymous')throw new Error('请先登录');if(dirty||busy)throw new Error('请先保存当前笔记');await database();
  var local=(await all('memos')).filter(function(m){return !m._account||m._account==='anonymous';});
- var old=await new Promise(function(res,rej){var r=db.transaction('files').objectStore('files').get('memo-group-catalog');r.onsuccess=function(){res(r.result&&r.result.groups||[]);};r.onerror=function(){rej(r.error);};});var currentGroups=await readGroups(),known=new Set(currentGroups.map(function(g){return g.uid;}));
+ var old=await new Promise(function(res,rej){var r=db.transaction('files').objectStore('files').get(anonymousCatalogId());r.onsuccess=function(){res(r.result&&r.result.groups||[]);};r.onerror=function(){rej(r.error);};});var currentGroups=await readGroups(),known=new Set(currentGroups.map(function(g){return g.uid;}));
  await new Promise(function(res,rej){var tx=db.transaction(['memos','files'],'readwrite');local.forEach(function(m){m._account=account;tx.objectStore('memos').put(m);});tx.objectStore('files').put({id:catalogId(),groups:currentGroups.concat(old.filter(function(g){return !known.has(g.uid);}))});tx.oncomplete=res;tx.onerror=tx.onabort=function(){rej(tx.error);};});await refresh();cloudChanged();return local.length;
 }
 shell();var ready=database().then(refresh).catch(function(e){fail(e);throw e;});ready.catch(function(){});

@@ -1547,9 +1547,9 @@ var Fr={},Gr={};var Wr,Hr=function(){function t(t,e,n){var i=this;this._sleepAft
 <script src="./follow-hub.js?v=79"></script>
 <link rel="stylesheet" href="./environment-review.css?v=93">
 <script src="./environment-review.js?v=93"></script>
-<script src="./library-storage.js?v=93"></script>
+<script src="./library-storage.js?v=94"></script>
 <script src="./cloud-core.js?v=93"></script>
-<script src="./cloud-sync.js?v=93"></script>
+<script src="./cloud-sync.js?v=94"></script>
 <link rel="stylesheet" href="./cloud-sync.css?v=93">
 <script src="./library-cache.js"></script>
 <script>/* 低温与运动科学文献数据库 - 前端逻辑 */
@@ -2059,7 +2059,8 @@ function startPersonalCloud(){if(cloudStarted||!window.LitdbCloud||!window.Litdb
       folders=value("envLitFolders",{});folderList=value("envLitFolderList",[]);favs=value("envLitFavs",{});follows=value("litdb-follows",{authors:{},journals:{}});myTags=value("envLitMyTags",{});tagList=value("envLitTagList",[]);notes=value("envLitNotes",{});readSt=value("envLitRead",{});followedTopics=value("envLitFollow",{});deletedIds=value("envLitDeleted",{});searchHist=value("envLitHist",[]);savedQ=value("envLitSavedQ",[]);
       buildFolderFilter();buildMyTagFilter();render();if(followHub)followHub.render();
     },
-    claim:async function(){var old=LitdbPersonal.create("anonymous",localStorage),local=old.snapshot(),current=personalStore.snapshot(),values={};Object.keys(local.values).forEach(function(k){var a=JSON.parse(current.values[k]||"null"),b=JSON.parse(local.values[k]);values[k]=JSON.stringify(a===null?b:LitdbCloudCore.merge(undefined,a,b,false).value);});personalStore.restore({format:"sport-env-personal-backup",version:1,values:values});}
+    hasUnclaimed:function(){var v=LitdbPersonal.create("anonymous",localStorage).snapshot().values;function filled(x){if(Array.isArray(x))return x.some(filled);if(x&&typeof x==="object")return Object.keys(x).some(function(k){return filled(x[k]);});return x!==null&&x!==false&&x!==""&&x!==0;}return ["litdb-follows","envLitFavs","envLitFolderList","envLitFolders","envLitNotes"].some(function(k){try{return v[k]&&filled(JSON.parse(v[k]));}catch(e){return false;}});},
+    claim:async function(){var old=LitdbPersonal.create("anonymous",localStorage),local=old.snapshot(),current=personalStore.snapshot(),values={};Object.keys(local.values).forEach(function(k){var a=JSON.parse(current.values[k]||"null"),b=JSON.parse(local.values[k]);values[k]=JSON.stringify(a===null?b:LitdbCloudCore.merge(undefined,a,b,false).value);});personalStore.restore({format:"sport-env-personal-backup",version:1,values:values});var generation=Number(localStorage.getItem("litdb-anonymous-generation")||0);localStorage.setItem("litdb-anonymous-generation",String((Number.isSafeInteger(generation)?generation:0)+1));}
   });}
 
 
@@ -6344,7 +6345,7 @@ else bootApp();
 </script>
 <script src="./article-reader.js?v=88"></script>
 <script src="./fulltext-reader.js?v=92"></script>
-<script src="./memo.js?v=93"></script>
+<script src="./memo.js?v=94"></script>
 <script src="./figure-extract.js?v=80"></script>
 <script src="./figure-hub.js?v=80"></script>
 <script src="./paradigm-guide.js?v=82"></script>

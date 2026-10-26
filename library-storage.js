@@ -5,14 +5,15 @@ var keys=['litdb-meta-tracker','envLitPageSize','litdb-ris-imports','envLitFolde
 var backupKeys=keys.filter(function(k){return k.indexOf('litdb-ai-')!==0;});
 function create(userId,storage,onError){
  if(!userId)throw new Error('User ID required');
- var key='litdb-personal:'+userId, values={}, memoryOnly=false, corrupt=false, listeners=[];
+ var generation=null;try{if(userId==='anonymous')generation=storage.getItem('litdb-anonymous-generation');}catch(e){}
+ var key='litdb-personal:'+userId+(generation?':'+generation:''), values={}, memoryOnly=false, corrupt=false, listeners=[];
  function fail(e){memoryOnly=true;if(onError)onError('本机保存失败，请立即导出备份；关闭页面后新修改可能丢失。');}
  try{
   var existing=storage.getItem(key);
   if(existing){corrupt=true;var decoded=JSON.parse(existing);if(!decoded||typeof decoded!=='object'||Array.isArray(decoded))throw new Error('Invalid workspace');values=decoded;corrupt=false;}
   else{
    var owner=storage.getItem('litdb-personal-legacy-owner');
-   if(!owner||owner===userId){
+   if(!generation&&(!owner||owner===userId)){
     keys.forEach(function(k){var value=storage.getItem(k);if(value!==null)values[k]=value;});
     storage.setItem(key,JSON.stringify(values));
     if(!owner)storage.setItem('litdb-personal-legacy-owner',userId);
