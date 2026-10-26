@@ -1183,9 +1183,10 @@ canvas.net{cursor:grab}
     <div class="histrow" id="histRow" style="display:none"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
       <button class="btn ghost" id="btnPersonalExport">备份个人资料</button>
+      <button class="btn ghost" data-cloud-open>云同步与完整备份</button>
       <button class="btn ghost" id="btnPersonalImport">导入个人备份</button>
       <input type="file" id="personalImportFile" accept=".json,application/json" hidden>
-      <span id="personalStatus" role="status" style="font-size:12px;color:var(--muted)">收藏、文件夹和笔记按账号保存在本浏览器</span>
+      <span id="personalStatus" role="status" style="font-size:12px;color:var(--muted)">本机副本 · 登录后可开启账号云同步</span>
     </div>
   </div>
   <div id="c-conditions">
@@ -1546,7 +1547,10 @@ var Fr={},Gr={};var Wr,Hr=function(){function t(t,e,n){var i=this;this._sleepAft
 <script src="./follow-hub.js?v=79"></script>
 <link rel="stylesheet" href="./environment-review.css?v=93">
 <script src="./environment-review.js?v=93"></script>
-<script src="./library-storage.js"></script>
+<script src="./library-storage.js?v=93"></script>
+<script src="./cloud-core.js?v=93"></script>
+<script src="./cloud-sync.js?v=93"></script>
+<link rel="stylesheet" href="./cloud-sync.css?v=93">
 <script src="./library-cache.js"></script>
 <script>/* 低温与运动科学文献数据库 - 前端逻辑 */
 /* Network timeouts cover both headers and response body. */
@@ -2039,9 +2043,27 @@ setTimeout(function(){ var boot=document.getElementById("boot"); if(boot && boot
 /* 启动时阻塞调用（在 app.js 顶部 await） */
 // 跳过登录（2026-10-11 直接访问）
 // await supaEnsureAuth();
+// Public literature stays public; personal sync validates its own saved session.
+supaSession=supaLoadSess();
 var personalStore=LitdbPersonal.create((supaSession&&supaSession.user&&supaSession.user.id)||"anonymous",localStorage,function(message){
   var status=document.getElementById("personalStatus");if(status) status.textContent=message;
 });
+var personalUiReady=false,cloudStarted=false;
+function startPersonalCloud(){if(cloudStarted||!window.LitdbCloud||!window.LitdbMemo)return;cloudStarted=true;window.LitdbCloud.configure({
+    userId:supaSession&&supaSession.user&&supaSession.user.id,email:supaSession&&supaSession.user&&supaSession.user.email,
+    store:personalStore,api:supaApi,
+    validate:async function(){var me=await supaApi("/auth/v1/user");if(me.status!==200||!me.data||me.data.id!==supaSession.user.id)throw new Error("登录已过期，请重新登录");},
+    binary:async function(path,opts){opts=opts||{};var headers=Object.assign({apikey:SUPA_ANON,Authorization:"Bearer "+(supaSession&&supaSession.access_token||"")},opts.headers||{});var response=await supaFetch(SUPA_URL+path,{method:opts.method||"GET",headers:headers,body:opts.body},60000);if(response.status===401&&await supaRefresh())return this.binary(path,opts);if(!response.ok){var error=new Error("附件传输失败（HTTP "+response.status+"）");error.status=response.status;throw error;}return response.arrayBuffer();},
+    login:async function(){await supaShowAuth("登录后将资料同步到你的私有账号；文献公开阅读不受影响。","login");location.reload();},logout:supaLogout,
+    reload:function(){if(!personalUiReady)return;function value(key,fallback){try{return JSON.parse(personalStore.getItem(key)||JSON.stringify(fallback));}catch(e){return fallback;}}
+      folders=value("envLitFolders",{});folderList=value("envLitFolderList",[]);favs=value("envLitFavs",{});follows=value("litdb-follows",{authors:{},journals:{}});myTags=value("envLitMyTags",{});tagList=value("envLitTagList",[]);notes=value("envLitNotes",{});readSt=value("envLitRead",{});followedTopics=value("envLitFollow",{});deletedIds=value("envLitDeleted",{});searchHist=value("envLitHist",[]);savedQ=value("envLitSavedQ",[]);
+      buildFolderFilter();buildMyTagFilter();render();if(followHub)followHub.render();
+    },
+    claim:async function(){var old=LitdbPersonal.create("anonymous",localStorage),local=old.snapshot(),current=personalStore.snapshot(),values={};Object.keys(local.values).forEach(function(k){var a=JSON.parse(current.values[k]||"null"),b=JSON.parse(local.values[k]);values[k]=JSON.stringify(a===null?b:LitdbCloudCore.merge(undefined,a,b,false).value);});personalStore.restore({format:"sport-env-personal-backup",version:1,values:values});}
+  });}
+
+
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",startPersonalCloud,{once:true});else startPersonalCloud();
 await supaLoadData();
 
 var jcrMatcher=window.LitdbJcr?LitdbJcr.create(window.LITDB_JCR_DATA):function(){return {quartiles:[],categories:[],matched:false};};
@@ -5814,6 +5836,8 @@ function init(){
     leave:function(){if(!followHub.isOpen()&&(!window.LitdbMemo||!window.LitdbMemo.isOpen())&&(!window.LitdbFigures||!window.LitdbFigures.isOpen()))applyLayout(curLayout,false);}
   });window.LitdbMeta.route();}});
 
+  personalUiReady=true;startPersonalCloud();
+
   safe("resize", function(){
     var resizeTimer,lastWidth=window.innerWidth;
     window.addEventListener("resize",function(){
@@ -6320,7 +6344,7 @@ else bootApp();
 </script>
 <script src="./article-reader.js?v=88"></script>
 <script src="./fulltext-reader.js?v=92"></script>
-<script src="./memo.js?v=86"></script>
+<script src="./memo.js?v=93"></script>
 <script src="./figure-extract.js?v=80"></script>
 <script src="./figure-hub.js?v=80"></script>
 <script src="./paradigm-guide.js?v=82"></script>

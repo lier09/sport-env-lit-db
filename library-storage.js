@@ -5,7 +5,7 @@ var keys=['litdb-meta-tracker','envLitPageSize','litdb-ris-imports','envLitFolde
 var backupKeys=keys.filter(function(k){return k.indexOf('litdb-ai-')!==0;});
 function create(userId,storage,onError){
  if(!userId)throw new Error('User ID required');
- var key='litdb-personal:'+userId, values={}, memoryOnly=false, corrupt=false;
+ var key='litdb-personal:'+userId, values={}, memoryOnly=false, corrupt=false, listeners=[];
  function fail(e){memoryOnly=true;if(onError)onError('本机保存失败，请立即导出备份；关闭页面后新修改可能丢失。');}
  try{
   var existing=storage.getItem(key);
@@ -21,7 +21,7 @@ function create(userId,storage,onError){
  }catch(e){fail(e);}
  function persist(next){
   try{if(corrupt)throw new Error('Corrupt saved workspace retained');storage.setItem(key,JSON.stringify(next));memoryOnly=false;}catch(e){fail(e);}
-  values=next;
+  values=next;listeners.slice().forEach(function(fn){fn();});
  }
  function validate(payload){
   if(!payload||payload.format!=='sport-env-personal-backup'||payload.version!==1||!payload.values||typeof payload.values!=='object'||Array.isArray(payload.values))throw new Error('备份格式无效');
@@ -43,6 +43,7 @@ function create(userId,storage,onError){
   setItem:function(k,v){if(keys.indexOf(k)<0)throw new Error('Unsupported workspace key');var next=Object.assign({},values);next[k]=String(v);persist(next);},
   snapshot:function(){var result={};backupKeys.forEach(function(k){if(Object.prototype.hasOwnProperty.call(values,k))result[k]=values[k];});return {format:'sport-env-personal-backup',version:1,exported_at:new Date().toISOString(),values:result};},
   restore:function(payload){var imported=validate(payload),next=Object.assign({},values,imported);persist(next);if(memoryOnly)throw new Error('空间不足，备份未能持久保存；请保留备份文件。');},
+  subscribe:function(fn){listeners.push(fn);return function(){listeners=listeners.filter(function(x){return x!==fn;});};},
   persistent:function(){return !memoryOnly;}, storageKey:key
  };
 }

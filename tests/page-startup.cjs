@@ -7,7 +7,7 @@ const {JSDOM, VirtualConsole} = jsdom;
 const root = path.join(__dirname, '..');
 const baseline=process.argv.includes('--baseline');
 const sourceHtml = baseline ? require('node:child_process').execFileSync('git',['show','HEAD:index.html'],{cwd:root,encoding:'utf8',maxBuffer:8*1024*1024}) : fs.readFileSync(path.join(root,'index.html'),'utf8');
-const html=sourceHtml.replace('<script src="./follow-hub.js?v=79"></script>','<script>'+fs.readFileSync(path.join(root,'follow-hub.js'),'utf8')+'</script>').replace('<script src="./jcr-data.js"></script>','<script>'+fs.readFileSync(path.join(root,'jcr-data.js'),'utf8')+'</script>').replace('<script src="./library-jcr.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-jcr.js'),'utf8')+'</script>').replace('<script src="./environment-review.js?v=93"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'environment-review.js'),'utf8')+'</script>').replace('<script src="./library-storage.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-storage.js'),'utf8')+'</script>').replace('<script src="./library-cache.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-cache.js'),'utf8')+'</script>');
+const html=sourceHtml.replace('<script src="./follow-hub.js?v=79"></script>','<script>'+fs.readFileSync(path.join(root,'follow-hub.js'),'utf8')+'</script>').replace('<script src="./jcr-data.js"></script>','<script>'+fs.readFileSync(path.join(root,'jcr-data.js'),'utf8')+'</script>').replace('<script src="./library-jcr.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-jcr.js'),'utf8')+'</script>').replace('<script src="./environment-review.js?v=93"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'environment-review.js'),'utf8')+'</script>').replace('<script src="./library-storage.js?v=93"></script>','<script>'+fs.readFileSync(path.join(root,'library-storage.js'),'utf8')+'</script>').replace('<script src="./library-cache.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-cache.js'),'utf8')+'</script>');
 const storageKey = html.match(/var LS_SESS\s*=\s*"([^"]+)"/)[1];
 const warnings=[];
 const records=[{id:'fixture1',title:'Cold-water immersion after exercise',abstract:'Background: Exercise recovery in cold water.\nMethods: '+('Complete method details. '.repeat(20))+'\nConclusion: FINAL_ABSTRACT_SENTINEL.',authors:['Ben Lee'],env:['低温'],tags:['冷水浸泡'],type:'原创研究',year:2026,cited:1,journal:'Journal of Applied Physiology',population:'human'},
@@ -38,7 +38,8 @@ beforeParse(w){
     return new Proxy({measureText:()=>({width:50}),canvas:this}, {get:(obj,key)=>key in obj?obj[key]:()=>{},set:(obj,key,val)=>(obj[key]=val,true)});
   };
 }});
-setTimeout(()=>{
+setTimeout(async()=>{
+  for(let attempt=0;attempt<400&&dom.window.document.getElementById("boot").style.display!=="none"&&!warnings.some(x=>/文献库初始化失败/.test(x));attempt++)await new Promise(resolve=>setTimeout(resolve,10));
   try{
     const d=dom.window.document;
     if(baseline){

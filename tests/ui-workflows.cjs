@@ -11,7 +11,8 @@ const ingestSmoke=process.argv.includes('--ingest-smoke');
 const reviewRows=[];
 const baseline=process.argv.includes('--baseline');
 const sourceHtml = baseline ? require('node:child_process').execFileSync('git',['show','HEAD:index.html'],{cwd:root,encoding:'utf8',maxBuffer:8*1024*1024}) : fs.readFileSync(path.join(root,'index.html'),'utf8');
-const html=sourceHtml.replace('<script src="./article-reader.js?v=88"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'article-reader.js'),'utf8')+'</script>').replace('<script src="./meta-core.js?v=87"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'meta-core.js'),'utf8')+'</script>').replace('<script src="./meta-hub.js?v=87"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'meta-hub.js'),'utf8')+'</script>').replace('<script src="./fulltext-reader.js?v=92"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'fulltext-reader.js'),'utf8')+'</script>').replace('<script src="./paradigm-guide.js?v=82"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'paradigm-guide.js'),'utf8')+'</script>').replace('<script src="./paradigm-rings.js?v=82"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'paradigm-rings.js'),'utf8')+'</script>').replace('<script src="./figure-extract.js?v=80"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'figure-extract.js'),'utf8')+'</script>').replace('<script src="./figure-hub.js?v=80"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'figure-hub.js'),'utf8')+'</script>').replace('<script src="./memo.js?v=86"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'memo.js'),'utf8')+'</script>').replace('<script src="./follow-hub.js?v=79"></script>','<script>'+fs.readFileSync(path.join(root,'follow-hub.js'),'utf8')+'</script>').replace('<script src="./library-jcr.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-jcr.js'),'utf8')+'</script>').replace('<script src="./environment-review.js?v=93"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'environment-review.js'),'utf8')+'</script>').replace('<script src="./library-storage.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-storage.js'),'utf8')+'</script>').replace('<script src="./library-cache.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-cache.js'),'utf8')+'</script>');
+const cloudHtml=sourceHtml.replace('<script src="./cloud-core.js?v=93"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'cloud-core.js'),'utf8')+'</script>').replace('<script src="./cloud-sync.js?v=93"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'cloud-sync.js'),'utf8')+'</script>');
+const html=cloudHtml.replace('<script src="./article-reader.js?v=88"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'article-reader.js'),'utf8')+'</script>').replace('<script src="./meta-core.js?v=87"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'meta-core.js'),'utf8')+'</script>').replace('<script src="./meta-hub.js?v=87"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'meta-hub.js'),'utf8')+'</script>').replace('<script src="./fulltext-reader.js?v=92"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'fulltext-reader.js'),'utf8')+'</script>').replace('<script src="./paradigm-guide.js?v=82"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'paradigm-guide.js'),'utf8')+'</script>').replace('<script src="./paradigm-rings.js?v=82"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'paradigm-rings.js'),'utf8')+'</script>').replace('<script src="./figure-extract.js?v=80"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'figure-extract.js'),'utf8')+'</script>').replace('<script src="./figure-hub.js?v=80"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'figure-hub.js'),'utf8')+'</script>').replace('<script src="./memo.js?v=93"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'memo.js'),'utf8')+'</script>').replace('<script src="./follow-hub.js?v=79"></script>','<script>'+fs.readFileSync(path.join(root,'follow-hub.js'),'utf8')+'</script>').replace('<script src="./library-jcr.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-jcr.js'),'utf8')+'</script>').replace('<script src="./environment-review.js?v=93"></script>',()=>'<script>'+fs.readFileSync(path.join(root,'environment-review.js'),'utf8')+'</script>').replace('<script src="./library-storage.js?v=93"></script>','<script>'+fs.readFileSync(path.join(root,'library-storage.js'),'utf8')+'</script>').replace('<script src="./library-cache.js"></script>','<script>'+fs.readFileSync(path.join(root,'library-cache.js'),'utf8')+'</script>');
 const storageKey = html.match(/var LS_SESS\s*=\s*"([^"]+)"/)[1];
 const warnings=[],metaRequests=[];
 const records=[{id:'fixture1',title:'Cold-water immersion after exercise',abstract:'Exercise recovery in cold water.',authors:['Ben Lee'],env:['低温'],tags:['冷水浸泡'],type:'原创研究',year:2026,cited:1,journal:'Fixture Journal',population:'human'},
@@ -30,7 +31,10 @@ beforeParse(w){
   w.indexedDB=new IDBFactory();w.URL.createObjectURL=()=> 'blob:fixture';w.URL.revokeObjectURL=()=>{};
   w.localStorage.setItem(storageKey,JSON.stringify({access_token:'fixture',refresh_token:'fixture',user:{id:'fixture-user'}}));
   w.Response=Response; w.AbortController=AbortController;w.TextDecoder=TextDecoder;
+  const cloudDocs=new Map();
   w.fetch=async (url,opts={})=>{
+    if(String(url).includes("/rest/v1/personal_documents"))return response(Array.from(cloudDocs.values()));
+    if(String(url).includes("/rest/v1/rpc/personal_put")){const q=JSON.parse(opts.body),key=q.p_kind+":"+q.p_doc_id,old=cloudDocs.get(key);if((old?.revision||0)!==q.p_expected_revision)return response([]);const row={seq:old?.seq||cloudDocs.size+1,kind:q.p_kind,doc_id:q.p_doc_id,payload:q.p_payload,revision:(old?.revision||0)+1};cloudDocs.set(key,row);return response([row]);}
     if(String(url).includes("/rest/v1/literature_env_reviews"))return response(reviewRows);
     if(String(url).includes("/functions/v1/environment-review")){if(opts.method!=="POST")return response({can_review:true});const body=JSON.parse(opts.body);reviewRows.splice(0,reviewRows.length,...body.changes.map(c=>({paper_id:c.paper_id,environments:c.environments,revision:c.expected_revision+1})));return response({rows:reviewRows});}
     if(String(url).includes('meta-topics.json')){metaRequests.push(url);return response({format:'litdb-meta-candidates',version:1,ruleVersion:1,corpus:{version:'fixture',generated_at:'2026-10-20',total:105},topics:[{...require('../meta-rules.json').topics[0],records:require('../meta-core.js').collect(records,require('../meta-rules.json').topics[0])}]});}
@@ -51,6 +55,7 @@ beforeParse(w){
   };
 }});
 setTimeout(async()=>{
+  for(let attempt=0;attempt<400&&dom.window.document.getElementById("boot").style.display!=="none";attempt++)await new Promise(resolve=>setTimeout(resolve,10));
   try{
     const d=dom.window.document;
     if(baseline){
@@ -166,7 +171,7 @@ setTimeout(async()=>{
     click('#folderCreate');
     assert.ok(d.querySelector('#folderPop [data-f]').checked,'create also adds paper');
     click('#folderSave');
-    const memberships=JSON.parse(JSON.parse(w.localStorage.getItem('litdb-personal:'+(html.includes('// await supaEnsureAuth();')?'anonymous':'fixture-user'))).envLitFolders);
+    const memberships=JSON.parse(JSON.parse(w.localStorage.getItem('litdb-personal:'+'fixture-user')).envLitFolders);
     assert.equal(Object.keys(memberships).length,1);
     const folderPaper=Object.keys(memberships)[0];
     change('f_folder','folder:'+encodeURIComponent('恢复资料 <&>'));
@@ -216,7 +221,7 @@ setTimeout(async()=>{
     assert.ok(!d.querySelector('#grRelated [data-paper="'+first+'"]'),'deleted paper excluded from relationships');
     click('#grClose');click('#btnTrash');
     click('#trashPop [data-undo]');
-    assert.ok(!JSON.parse(JSON.parse(w.localStorage.getItem('litdb-personal:'+(html.includes('// await supaEnsureAuth();')?'anonymous':'fixture-user'))).envLitDeleted)[first],'restore clears deleted marker');
+    assert.ok(!JSON.parse(JSON.parse(w.localStorage.getItem('litdb-personal:'+'fixture-user')).envLitDeleted)[first],'restore clears deleted marker');
     assert.ok(d.getElementById('trashPop').textContent.includes('回收站为空'));
     assert.ok(!d.querySelector('#btnCompare,#cmpModal,.cmpbtn'),'comparison removed');
     click('#layout-app [data-layout="classic"]');
@@ -253,6 +258,6 @@ setTimeout(async()=>{
 
     console.log('PASS: full page initializes with synthetic data; search and analytics are mounted; loader is dismissed.');
     if(warnings.length) console.log('Optional fixture diagnostics:',warnings.slice(0,5));
-  }catch(e){console.error(e.stack); console.error(warnings.slice(0,6));process.exitCode=1;}
-  finally{dom.window.close();}
+  }catch(e){console.error(e.stack); console.error(warnings.slice(0,6));console.error("Startup status:",dom.window.document.getElementById("dbg-load")?.textContent);process.exitCode=1;}
+  finally{dom.window.LitdbCloud?.stop();dom.window.close();}
 },1200);
