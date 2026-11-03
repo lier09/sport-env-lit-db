@@ -5770,7 +5770,8 @@ function init(){
     }
   }
   safe("数据概览", function(){
-    var years=PAPERS.map(function(p){return p.year;}).filter(Boolean);
+    // Exclude the historical 1814 case report from homepage year statistics only.
+    var years=PAPERS.map(function(p){return p.year;}).filter(function(y){return y && Number(y)!==1814;});
     var cited=PAPERS.reduce(function(s,p){return s+(p.cited||0);},0);
     var nEnv=ENV_ORDER.filter(function(e){return envCounts[e];}).length;
     $("dbmeta").textContent="已收录 "+PAPERS.length+" 篇文献 · "+nEnv+" 大环境 · "+
