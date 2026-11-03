@@ -1653,6 +1653,13 @@ function supaClear(){ supaSession = null; supaProfile = null; try{ localStorage.
 /* 带自动刷 token 的 API 调用 */
 async function supaApi(path, opts){
   opts = opts || {};
+  var saved = supaLoadSess();
+  if(supaSession){
+    if(!saved){supaSession=null;throw new Error('登录已退出，请重新登录');}
+    if(!saved.user || !supaSession.user || saved.user.id!==supaSession.user.id) throw new Error('账号发生变化，请重新打开页面');
+    supaSession=saved;
+  }
+  if(supaSession && supaExpiresSoon()) await supaRefresh();
   var headers = {"apikey": SUPA_ANON, "Content-Type": "application/json"};
   if (opts.headers) for (var k in opts.headers) headers[k] = opts.headers[k];
   if (supaSession && supaSession.access_token) headers["Authorization"] = "Bearer " + supaSession.access_token;
@@ -1665,23 +1672,45 @@ async function supaApi(path, opts){
   return {status: r.status, data: data};
 }
 var supaRefreshPending = null;
+function supaExpiresSoon(){
+  try{return JSON.parse(atob(supaSession.access_token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).exp*1000 < Date.now()+60000;}catch(e){return false;}
+}
 function supaRefresh(){
-  if(!supaRefreshPending) supaRefreshPending = supaRefreshOnce().finally(function(){ supaRefreshPending = null; });
+  if(!supaRefreshPending){
+    var before=supaSession;
+    var run=async function(){
+      var current=supaLoadSess();
+      if(!current){supaSession=null;return false;}
+      if(!before || !current.user || !before.user || current.user.id!==before.user.id) throw new Error('账号发生变化，请重新打开页面');
+      supaSession=current;
+      if(current.access_token!==before.access_token && !supaExpiresSoon()) return true;
+      return supaRefreshOnce();
+    };
+    supaRefreshPending = (typeof navigator!=='undefined' && navigator.locks ? navigator.locks.request('litdb-auth-refresh',run) : run()).finally(function(){ supaRefreshPending = null; });
+  }
   return supaRefreshPending;
 }
 async function supaRefreshOnce(){
   var rt = supaSession && supaSession.refresh_token;
-  if (!rt){ supaClear(); return false; }
+  var userId = supaSession && supaSession.user && supaSession.user.id;
+  if (!rt) return false;
   try{
     var r = await supaFetch(SUPA_URL + "/auth/v1/token?grant_type=refresh_token", {
       method: "POST", headers: {"apikey": SUPA_ANON, "Content-Type": "application/json"},
       body: JSON.stringify({refresh_token: rt})
     });
     var d = await r.json();
-    if (d && d.access_token){
-      supaSave({access_token: d.access_token, refresh_token: d.refresh_token || rt, user: d.user});
+    var latest=supaLoadSess();
+    // A logout or a different login while the request was running must win.
+    if(!latest){supaSession=null;return false;}
+    if(!latest.user || latest.user.id!==userId) throw new Error('账号发生变化，请重新打开页面');
+    if(latest.refresh_token!==rt){supaSession=latest;return !!latest.access_token;}
+    if (r.ok && d && d.access_token){
+      supaSave({access_token: d.access_token, refresh_token: d.refresh_token || rt, user: d.user || latest.user});
       return true;
     }
+    if(r.status===429 || r.status>=500) throw new Error('登录续期服务暂时不可用，请稍后重试（登录信息已保留）');
+    if(r.status!==400 && r.status!==401 && r.status!==403) throw new Error('登录续期暂未成功，请稍后重试（登录信息已保留）');
   }catch(e){ throw e; }
   supaClear(); return false;
 }
@@ -2051,9 +2080,10 @@ var personalStore=LitdbPersonal.create((supaSession&&supaSession.user&&supaSessi
 var personalUiReady=false,cloudStarted=false;
 function startPersonalCloud(){if(cloudStarted||!window.LitdbCloud||!window.LitdbMemo)return;cloudStarted=true;window.LitdbCloud.configure({
     userId:supaSession&&supaSession.user&&supaSession.user.id,email:supaSession&&supaSession.user&&supaSession.user.email,
-    store:personalStore,api:supaApi,
-    validate:async function(){var me=await supaApi("/auth/v1/user");if(me.status!==200||!me.data||me.data.id!==supaSession.user.id)throw new Error("登录已过期，请重新登录");},
-    binary:async function(path,opts){opts=opts||{};var headers=Object.assign({apikey:SUPA_ANON,Authorization:"Bearer "+(supaSession&&supaSession.access_token||"")},opts.headers||{});var response=await supaFetch(SUPA_URL+path,{method:opts.method||"GET",headers:headers,body:opts.body},60000);if(response.status===401&&await supaRefresh())return this.binary(path,opts);if(!response.ok){var error=new Error("附件传输失败（HTTP "+response.status+"）");error.status=response.status;throw error;}return response.arrayBuffer();},
+    store:personalStore,api:async function(path,opts){this.checkAccount();return supaApi(path,opts);},
+    checkAccount:function(){var saved=supaLoadSess();if(!saved)throw new Error('登录已过期，请重新登录');if(!saved.user||saved.user.id!==this.userId)throw new Error('账号发生变化，请重新打开页面');supaSession=saved;},
+    validate:async function(){this.checkAccount();var me=await supaApi("/auth/v1/user");if(me.status===401||!supaSession)throw new Error("登录已过期，请重新登录");if(me.status!==200)throw new Error("账号验证暂时失败（HTTP "+me.status+"），请稍后重试");if(!me.data||me.data.id!==this.userId)throw new Error("账号发生变化，请重新打开页面");},
+    binary:async function(path,opts){this.checkAccount();if(supaExpiresSoon())await supaRefresh();this.checkAccount();opts=opts||{};var headers=Object.assign({apikey:SUPA_ANON,Authorization:"Bearer "+(supaSession&&supaSession.access_token||"")},opts.headers||{});var response=await supaFetch(SUPA_URL+path,{method:opts.method||"GET",headers:headers,body:opts.body},60000);if(response.status===401&&!opts._retried&&await supaRefresh())return this.binary(path,Object.assign({},opts,{_retried:true}));if(!response.ok){var error=new Error("附件传输失败（HTTP "+response.status+"）");error.status=response.status;throw error;}return response.arrayBuffer();},
     login:async function(){await supaShowAuth("登录后将资料同步到你的私有账号；文献公开阅读不受影响。","login");location.reload();},logout:supaLogout,
     reload:function(){if(!personalUiReady)return;function value(key,fallback){try{return JSON.parse(personalStore.getItem(key)||JSON.stringify(fallback));}catch(e){return fallback;}}
       folders=value("envLitFolders",{});folderList=value("envLitFolderList",[]);favs=value("envLitFavs",{});follows=value("litdb-follows",{authors:{},journals:{}});myTags=value("envLitMyTags",{});tagList=value("envLitTagList",[]);notes=value("envLitNotes",{});readSt=value("envLitRead",{});followedTopics=value("envLitFollow",{});deletedIds=value("envLitDeleted",{});searchHist=value("envLitHist",[]);savedQ=value("envLitSavedQ",[]);
