@@ -1149,7 +1149,7 @@ canvas.net{cursor:grab}
     <div class="stat"><b class="sv" id="statPapers">0</b><span class="sl">收录文献</span></div>
     <div class="stat"><b class="sv" id="statEnvs">0</b><span class="sl">研究环境</span></div>
     <div class="stat"><b class="sv" id="statCited">0</b><span class="sl">累计被引</span></div>
-    <div class="stat"><b class="sv" id="statYears">0</b><span class="sl">覆盖年份</span></div>
+    <div class="stat"><b class="sv" id="statYears">—</b><span class="sl">发表年份范围</span></div>
     <div class="stat"><b class="sv" id="statDaily">0</b><span class="sl">今日更新</span></div>
   </div>
   <div id="c-searchbar">
@@ -5779,7 +5779,7 @@ function init(){
     countUp($("statPapers"),PAPERS.length);
     countUp($("statEnvs"),nEnv);
     countUp($("statCited"),cited);
-    countUp($("statYears"),years.length?Math.max.apply(null,years)-Math.min.apply(null,years)+1:0);
+    $("statYears").textContent=years.length?Math.min.apply(null,years)+"–"+Math.max.apply(null,years):"—";
     countUp($("statDaily"),todayIncrementalRecords(window.DAILY_NEW,PAPERS).filter(function(p){return !!id2paper[p.id]&&!isDeleted(p.id);}).length);
   });
   safe("主题", initTheme);
