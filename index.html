@@ -917,6 +917,7 @@ canvas.net{cursor:grab}
 
 </style>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}</script>
+<link rel="stylesheet" href="./research-home.css?v=101">
 </head>
 <body id="top">
 <div class="slogan">困难是暂时的，前途是光明的 —— 毛泽东</div>
@@ -952,6 +953,7 @@ canvas.net{cursor:grab}
   <header class="hero">
     <div class="wrap">
       <div class="hero-text">
+    <div class="research-eyebrow">ENVIRONMENT × EXERCISE · RESEARCH LIBRARY</div>
         <h1>环境与运动科学文献总库</h1>
         <p>低温 · 高氧 · 高温 · 高温高湿 · 交叉适应 · 高原低氧 · 其他环境 —— 体育 / 运动科学领域 · 全时段文献</p>
         <div id="slot-classic-dbmeta"></div>
@@ -964,7 +966,16 @@ canvas.net{cursor:grab}
     </div>
   </header>
 
-  <main class="wrap page">
+  <section class="wrap research-desk" aria-labelledby="research-desk-title">
+  <div class="research-desk-heading"><h2 id="research-desk-title">我的研究工作台</h2><p>把值得追踪的发现，变成自己的研究积累。</p></div>
+  <div class="research-entries">
+    <a class="research-entry research-entry--lead" href="#memos" data-memo-open><span class="research-step">01 / RECORD</span><span class="research-go" aria-hidden="true">↗</span><strong>科研备忘录</strong><small>留住原文证据与研究想法<br>按项目分组，继续上次的思考</small></a>
+    <a class="research-entry" href="#following" data-follow-open><span class="research-step">02 / FOLLOW</span><span class="research-go" aria-hidden="true">↗</span><strong>我的关注</strong><small>追踪作者与期刊<br>集中查看相关文献</small></a>
+    <a class="research-entry" href="#figures" data-figures-open><span class="research-step">03 / OBSERVE</span><span class="research-go" aria-hidden="true">↗</span><strong>看图识记</strong><small>从论文图表重新理解研究<br>整理图片，记录阅读线索</small></a>
+    <a class="research-entry" href="#meta" data-meta-open><span class="research-step">04 / EXPLORE</span><span class="research-go" aria-hidden="true">↗</span><strong>Meta 选题追踪</strong><small>整理候选研究与待核查问题<br>逐步评估证据能否合并</small></a>
+  </div>
+</section>
+<main class="wrap page">
     <section class="zone" id="z-search">
       <div class="zone-head"><span class="znum">01</span><h2>检索与筛选</h2><span class="zsub">点卡片右侧滑出详情 · 光谱标签可直筛环境</span></div>
       <div class="l4-wrap">
