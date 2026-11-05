@@ -8,6 +8,16 @@ function el(tag,text){var x=d.createElement(tag);if(text!==undefined)x.textConte
 function button(text,action){var b=el('button',text);b.type='button';b.onclick=function(){Promise.resolve().then(action).catch(fail);};return b;}
 function status(text,error){if(unclaimed&&!text.includes('待归属'))text+=' · 本机还有资料待归属';notice=text;lastError=error?text:'';d.querySelectorAll('[data-cloud-status]').forEach(function(x){x.textContent=text;x.classList.toggle('cloud-warning',!!error);});var p=d.getElementById('personalStatus');if(p)p.textContent=text;}
 function fail(e){console.error('Personal sync:',e&&e.message);status('尚未同步：'+(e&&e.message||'连接失败')+'。本机内容保留，请重试或导出完整备份。',true);}
+async function protectionView(){
+ var box=d.getElementById('cloudProtection');if(!box)return;
+ if(!cfg||!cfg.userId){box.textContent='未登录：尚未确认账号云备份。';return;}
+ var user=cfg.userId,values=await Promise.all([stateGet('last-sync:'+user),stateGet('backup-directory:'+user),stateGet('backup-day:'+user)]);
+ if(cfg.userId!==user||!box.isConnected)return;
+ var permission=values[1]?await values[1].queryPermission({mode:'readwrite'}).catch(function(){return 'prompt';}):null;
+ box.replaceChildren(el('p','最近完整同步：'+(values[0]?new Date(values[0]).toLocaleString('zh-CN'):'尚无成功记录')),
+  el('p','电脑独立备份：'+(!values[1]?'未开启，请选择备份目录':permission!=='granted'?'目录需要重新授权':'已开启')+(values[2]?' · 最近写入 '+values[2]:'')),
+  el('p','同步范围：备忘录正文与附件、关注、收藏、精读文件夹。看图识记中的 PDF 和图片请在该模块单独导出备份。'));
+}
 function openDB(){if(db)return Promise.resolve(db);return new Promise(function(res,rej){var r=w.indexedDB.open('litdb-sync',1);r.onupgradeneeded=function(){r.result.createObjectStore('state');};r.onsuccess=function(){db=r.result;res(db);};r.onerror=function(){rej(r.error);};});}
 async function stateGet(id){await openDB();return new Promise(function(res,rej){var r=db.transaction('state').objectStore('state').get(id);r.onsuccess=function(){res(r.result);};r.onerror=function(){rej(r.error);};});}
 async function statePut(id,value){await openDB();return new Promise(function(res,rej){var tx=db.transaction('state','readwrite');tx.objectStore('state').put(value,id);tx.oncomplete=res;tx.onerror=tx.onabort=function(){rej(tx.error);};});}
@@ -52,6 +62,7 @@ async function sync(){
   if(cfg.reload)cfg.reload();status(conflicts?'已同步 · 冲突内容已保留，请查看历史版本':'已同步到账号 · '+new Date().toLocaleTimeString('zh-CN'));
   await statePut('last-sync:'+cfg.userId,Date.now());
   await dailyLocalBackup().catch(function(e){status('云端已同步；电脑独立备份失败：'+e.message,true);});
+  await protectionView().catch(function(){});
  }finally{running=false;if(epoch!==changed){clearTimeout(timer);timer=setTimeout(function(){sync().catch(fail);},1500);}}
 }
 async function fullBackup(documents){
@@ -81,7 +92,7 @@ async function dailyLocalBackup(){
  try{await writer.write(JSON.stringify(await fullBackup()));await writer.close();}catch(e){await writer.abort().catch(function(){});throw e;}
  await statePut(id,today);
 }
-async function chooseBackupDirectory(){if(!cfg.userId)throw new Error('请先登录');if(!w.showDirectoryPicker)throw new Error('当前浏览器不支持目录备份，请使用完整导出');var handle=await w.showDirectoryPicker({mode:'readwrite',id:'litdb-personal-backup'});await statePut('backup-directory:'+cfg.userId,handle);await statePut('backup-day:'+cfg.userId,null);await dailyLocalBackup();status('电脑独立备份已写入所选目录；网页使用期间每天自动备份');}
+async function chooseBackupDirectory(){if(!cfg.userId)throw new Error('请先登录');if(!w.showDirectoryPicker)throw new Error('当前浏览器不支持目录备份，请使用完整导出');var handle=await w.showDirectoryPicker({mode:'readwrite',id:'litdb-personal-backup'});await statePut('backup-directory:'+cfg.userId,handle);await statePut('backup-day:'+cfg.userId,null);await dailyLocalBackup();await protectionView();status('电脑独立备份已写入所选目录；网页使用期间每天自动备份');}
 async function historyView(container){
  container.replaceChildren(el('p','正在读取云端历史…'));await cfg.validate();var docs=await list('personal_documents','select=*&order=updated_at.desc');container.replaceChildren();
  for(var r of docs){var row=el('div');row.className='cloud-history-row';row.append(el('strong',r.kind==='memo'?r.payload.title||'未命名笔记':r.kind==='groups'?'笔记分组':r.doc_id));
@@ -94,15 +105,16 @@ async function historyView(container){
  backups.forEach(function(b){container.append(button('导出 '+b.backup_day+' 的完整备份',async function(){var rows=await api('/rest/v1/personal_daily_backups?select=documents&backup_day=eq.'+enc(b.backup_day));if(!rows.length)throw new Error('检查点不存在');download('文献个人资料完整备份-'+b.backup_day+'.json',await fullBackup(rows[0].documents));}));});
 }
 function panel(){
- var dialog=d.getElementById('cloudDialog');if(dialog){dialog.showModal();return;}
+ var dialog=d.getElementById('cloudDialog');if(dialog){dialog.showModal();protectionView().catch(fail);return;}
  dialog=el('dialog');dialog.id='cloudDialog';dialog.className='cloud-dialog';var top=el('header');top.append(el('h2','个人资料与备份'),button('关闭',function(){dialog.close();}));dialog.append(top);
  var state=el('p',notice);state.dataset.cloudStatus='';state.setAttribute('role','status');dialog.append(state);
+ var protection=el('section');protection.id='cloudProtection';protection.setAttribute('aria-label','资料保护状态');dialog.append(protection);
  dialog.append(el('p',cfg&&cfg.userId?'已登录账号：'+(cfg.email||cfg.userId):'登录后可将本机资料同步到自己的账号。未登录时仅保存在当前浏览器。'));if(unclaimed){var alert=el('p','本机还有未归属的旧笔记、关注或收藏。请确认它们属于你，再点击“归入本账号：本机未归属资料”；这些资料仍保留在本机。');alert.className='cloud-warning';dialog.append(alert);}
  var actions=el('div');actions.className='cloud-actions';actions.append(button(cfg&&cfg.userId?'立即同步':'登录并开启云同步',async function(){if(!cfg.userId){await cfg.login();return;}await sync();}),button('导出完整备份',exportAll));
  var input=el('input');input.type='file';input.accept='.json,application/json';input.hidden=true;input.onchange=async function(){try{var file=input.files[0];if(!file)return;if(file.size>400*1024*1024)throw new Error('文件超过400MB');var payload=JSON.parse(await file.text());await importAll(payload);status('完整备份已导入，本机已有笔记保留');}catch(e){fail(e);}finally{input.value='';}};actions.append(input,button('导入完整备份',function(){input.click();}));
  if(cfg&&cfg.userId){actions.append(button('重新登录／切换账号',cfg.login),button('历史版本与每日检查点',function(){return historyView(history);}),button('开启电脑独立备份',chooseBackupDirectory),button('归入本账号：本机未归属资料',async function(){if(!w.confirm('确认这台浏览器中未归属的笔记、关注和收藏属于当前登录账号？其他账号的资料不会迁入。'))return;await w.LitdbMemo.cloud.claimLocal();await cfg.claim();unclaimed=0;if(cfg.reload)cfg.reload();queue();status('本机未归属资料已归入当前账号，正在等待同步');}),button('退出账号',async function(){if(w.LitdbMemo.cloud.isEditing())throw new Error('请先保存笔记');if(!w.confirm('退出前请确认资料已同步，或先导出完整备份。'))return;cfg.logout();}));}
  dialog.append(actions,el('p','云端保存正文、附件、关注、收藏和分组，并保留至少30天历史。电脑独立备份需选择目录，仅在网页使用期间每天写入；清理浏览器后，已经写出的备份文件仍在。'));
- var history=el('section');history.className='cloud-history';dialog.append(history);d.body.append(dialog);dialog.showModal();
+ var history=el('section');history.className='cloud-history';dialog.append(history);d.body.append(dialog);dialog.showModal();protectionView().catch(fail);
 }
 async function configure(config){
  cfg=config;var entry=button('个人资料 · 云同步',panel);entry.className='cloud-launcher';entry.setAttribute('aria-label','个人资料、云同步和备份');var label=el('span',notice);label.dataset.cloudStatus='';entry.append(label);d.body.append(entry);

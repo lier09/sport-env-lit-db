@@ -1549,7 +1549,7 @@ var Fr={},Gr={};var Wr,Hr=function(){function t(t,e,n){var i=this;this._sleepAft
 <script src="./environment-review.js?v=93"></script>
 <script src="./library-storage.js?v=94"></script>
 <script src="./cloud-core.js?v=93"></script>
-<script src="./cloud-sync.js?v=94"></script>
+<script src="./cloud-sync.js?v=100"></script>
 <link rel="stylesheet" href="./cloud-sync.css?v=93">
 <script src="./library-cache.js"></script>
 <script>/* 低温与运动科学文献数据库 - 前端逻辑 */
@@ -1944,6 +1944,7 @@ async function supaLoadData(){
   window.PAPERS=[].concat.apply([],parts);
   if(manifest&&window.PAPERS.length!==manifest.total)throw new Error("文献总数与版本清单不一致");
   window.LITDB_DATA_VERSION=manifest?manifest.version:"legacy";
+  window.LITDB_DATA_INFO=manifest?{version:manifest.version,generatedAt:manifest.generated_at,total:manifest.total}:null;
   startupStatus("数据加载完成，共 "+window.PAPERS.length+" 篇");
   setTimeout(function(){var dbg=document.getElementById("dbg-load");if(dbg&&dbg.textContent.indexOf("数据加载完成")===0)dbg.remove();},3000);
 }
@@ -5777,6 +5778,13 @@ function init(){
     $("dbmeta").textContent="已收录 "+PAPERS.length+" 篇文献 · "+nEnv+" 大环境 · "+
       (years.length?Math.min.apply(null,years):"—")+"–"+
       (years.length?Math.max.apply(null,years):"—")+" · 累计被引 "+cited.toLocaleString();
+    var release=window.LITDB_DATA_INFO;
+    if(release){
+      var stamp=new Date(release.generatedAt);
+      $("dbmeta").textContent+=" · 数据版本 "+release.version.slice(0,8)+
+        (Number.isFinite(stamp.getTime())?" · 版本生成于 "+stamp.toLocaleString("zh-CN"):"");
+      $("dbmeta").title="这里显示当前已加载的数据版本，不代表后台抓取或历史补漏已全部完成。";
+    }
     countUp($("statPapers"),PAPERS.length);
     countUp($("statEnvs"),nEnv);
     countUp($("statCited"),cited);

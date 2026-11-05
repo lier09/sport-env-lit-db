@@ -46,3 +46,10 @@ test('full export includes real attachment bytes and restores to another indepen
   a.store.setItem('envLitFolderList','["需要精读"]');await a.w.LitdbCloud.exportAll();const backup=JSON.parse(await captured.text());assert.equal(backup.format,'sport-env-complete-backup');assert.equal(backup.files[0].data,'AQID');await b.w.LitdbCloud.importAll(backup);const snapshot=await b.w.LitdbMemo.snapshot();assert.equal(snapshot.memos[0].body,'original body');assert.equal(snapshot.files[0].data,'AQID');assert.equal(b.store.getItem('envLitFolderList'),'["需要精读"]');
  }finally{a.close();b.close();}
 });
+
+test('protection panel distinguishes successful account sync from unconfigured independent backup',async()=>{
+ const a=await page(server(),'A');
+ try{a.w.LitdbCloud.open();await new Promise(r=>setTimeout(r,30));const text=a.w.document.getElementById('cloudProtection').textContent;
+ assert.match(text,/最近完整同步/);assert.doesNotMatch(text,/尚无成功记录/);assert.match(text,/未开启/);assert.match(text,/看图识记.*单独导出/);
+ }finally{a.close();}
+});
